@@ -17,7 +17,8 @@ use ash::vk::{SurfaceKHR, SwapchainKHR};
 use ash::Device;
 use ash::{Entry, Instance};
 use cgmath::{
-    Deg, Matrix4, Point3, Quaternion, Rotation, Rotation3, SquareMatrix, Vector2, Vector3, Zero,
+    Deg, Matrix4, Point3, Quaternion, Rad, Rotation, Rotation3, SquareMatrix, Vector2, Vector3,
+    Zero,
 };
 
 use memoffset::offset_of;
@@ -1680,9 +1681,6 @@ impl Vulkan {
 
         let sync_objects = Self::create_sync_objects(&devices.logical, &swapchain);
 
-        let aspect =
-            swapchain.swapchain_extent.width as f32 / swapchain.swapchain_extent.height as f32;
-
         Self {
             instance,
             surface,
@@ -1695,13 +1693,9 @@ impl Vulkan {
             current_frame: 0,
             models: shapes,
             ubo: UniformBufferObject {
-                model: Matrix4::<f32>::identity(),
-                view: Matrix4::look_at_lh(
-                    Point3::new(2.0, 2.0, 2.0),
-                    Point3::new(0.0, 0.0, 0.0),
-                    Vector3::new(0.0, 0.0, 1.0),
-                ),
-                proj: cgmath::perspective(Deg(45.0), aspect, 0.1, 10.0),
+                model: Matrix4::identity(),
+                view: Matrix4::identity(),
+                proj: Matrix4::identity(),
             },
             entry,
             render_pass,
@@ -1711,7 +1705,7 @@ impl Vulkan {
             command_pool,
 
             camera: Camera {
-                eye: Point3::new(5., 1., 2.),
+                eye: Point3::new(5., 3., 5.),
             },
         }
     }
@@ -2708,26 +2702,20 @@ impl Vulkan {
     }
 
     fn update_uniform_buffer(&mut self, _current_image: usize) {
-        self.camera.eye = Quaternion::from_angle_z(Deg(30.)).rotate_point(self.camera.eye);
-
-        self.ubo = UniformBufferObject {
-            model: Matrix4::from_angle_z(Deg(90.0 * 0.0005)),
-            view: Matrix4::look_at_lh(
+        self.camera.eye = Quaternion::from_axis_angle(Vector3::new(0., 0., 1.), Deg(30.))
+            .rotate_point(self.camera.eye);
+        self.ubo.view = self.ubo.view
+            * Matrix4::look_at_lh(
                 self.camera.eye,
-                Point3::new(0.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 1.0),
-            ),
-            proj: cgmath::perspective(
-                Deg(45.0),
-                self.swapchain.swapchain_extent.width as f32
-                    / self.swapchain.swapchain_extent.height as f32,
-                0.1,
-                10.0,
-            ),
-        };
-        self.ubo.proj[1][1] *= -1.;
+                Point3::new(0., 0., 0.),
+                Vector3::new(0., 0., 1.),
+            );
 
-        // println!("{:?}", self.ubo);
+        let aspect_ratio = self.swapchain.swapchain_extent.width as f32
+            / self.swapchain.swapchain_extent.height as f32;
+        self.ubo.proj = self.ubo.proj * cgmath::perspective(Deg(90.), aspect_ratio, 0.1, 10.);
+
+        self.ubo.proj[1][1] *= -1.;
     }
 
     fn recreate_swapchain(&mut self, window: &Window) {
