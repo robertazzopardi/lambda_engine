@@ -233,8 +233,9 @@ impl Texture {
             let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
 
             let memory_type_index = Vulkan::find_memory_type(
-                &memory_requirements,
-                &instance.get_physical_device_memory_properties(devices.physical),
+                instance,
+                devices,
+                memory_requirements.memory_type_bits,
                 properties,
             );
 
@@ -930,26 +931,40 @@ impl GraphicsPipeline {
             .alpha_to_coverage_enable(false)
             .alpha_to_one_enable(false);
 
-        let stencil_state = vk::StencilOpState {
-            fail_op: vk::StencilOp::KEEP,
-            pass_op: vk::StencilOp::KEEP,
-            depth_fail_op: vk::StencilOp::KEEP,
-            compare_op: vk::CompareOp::ALWAYS,
-            compare_mask: 0,
-            write_mask: 0,
-            reference: 0,
-        };
+        // let stencil_state = vk::StencilOpState {
+        //     fail_op: vk::StencilOp::KEEP,
+        //     pass_op: vk::StencilOp::KEEP,
+        //     depth_fail_op: vk::StencilOp::KEEP,
+        //     compare_op: vk::CompareOp::ALWAYS,
+        //     compare_mask: 0,
+        //     write_mask: 0,
+        //     reference: 0,
+        // };
 
-        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
-            .depth_test_enable(true)
-            .depth_write_enable(true)
-            .depth_compare_op(vk::CompareOp::LESS)
-            .depth_bounds_test_enable(false)
-            .stencil_test_enable(false)
-            .front(stencil_state)
-            .back(stencil_state)
-            .min_depth_bounds(0.0)
-            .max_depth_bounds(1.0);
+        // let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
+        //     .depth_test_enable(true)
+        //     .depth_write_enable(true)
+        //     .depth_compare_op(vk::CompareOp::LESS)
+        //     .depth_bounds_test_enable(false)
+        //     .stencil_test_enable(false)
+        //     // .front(stencil_state)
+        //     // .back(stencil_state)
+        //     .min_depth_bounds(0.0)
+        //     .max_depth_bounds(1.0);
+
+        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo {
+            s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            depth_test_enable: vk::TRUE,
+            depth_write_enable: vk::TRUE,
+            depth_compare_op: vk::CompareOp::LESS,
+            depth_bounds_test_enable: vk::FALSE,
+            stencil_test_enable: vk::FALSE,
+            // front: (),
+            // back: (),
+            // min_depth_bounds: (),
+            // max_depth_bounds: (),
+            ..Default::default()
+        };
 
         let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(
@@ -1202,8 +1217,8 @@ impl Shape {
         msaa_samples: SampleCountFlags,
         render_pass: RenderPass,
     ) -> Self {
-        // let (vertices, indices) = Self::cube();
-        let (vertices, indices) = Self::make_sphere(0.4, 40, 40);
+        let (vertices, indices) = Self::cube();
+        // let (vertices, indices) = Self::make_sphere(0.4, 40, 40);
 
         let texture = Texture::new(
             instance,
@@ -1636,6 +1651,8 @@ struct Vulkan {
 
     ubo: UniformBufferObject,
     camera: Camera,
+
+    is_framebuffer_resized: bool,
 }
 
 impl Vulkan {
@@ -1711,6 +1728,13 @@ impl Vulkan {
 
         let sync_objects = Self::create_sync_objects(&devices.logical, &swapchain);
 
+        // camera
+        let aspect =
+            swapchain.swapchain_extent.width as f32 / swapchain.swapchain_extent.height as f32;
+        let camera = Camera {
+            eye: Point3::new(5., 1., 1.),
+        };
+
         Self {
             instance,
             surface,
@@ -1724,8 +1748,18 @@ impl Vulkan {
             models: shapes,
             ubo: UniformBufferObject {
                 model: Matrix4::identity(),
-                view: Matrix4::identity(),
-                proj: Matrix4::identity(),
+                view: Matrix4::identity()
+                    * Matrix4::look_at_rh(
+                        camera.eye,
+                        Point3::new(0., 0., 0.),
+                        Vector3::new(0., 0., 1.),
+                    ),
+                proj: {
+                    let mut p =
+                        Matrix4::identity() * cgmath::perspective(Deg(45.), aspect, 0.1, 10.);
+                    p[1][1] *= -1.;
+                    p
+                },
             },
             entry,
             render_pass,
@@ -1734,9 +1768,9 @@ impl Vulkan {
             frame_buffers,
             command_pool,
 
-            camera: Camera {
-                eye: Point3::new(5., 1., 1.),
-            },
+            camera,
+
+            is_framebuffer_resized: false,
         }
     }
 
@@ -1876,15 +1910,13 @@ impl Vulkan {
         surface: &SurfaceKHR,
     ) -> (PhysicalDevice, u32, Surface, SampleCountFlags) {
         unsafe {
-            let pdevices = instance
+            let devices = instance
                 .enumerate_physical_devices()
                 .expect("Failed to find GPUs with Vulkan support!");
 
-            // let surface_loader = Surface::new(entry, instance);
-
             let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
 
-            let (physical_device, queue_family_index) = pdevices
+            let (physical_device, queue_family_index) = devices
                 .iter()
                 .map(|pdevice| {
                     instance
@@ -2200,14 +2232,15 @@ impl Vulkan {
     }
 
     unsafe fn find_depth_format(instance: &Instance, physical_device: &PhysicalDevice) -> Format {
+        let candidates = [
+            vk::Format::D32_SFLOAT,
+            vk::Format::D32_SFLOAT_S8_UINT,
+            vk::Format::D24_UNORM_S8_UINT,
+        ];
         Self::find_supported_format(
             instance,
             *physical_device,
-            &[
-                vk::Format::D32_SFLOAT,
-                vk::Format::D32_SFLOAT_S8_UINT,
-                vk::Format::D24_UNORM_S8_UINT,
-            ],
+            &candidates,
             vk::ImageTiling::OPTIMAL,
             vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
         )
@@ -2220,15 +2253,16 @@ impl Vulkan {
         tiling: vk::ImageTiling,
         features: vk::FormatFeatureFlags,
     ) -> vk::Format {
-        for &format in candidate_formats.iter() {
+        for format in candidate_formats.iter() {
             let format_properties =
-                unsafe { instance.get_physical_device_format_properties(physical_device, format) };
+                unsafe { instance.get_physical_device_format_properties(physical_device, *format) };
+
             if tiling == vk::ImageTiling::LINEAR
-                && format_properties.linear_tiling_features.contains(features)
+                && (format_properties.linear_tiling_features & features) == features
             {
                 return format.clone();
             } else if tiling == vk::ImageTiling::OPTIMAL
-                && format_properties.optimal_tiling_features.contains(features)
+                && (format_properties.optimal_tiling_features & features) == features
             {
                 return format.clone();
             }
@@ -2329,19 +2363,34 @@ impl Vulkan {
     }
 
     pub fn find_memory_type(
-        memory_req: &vk::MemoryRequirements,
-        memory_prop: &vk::PhysicalDeviceMemoryProperties,
-        flags: vk::MemoryPropertyFlags,
+        instance: &Instance,
+        devices: &LambdaDevices,
+        type_filter: u32,
+        properties: vk::MemoryPropertyFlags,
     ) -> u32 {
-        memory_prop.memory_types[..memory_prop.memory_type_count as _]
-            .iter()
-            .enumerate()
-            .find(|(index, memory_type)| {
-                (1 << index) & memory_req.memory_type_bits != 0
-                    && memory_type.property_flags & flags == flags
-            })
-            .map(|(index, _memory_type)| index as _)
-            .expect("Failed to find suitable memory type!")
+        // memory_prop.memory_types[..memory_prop.memory_type_count as _]
+        //     .iter()
+        //     .enumerate()
+        //     .find(|(index, memory_type)| {
+        //         (1 << index) & memory_req.memory_type_bits != 0
+        //             && memory_type.property_flags & flags == flags
+        //     })
+        //     .map(|(index, _memory_type)| index as _)
+        //     .expect("Failed to find suitable memory type!")
+        unsafe {
+            let mem_properties = instance.get_physical_device_memory_properties(devices.physical);
+
+            for i in 0..mem_properties.memory_type_count {
+                if ((1 << i) & type_filter) != 0
+                    && mem_properties.memory_types[i as usize].property_flags & properties
+                        == properties
+                {
+                    return i;
+                }
+            }
+
+            panic!("Failed to find suitable memory type!")
+        }
     }
 
     fn create_image(
@@ -2387,8 +2436,9 @@ impl Vulkan {
                 s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
                 allocation_size: memory_requirements.size,
                 memory_type_index: Self::find_memory_type(
-                    &memory_requirements,
-                    &instance.get_physical_device_memory_properties(devices.physical),
+                    instance,
+                    devices,
+                    memory_requirements.memory_type_bits,
                     properties,
                 ),
                 ..Default::default()
@@ -2755,50 +2805,23 @@ impl Vulkan {
         device.unmap_memory(device_memory);
     }
 
-    fn update_uniform_buffer(&mut self, _current_image: usize) {
-        // self.camera.eye = Quaternion::from_axis_angle(Vector3::new(0., 0., 1.), Deg(90.))
-        //     .rotate_point(self.camera.eye);
-        // self.ubo.view = self.ubo.view
-        //     * Matrix4::look_at_lh(
-        //         self.camera.eye,
-        //         Point3::new(0., 0., 0.),
-        //         Vector3::new(0., 0., 1.),
-        //     );
-
-        // let aspect_ratio = self.swapchain.swapchain_extent.width as f32
-        //     / self.swapchain.swapchain_extent.height as f32;
-        // self.ubo.proj =
-        //     self.ubo.proj * cgmath::perspective(Rad(45f32.to_radians()), aspect_ratio, 0.1, 10.);
-
-        self.ubo.proj[1][1] = self.ubo.proj[1][1] * -1.;
-
+    fn update_uniform_buffer(&mut self, current_image: usize) {
         let ubos = [self.ubo.clone()];
 
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
         unsafe {
-            let data_ptr =
-                self.devices
-                    .logical
-                    .map_memory(
-                        self.models[0]
-                            .graphics_pipeline
-                            .descriptor_set
-                            .uniform_buffers_memory[self.current_frame],
-                        0,
-                        buffer_size,
-                        vk::MemoryMapFlags::empty(),
-                    )
-                    .expect("Failed to Map Memory") as *mut UniformBufferObject;
-
-            data_ptr.copy_from_nonoverlapping(ubos.as_ptr(), ubos.len());
-
-            self.devices.logical.unmap_memory(
-                self.models[0]
-                    .graphics_pipeline
-                    .descriptor_set
-                    .uniform_buffers_memory[self.current_frame],
-            );
+            for model in self.models.iter() {
+                Self::map_memory(
+                    &self.devices.logical,
+                    model
+                        .graphics_pipeline
+                        .descriptor_set
+                        .uniform_buffers_memory[current_image],
+                    buffer_size,
+                    &ubos,
+                );
+            }
         }
     }
 
@@ -3030,14 +3053,14 @@ impl Vulkan {
             .queue_present(self.devices.present_queue, &present_info);
 
         let is_resized = match result {
-            Ok(_) => false, //self.is_framebuffer_resized,
+            Ok(_) => self.is_framebuffer_resized,
             Err(vk_result) => match vk_result {
                 vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
                 _ => panic!("Failed to execute queue present."),
             },
         };
         if is_resized {
-            // self.is_framebuffer_resized = false;
+            self.is_framebuffer_resized = false;
             self.recreate_swapchain(window);
         }
 
