@@ -9,17 +9,14 @@ use ash::vk::{
     DebugUtilsMessengerEXT, DescriptorPool, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout,
     DeviceSize, Extent2D, Extent3D, Fence, Format, Framebuffer, Image, ImageAspectFlags,
     ImageSubresourceRange, ImageTiling, ImageUsageFlags, ImageView, MemoryPropertyFlags, Offset2D,
-    Pipeline, PipelineLayout, PresentModeKHR, PrimitiveTopology, Queue, Rect2D, RenderPass,
+    Pipeline, PipelineLayout, PresentModeKHR, PrimitiveTopology, Queue, RenderPass,
     SampleCountFlags, Semaphore, ShaderModule, SurfaceCapabilitiesKHR, SurfaceFormatKHR,
 };
 use ash::vk::{DeviceMemory, PhysicalDevice, Sampler};
 use ash::vk::{SurfaceKHR, SwapchainKHR};
 use ash::Device;
 use ash::{Entry, Instance};
-use cgmath::{
-    Deg, Matrix4, Point3, Quaternion, Rad, Rotation, Rotation3, SquareMatrix, Vector2, Vector3,
-    Zero,
-};
+use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector2, Vector3, Zero};
 
 use memoffset::offset_of;
 use winit::event::ElementState;
@@ -931,40 +928,40 @@ impl GraphicsPipeline {
             .alpha_to_coverage_enable(false)
             .alpha_to_one_enable(false);
 
-        // let stencil_state = vk::StencilOpState {
-        //     fail_op: vk::StencilOp::KEEP,
-        //     pass_op: vk::StencilOp::KEEP,
-        //     depth_fail_op: vk::StencilOp::KEEP,
-        //     compare_op: vk::CompareOp::ALWAYS,
-        //     compare_mask: 0,
-        //     write_mask: 0,
-        //     reference: 0,
-        // };
-
-        // let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
-        //     .depth_test_enable(true)
-        //     .depth_write_enable(true)
-        //     .depth_compare_op(vk::CompareOp::LESS)
-        //     .depth_bounds_test_enable(false)
-        //     .stencil_test_enable(false)
-        //     // .front(stencil_state)
-        //     // .back(stencil_state)
-        //     .min_depth_bounds(0.0)
-        //     .max_depth_bounds(1.0);
-
-        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo {
-            s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-            depth_test_enable: vk::TRUE,
-            depth_write_enable: vk::TRUE,
-            depth_compare_op: vk::CompareOp::LESS,
-            depth_bounds_test_enable: vk::FALSE,
-            stencil_test_enable: vk::FALSE,
-            // front: (),
-            // back: (),
-            // min_depth_bounds: (),
-            // max_depth_bounds: (),
-            ..Default::default()
+        let stencil_state = vk::StencilOpState {
+            fail_op: vk::StencilOp::KEEP,
+            pass_op: vk::StencilOp::KEEP,
+            depth_fail_op: vk::StencilOp::KEEP,
+            compare_op: vk::CompareOp::ALWAYS,
+            compare_mask: 0,
+            write_mask: 0,
+            reference: 0,
         };
+
+        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
+            .depth_test_enable(true)
+            .depth_write_enable(true)
+            .depth_compare_op(vk::CompareOp::LESS)
+            .depth_bounds_test_enable(false)
+            .stencil_test_enable(false)
+            .front(stencil_state)
+            .back(stencil_state)
+            .min_depth_bounds(0.0)
+            .max_depth_bounds(1.0);
+
+        // let depth_stencil = vk::PipelineDepthStencilStateCreateInfo {
+        //     s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        //     depth_test_enable: vk::TRUE,
+        //     depth_write_enable: vk::TRUE,
+        //     depth_compare_op: vk::CompareOp::LESS,
+        //     depth_bounds_test_enable: vk::FALSE,
+        //     stencil_test_enable: vk::FALSE,
+        //     // front: (),
+        //     // back: (),
+        //     // min_depth_bounds: (),
+        //     // max_depth_bounds: (),
+        //     ..Default::default()
+        // };
 
         let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(
@@ -2260,11 +2257,11 @@ impl Vulkan {
             if tiling == vk::ImageTiling::LINEAR
                 && (format_properties.linear_tiling_features & features) == features
             {
-                return format.clone();
+                return *format;
             } else if tiling == vk::ImageTiling::OPTIMAL
                 && (format_properties.optimal_tiling_features & features) == features
             {
-                return format.clone();
+                return *format;
             }
         }
 
@@ -2789,6 +2786,7 @@ impl Vulkan {
         }
     }
 
+    #[inline]
     unsafe fn map_memory<T>(
         device: &Device,
         device_memory: DeviceMemory,
@@ -2806,7 +2804,7 @@ impl Vulkan {
     }
 
     fn update_uniform_buffer(&mut self, current_image: usize) {
-        let ubos = [self.ubo.clone()];
+        let ubos = [self.ubo];
 
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
@@ -2976,11 +2974,9 @@ impl Vulkan {
     }
 
     unsafe fn render(&mut self, window: &Window) {
-        let wait_fences = [self.sync_objects.in_flight_fences[self.current_frame]];
-
         self.devices
             .logical
-            .wait_for_fences(&wait_fences, true, std::u64::MAX)
+            .wait_for_fences(&self.sync_objects.in_flight_fences, true, std::u64::MAX)
             .expect("Failed to wait for Fence!");
 
         let (image_index, _is_sub_optimal) = {
@@ -3002,11 +2998,24 @@ impl Vulkan {
             }
         };
 
-        self.update_uniform_buffer(self.current_frame);
+        self.update_uniform_buffer(image_index.try_into().unwrap());
+
+        if self.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
+            self.devices
+                .logical
+                .wait_for_fences(
+                    &[self.sync_objects.images_in_flight[image_index as usize]],
+                    true,
+                    std::u64::MAX,
+                )
+                .expect("Could not wait for images in flight");
+        }
+        self.sync_objects.images_in_flight[image_index as usize] =
+            self.sync_objects.in_flight_fences[self.current_frame];
 
         let wait_semaphores = [self.sync_objects.image_available_semaphores[self.current_frame]];
-        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let signal_semaphores = [self.sync_objects.render_finished_semaphores[self.current_frame]];
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
 
         let submit_infos = [vk::SubmitInfo {
             s_type: vk::StructureType::SUBMIT_INFO,
@@ -3022,13 +3031,13 @@ impl Vulkan {
 
         self.devices
             .logical
-            .reset_fences(&wait_fences)
+            .reset_fences(&[self.sync_objects.in_flight_fences[self.current_frame]])
             .expect("Failed to reset Fence!");
 
         self.devices
             .logical
             .queue_submit(
-                self.devices.graphics_queue,
+                self.devices.present_queue,
                 &submit_infos,
                 self.sync_objects.in_flight_fences[self.current_frame],
             )
