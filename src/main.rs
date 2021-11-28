@@ -14,11 +14,10 @@ use ash::vk::{
 };
 use ash::vk::{DeviceMemory, PhysicalDevice, Sampler};
 use ash::vk::{SurfaceKHR, SwapchainKHR};
-use ash::{Device, InstanceError};
+use ash::Device;
 use ash::{Entry, Instance};
 use cgmath::{
-    Deg, Matrix4, Point3, Quaternion, Rad, Rotation, Rotation3, SquareMatrix, Vector2, Vector3,
-    Zero,
+    Deg, Matrix4, Point3, Quaternion, Rotation, Rotation3, SquareMatrix, Vector2, Vector3, Zero,
 };
 
 use memoffset::offset_of;
@@ -171,6 +170,7 @@ impl Default for UniformBufferObject {
 enum ShapeType {
     SPHERE,
     CUBE,
+    RING,
 }
 
 struct Texture {
@@ -452,36 +452,37 @@ impl Texture {
     }
 
     fn generate_mipmaps(
-        _instance: &Instance,
+        instance: &Instance,
         devices: &LambdaDevices,
-        _format: Format,
+        format: Format,
         image: Image,
         command_pool: CommandPool,
-        _command_buffer_count: u32,
         tex_width: i32,
         tex_height: i32,
         mip_levels: u32,
     ) {
+        let format_properties =
+            unsafe { instance.get_physical_device_format_properties(devices.physical, format) };
+        if !(format_properties.optimal_tiling_features
+            & vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
+            == vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR)
+        {
+            panic!("Texture image format does not support linear bilitting!");
+        }
+
         let command_buffer = Texture::begin_single_time_command(&devices.logical, command_pool);
 
-        let mut image_barrier = vk::ImageMemoryBarrier {
-            s_type: vk::StructureType::IMAGE_MEMORY_BARRIER,
-            p_next: ptr::null(),
-            src_access_mask: vk::AccessFlags::empty(),
-            dst_access_mask: vk::AccessFlags::empty(),
-            old_layout: vk::ImageLayout::UNDEFINED,
-            new_layout: vk::ImageLayout::UNDEFINED,
-            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            image,
-            subresource_range: vk::ImageSubresourceRange {
+        let mut image_barrier = vk::ImageMemoryBarrier::builder()
+            .image(image)
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .subresource_range(ImageSubresourceRange {
                 aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_mip_level: 0,
+                base_mip_level: mip_levels,
                 level_count: 1,
                 base_array_layer: 0,
                 layer_count: 1,
-            },
-        };
+            });
 
         let mut mip_width = tex_width as i32;
         let mut mip_height = tex_height as i32;
@@ -501,7 +502,7 @@ impl Texture {
                     vk::DependencyFlags::empty(),
                     &[],
                     &[],
-                    &[image_barrier],
+                    &[*image_barrier],
                 );
             }
 
@@ -561,7 +562,7 @@ impl Texture {
                     vk::DependencyFlags::empty(),
                     &[],
                     &[],
-                    &[image_barrier],
+                    &[*image_barrier],
                 );
             }
 
@@ -583,7 +584,7 @@ impl Texture {
                 vk::DependencyFlags::empty(),
                 &[],
                 &[],
-                &[image_barrier],
+                &[*image_barrier],
             );
         }
 
@@ -602,7 +603,10 @@ impl Texture {
         command_pool: CommandPool,
         command_buffer_count: u32,
     ) -> (Image, DeviceMemory, u32) {
-        let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
+        let image_texture = image::load_from_memory(image_buffer)
+            .unwrap()
+            .adjust_contrast(-25.)
+            .to_rgba8();
 
         let image_dimensions = image_texture.dimensions();
         let image_data = image_texture.into_raw();
@@ -612,7 +616,6 @@ impl Texture {
             .floor()
             + 1.) as u32;
 
-        // let size = (std::mem::size_of::<u8>() * image_data.len()) as u64;
         let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
             as vk::DeviceSize;
 
@@ -677,7 +680,6 @@ impl Texture {
                 vk::Format::R8G8B8A8_SRGB,
                 image,
                 command_pool,
-                command_buffer_count,
                 image_dimensions.0.try_into().unwrap(),
                 image_dimensions.1.try_into().unwrap(),
                 mip_levels,
@@ -1034,13 +1036,7 @@ impl GraphicsPipeline {
 
     fn create_descriptor_set_layout(devices: &LambdaDevices) -> DescriptorSetLayout {
         let bindings = [
-            vk::DescriptorSetLayoutBinding {
-                binding: 0,
-                descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                stage_flags: vk::ShaderStageFlags::VERTEX,
-                ..Default::default()
-            },
+            fun_name(),
             vk::DescriptorSetLayoutBinding {
                 binding: 1,
                 descriptor_count: 1,
@@ -1176,6 +1172,16 @@ impl GraphicsPipeline {
     }
 }
 
+fn fun_name() -> vk::DescriptorSetLayoutBinding {
+    vk::DescriptorSetLayoutBinding {
+        binding: 0,
+        descriptor_count: 1,
+        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+        stage_flags: vk::ShaderStageFlags::VERTEX,
+        ..Default::default()
+    }
+}
+
 const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 
 #[derive(Clone, Copy, Debug)]
@@ -1205,7 +1211,7 @@ impl Shape {
         image_buffer: &[u8],
         command_pool: CommandPool,
         command_buffer_count: u32,
-        _shape_type: ShapeType,
+        shape_type: ShapeType,
         indexed: bool,
         topology: Option<PrimitiveTopology>,
         cull_mode: Option<CullModeFlags>,
@@ -1214,7 +1220,12 @@ impl Shape {
         render_pass: RenderPass,
     ) -> Self {
         // let (vertices, indices) = Self::cube();
-        let (vertices, indices) = Self::make_sphere(0.4, 40, 40);
+        // let (vertices, indices) = Self::make_sphere(0.4, 40, 40);
+        let (vertices, indices) = match shape_type {
+            ShapeType::SPHERE => Self::sphere(0.4, 40, 40),
+            ShapeType::CUBE => Self::cube(),
+            ShapeType::RING => Self::ring(0.6, 40),
+        };
 
         let texture = Texture::new(
             instance,
@@ -1283,7 +1294,59 @@ impl Shape {
         }
     }
 
-    fn make_sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+    fn make_point(
+        angle: &mut f32,
+        radius: f32,
+        step: f32,
+        length: f32,
+        tex_coord: Vector2<f32>,
+    ) -> Vertex {
+        let pos_0 = angle.to_radians().cos() * radius;
+        let pos_1 = angle.to_radians().sin() * radius;
+        *angle += step;
+
+        let pos = Vector3::new(pos_0, pos_1, 0.);
+        Vertex {
+            pos,
+            colour: WHITE,
+            normal: pos.mul(length),
+            tex_coord,
+        }
+    }
+
+    fn ring(radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+        let stack_count = 2;
+
+        let mut angle = 0.;
+        let angle_step = 180. / sector_count as f32;
+        let length = 1.;
+
+        let outside_radius = 1.;
+        let inside_radius = 0.5;
+
+        let mut vertices = Vec::new();
+
+        for _ in 0..=sector_count {
+            vertices.push(Self::make_point(
+                &mut angle,
+                outside_radius,
+                angle_step,
+                length,
+                Vector2::new(0., 0.),
+            ));
+            vertices.push(Self::make_point(
+                &mut angle,
+                inside_radius,
+                angle_step,
+                length,
+                Vector2::new(1., 1.),
+            ));
+        }
+
+        (vertices, Self::calculate_indices(sector_count, stack_count))
+    }
+
+    fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec<u16>) {
         let length = 1. / radius;
 
         let sector_step = 2. * std::f32::consts::PI / sector_count as f32;
@@ -1608,13 +1671,6 @@ impl Shape {
     }
 }
 
-// struct ShapeBuffers {
-//     vertex_buffer: Vec<Buffer>,
-//     vertex_buffer_memory: Vec<DeviceMemory>,
-//     index_buffer: Vec<Buffer>,
-//     index_buffer_memory: Vec<DeviceMemory>,
-// }
-
 struct Camera {
     eye: Point3<f32>,
 }
@@ -1693,20 +1749,36 @@ impl Vulkan {
         let command_pool =
             Self::create_command_pool(&instance, &devices, &surface_loader, &surface);
 
-        let shapes = vec![Shape::new(
-            &instance,
-            &devices,
-            include_bytes!("/Users/rob/Downloads/2k_saturn.jpg"),
-            command_pool,
-            swapchain.swapchain_images.len() as u32,
-            ShapeType::CUBE,
-            true,
-            Some(vk::PrimitiveTopology::TRIANGLE_LIST),
-            Some(vk::CullModeFlags::BACK),
-            &swapchain,
-            msaa_samples,
-            render_pass,
-        )];
+        let shapes = vec![
+            Shape::new(
+                &instance,
+                &devices,
+                include_bytes!("/Users/rob/Downloads/2k_saturn.jpg"),
+                command_pool,
+                swapchain.swapchain_images.len() as u32,
+                ShapeType::SPHERE,
+                true,
+                Some(vk::PrimitiveTopology::TRIANGLE_LIST),
+                Some(vk::CullModeFlags::BACK),
+                &swapchain,
+                msaa_samples,
+                render_pass,
+            ),
+            Shape::new(
+                &instance,
+                &devices,
+                include_bytes!("/Users/rob/Downloads/2k_saturn_ring_alpha.png"),
+                command_pool,
+                swapchain.swapchain_images.len() as u32,
+                ShapeType::RING,
+                false,
+                Some(vk::PrimitiveTopology::TRIANGLE_STRIP),
+                Some(vk::CullModeFlags::NONE),
+                &swapchain,
+                msaa_samples,
+                render_pass,
+            ),
+        ];
 
         let command_buffers = Self::create_command_buffers(
             command_pool,
@@ -1720,10 +1792,6 @@ impl Vulkan {
         let sync_objects = Self::create_sync_objects(&devices.logical, &swapchain);
 
         // camera
-        let camera = Camera {
-            eye: Point3::new(5., 1., 1.),
-        };
-
         Self {
             instance,
             surface,
@@ -1743,7 +1811,9 @@ impl Vulkan {
             frame_buffers,
             command_pool,
 
-            camera,
+            camera: Camera {
+                eye: Point3::new(5., 1., 2.),
+            },
 
             is_framebuffer_resized: false,
         }
@@ -2177,12 +2247,12 @@ impl Vulkan {
                 image,
                 view_type: vk::ImageViewType::TYPE_2D,
                 format: surface_format.format,
-                // components: vk::ComponentMapping {
-                //     r: vk::ComponentSwizzle::IDENTITY,
-                //     g: vk::ComponentSwizzle::IDENTITY,
-                //     b: vk::ComponentSwizzle::IDENTITY,
-                //     a: vk::ComponentSwizzle::IDENTITY,
-                // },
+                components: vk::ComponentMapping {
+                    r: vk::ComponentSwizzle::IDENTITY,
+                    g: vk::ComponentSwizzle::IDENTITY,
+                    b: vk::ComponentSwizzle::IDENTITY,
+                    a: vk::ComponentSwizzle::IDENTITY,
+                },
                 subresource_range: vk::ImageSubresourceRange {
                     aspect_mask: vk::ImageAspectFlags::COLOR,
                     base_mip_level: 0,
