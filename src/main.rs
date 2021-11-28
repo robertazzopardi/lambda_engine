@@ -14,9 +14,12 @@ use ash::vk::{
 };
 use ash::vk::{DeviceMemory, PhysicalDevice, Sampler};
 use ash::vk::{SurfaceKHR, SwapchainKHR};
-use ash::Device;
+use ash::{Device, InstanceError};
 use ash::{Entry, Instance};
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector2, Vector3, Zero};
+use cgmath::{
+    Deg, Matrix4, Point3, Quaternion, Rad, Rotation, Rotation3, SquareMatrix, Vector2, Vector3,
+    Zero,
+};
 
 use memoffset::offset_of;
 use winit::event::ElementState;
@@ -38,8 +41,6 @@ use winit::{
 
 const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 720;
-const VALIDATION_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
-const APP_NAME: &str = "lambda_engine";
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 #[inline]
@@ -49,7 +50,7 @@ fn enable_validation_layers() -> bool {
 
 #[inline]
 fn check_validation_layer_support(_window_handle: &Window) -> bool {
-    let mut _layer_count: u32;
+    // let mut _layer_count: u32;
 
     true
 }
@@ -157,6 +158,16 @@ struct UniformBufferObject {
     proj: Matrix4<f32>,
 }
 
+impl Default for UniformBufferObject {
+    fn default() -> Self {
+        Self {
+            model: Matrix4::identity(),
+            view: Matrix4::identity(),
+            proj: Matrix4::identity(),
+        }
+    }
+}
+
 enum ShapeType {
     SPHERE,
     CUBE,
@@ -198,7 +209,7 @@ impl Texture {
             command_buffer_count,
         );
         let image_view = Self::create_texture_image_view(devices, image, mip_levels);
-        let sampler = Self::create_texture_sampler(devices, mip_levels);
+        let sampler = Self::create_texture_sampler(instance, devices, mip_levels);
 
         Self {
             mip_levels,
@@ -591,7 +602,7 @@ impl Texture {
         command_pool: CommandPool,
         command_buffer_count: u32,
     ) -> (Image, DeviceMemory, u32) {
-        let image_texture = image::load_from_memory(image_buffer).unwrap().to_bgra8();
+        let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
 
         let image_dimensions = image_texture.dimensions();
         let image_data = image_texture.into_raw();
@@ -690,29 +701,31 @@ impl Texture {
         )
     }
 
-    fn create_texture_sampler(devices: &LambdaDevices, mip_levels: u32) -> vk::Sampler {
-        let sampler_create_info = vk::SamplerCreateInfo {
-            s_type: vk::StructureType::SAMPLER_CREATE_INFO,
-            p_next: ptr::null(),
-            flags: vk::SamplerCreateFlags::empty(),
-            mag_filter: vk::Filter::LINEAR,
-            min_filter: vk::Filter::LINEAR,
-            mipmap_mode: vk::SamplerMipmapMode::LINEAR,
-            address_mode_u: vk::SamplerAddressMode::REPEAT,
-            address_mode_v: vk::SamplerAddressMode::REPEAT,
-            address_mode_w: vk::SamplerAddressMode::REPEAT,
-            mip_lod_bias: 0.0,
-            anisotropy_enable: vk::TRUE,
-            max_anisotropy: 16.0,
-            compare_enable: vk::FALSE,
-            compare_op: vk::CompareOp::ALWAYS,
-            min_lod: 0.0,
-            max_lod: mip_levels as f32,
-            border_color: vk::BorderColor::INT_OPAQUE_BLACK,
-            unnormalized_coordinates: vk::FALSE,
-        };
-
+    fn create_texture_sampler(
+        instance: &Instance,
+        devices: &LambdaDevices,
+        mip_levels: u32,
+    ) -> vk::Sampler {
         unsafe {
+            let properties = instance.get_physical_device_properties(devices.physical);
+
+            let sampler_create_info = vk::SamplerCreateInfo::builder()
+                .mag_filter(vk::Filter::LINEAR)
+                .min_filter(vk::Filter::LINEAR)
+                .address_mode_u(vk::SamplerAddressMode::REPEAT)
+                .address_mode_v(vk::SamplerAddressMode::REPEAT)
+                .address_mode_w(vk::SamplerAddressMode::REPEAT)
+                .anisotropy_enable(true)
+                .max_anisotropy(properties.limits.max_sampler_anisotropy)
+                .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+                .unnormalized_coordinates(false)
+                .compare_enable(false)
+                .compare_op(vk::CompareOp::ALWAYS)
+                .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+                .min_lod(0.)
+                .max_lod(mip_levels as f32)
+                .mip_lod_bias(0.);
+
             devices
                 .logical
                 .create_sampler(&sampler_create_info, None)
@@ -948,20 +961,6 @@ impl GraphicsPipeline {
             .back(stencil_state)
             .min_depth_bounds(0.0)
             .max_depth_bounds(1.0);
-
-        // let depth_stencil = vk::PipelineDepthStencilStateCreateInfo {
-        //     s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        //     depth_test_enable: vk::TRUE,
-        //     depth_write_enable: vk::TRUE,
-        //     depth_compare_op: vk::CompareOp::LESS,
-        //     depth_bounds_test_enable: vk::FALSE,
-        //     stencil_test_enable: vk::FALSE,
-        //     // front: (),
-        //     // back: (),
-        //     // min_depth_bounds: (),
-        //     // max_depth_bounds: (),
-        //     ..Default::default()
-        // };
 
         let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(
@@ -1214,8 +1213,8 @@ impl Shape {
         msaa_samples: SampleCountFlags,
         render_pass: RenderPass,
     ) -> Self {
-        let (vertices, indices) = Self::cube();
-        // let (vertices, indices) = Self::make_sphere(0.4, 40, 40);
+        // let (vertices, indices) = Self::cube();
+        let (vertices, indices) = Self::make_sphere(0.4, 40, 40);
 
         let texture = Texture::new(
             instance,
@@ -1285,32 +1284,27 @@ impl Shape {
     }
 
     fn make_sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec<u16>) {
-        let mut xy: f32;
         let length = 1. / radius;
 
         let sector_step = 2. * std::f32::consts::PI / sector_count as f32;
         let stack_step = std::f32::consts::PI / stack_count as f32;
-        let mut sector_angle: f32;
-        let mut stack_angle: f32;
 
-        let mut p = Vector3::<f32>::zero();
+        let mut pos = Vector3::<f32>::zero();
 
         let mut vertices = Vec::<Vertex>::new();
 
-        for i in 1..=stack_count {
-            stack_angle = std::f32::consts::FRAC_PI_2 - i as f32 * stack_step;
-            xy = radius * stack_angle.cos();
-            p[2] = radius * stack_angle.sin();
+        for i in 0..=stack_count {
+            let stack_angle = std::f32::consts::FRAC_PI_2 - i as f32 * stack_step;
+            let xy = radius * stack_angle.cos();
+            pos[2] = radius * stack_angle.sin();
 
-            for j in 1..=sector_count {
-                sector_angle = j as f32 * sector_step;
+            for j in 0..=sector_count {
+                let sector_angle = j as f32 * sector_step;
 
-                p[0] = xy * sector_angle.cos();
-                p[1] = xy * sector_angle.sin();
+                pos[0] = xy * sector_angle.cos();
+                pos[1] = xy * sector_angle.sin();
 
-                let pos = p;
-
-                let normal = p.mul(length);
+                let normal = pos.mul(length);
 
                 let tex_coord = Vector2 {
                     x: j as f32 / sector_count as f32,
@@ -1334,14 +1328,11 @@ impl Shape {
         let mut k2: u16;
 
         let mut indices: Vec<u16> = Vec::new();
-        for i in 1..stack_count {
+        for i in 0..stack_count {
             k1 = i as u16 * (sector_count + 1) as u16;
             k2 = k1 + (stack_count + 1) as u16;
 
-            for _j in 1..sector_count {
-                k1 += 1;
-                k2 += 1;
-
+            for _j in 0..sector_count {
                 if i != 0 {
                     indices.push(k1);
                     indices.push(k2);
@@ -1353,6 +1344,9 @@ impl Shape {
                     indices.push(k2);
                     indices.push(k2 + 1);
                 }
+
+                k1 += 1;
+                k2 += 1;
             }
         }
 
@@ -1726,8 +1720,6 @@ impl Vulkan {
         let sync_objects = Self::create_sync_objects(&devices.logical, &swapchain);
 
         // camera
-        let aspect =
-            swapchain.swapchain_extent.width as f32 / swapchain.swapchain_extent.height as f32;
         let camera = Camera {
             eye: Point3::new(5., 1., 1.),
         };
@@ -1743,21 +1735,7 @@ impl Vulkan {
             surface_loader,
             current_frame: 0,
             models: shapes,
-            ubo: UniformBufferObject {
-                model: Matrix4::identity(),
-                view: Matrix4::identity()
-                    * Matrix4::look_at_rh(
-                        camera.eye,
-                        Point3::new(0., 0., 0.),
-                        Vector3::new(0., 0., 1.),
-                    ),
-                proj: {
-                    let mut p =
-                        Matrix4::identity() * cgmath::perspective(Deg(45.), aspect, 0.1, 10.);
-                    p[1][1] *= -1.;
-                    p
-                },
-            },
+            ubo: UniformBufferObject::default(),
             entry,
             render_pass,
             color_resource,
@@ -1796,10 +1774,7 @@ impl Vulkan {
             panic!("Validation layers requested, but not available!")
         }
 
-        let layer_names = [
-            CString::new("VK_LAYER_KHRONOS_validation").unwrap(),
-            // CString::new("VK_LAYER_LUNARG_standard_validation").unwrap(),
-        ];
+        let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
         let layers_names_raw: Vec<*const i8> = layer_names
             .iter()
             .map(|raw_name| raw_name.as_ptr())
@@ -2174,7 +2149,8 @@ impl Vulkan {
                 .get_swapchain_images(swapchain_khr)
                 .expect("Could not get swapchain images");
 
-            let image_views = Self::create_image_views(devices, &swapchain_images, &surface_format);
+            let image_views =
+                Self::create_image_views(devices, &swapchain_images, &surface_format, 1);
 
             LambdaSwapchain {
                 loader: swapchain,
@@ -2191,6 +2167,7 @@ impl Vulkan {
         devices: &LambdaDevices,
         swapchain_images: &Vec<Image>,
         surface_format: &SurfaceFormatKHR,
+        mip_levels: u32,
     ) -> Vec<vk::ImageView> {
         let mut swapchain_imageviews = vec![];
 
@@ -2200,16 +2177,16 @@ impl Vulkan {
                 image,
                 view_type: vk::ImageViewType::TYPE_2D,
                 format: surface_format.format,
-                components: vk::ComponentMapping {
-                    r: vk::ComponentSwizzle::IDENTITY,
-                    g: vk::ComponentSwizzle::IDENTITY,
-                    b: vk::ComponentSwizzle::IDENTITY,
-                    a: vk::ComponentSwizzle::IDENTITY,
-                },
+                // components: vk::ComponentMapping {
+                //     r: vk::ComponentSwizzle::IDENTITY,
+                //     g: vk::ComponentSwizzle::IDENTITY,
+                //     b: vk::ComponentSwizzle::IDENTITY,
+                //     a: vk::ComponentSwizzle::IDENTITY,
+                // },
                 subresource_range: vk::ImageSubresourceRange {
                     aspect_mask: vk::ImageAspectFlags::COLOR,
                     base_mip_level: 0,
-                    level_count: 1,
+                    level_count: mip_levels,
                     base_array_layer: 0,
                     layer_count: 1,
                 },
@@ -2365,15 +2342,6 @@ impl Vulkan {
         type_filter: u32,
         properties: vk::MemoryPropertyFlags,
     ) -> u32 {
-        // memory_prop.memory_types[..memory_prop.memory_type_count as _]
-        //     .iter()
-        //     .enumerate()
-        //     .find(|(index, memory_type)| {
-        //         (1 << index) & memory_req.memory_type_bits != 0
-        //             && memory_type.property_flags & flags == flags
-        //     })
-        //     .map(|(index, _memory_type)| index as _)
-        //     .expect("Failed to find suitable memory type!")
         unsafe {
             let mem_properties = instance.get_physical_device_memory_properties(devices.physical);
 
@@ -2804,6 +2772,27 @@ impl Vulkan {
     }
 
     fn update_uniform_buffer(&mut self, current_image: usize) {
+        let rot = Quaternion::from_axis_angle(Vector3::new(0., 0., 1.), Deg(1.0))
+            .rotate_point(self.camera.eye);
+        self.camera.eye = rot;
+
+        let aspect = self.swapchain.swapchain_extent.width as f32
+            / self.swapchain.swapchain_extent.height as f32;
+
+        self.ubo = UniformBufferObject {
+            model: Matrix4::identity(),
+            view: Matrix4::look_at_rh(
+                self.camera.eye,
+                Point3::new(0., 0., 0.),
+                Vector3::new(0., 0., 1.),
+            ),
+            proj: {
+                let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 10.);
+                p[1][1] *= -1.;
+                p
+            },
+        };
+
         let ubos = [self.ubo];
 
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
@@ -3093,7 +3082,7 @@ fn main() {
     let mut vulkan: Vulkan = Vulkan::new(&window);
 
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
+        // *control_flow = ControlFlow::Wait;
 
         match event {
             Event::WindowEvent {
