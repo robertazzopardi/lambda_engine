@@ -463,9 +463,8 @@ impl Texture {
     ) {
         let format_properties =
             unsafe { instance.get_physical_device_format_properties(devices.physical, format) };
-        if !(format_properties.optimal_tiling_features
-            & vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
-            == vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR)
+        if format_properties.optimal_tiling_features
+            & vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR != vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
         {
             panic!("Texture image format does not support linear bilitting!");
         }
@@ -1314,7 +1313,7 @@ impl Shape {
         }
     }
 
-    fn ring(radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+    fn ring(_radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
         let stack_count = 2;
 
         let mut angle = 0.;
