@@ -3,10 +3,14 @@ use std::{ffi::CString, mem::size_of};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 
-use crate::{
-    model::Vertex, texture::Texture, LambdaDescriptorSet, LambdaDevices, LambdaSwapchain,
-    UniformBufferObject,
-};
+use crate::{model::Vertex, texture::Texture, LambdaDevices, LambdaSwapchain, UniformBufferObject};
+
+pub struct LambdaDescriptorSet {
+    pub descriptor_sets: Vec<vk::DescriptorSet>,
+    pub descriptor_pool: vk::DescriptorPool,
+    pub uniform_buffers: Vec<vk::Buffer>,
+    pub uniform_buffers_memory: Vec<vk::DeviceMemory>,
+}
 
 pub struct GraphicsPipeline {
     pub topology: vk::PrimitiveTopology,
@@ -76,7 +80,6 @@ impl GraphicsPipeline {
             layout,
             descriptor_set: LambdaDescriptorSet {
                 descriptor_sets,
-                descriptor_set_layout,
                 descriptor_pool,
                 uniform_buffers,
                 uniform_buffers_memory,

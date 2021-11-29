@@ -63,7 +63,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_index_buffer(
+        let (vertex_buffer, _vertex_buffer_memory) = Self::create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
@@ -73,7 +73,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (index_buffer, index_buffer_memory) = Self::create_vertex_index_buffer(
+        let (index_buffer, _index_buffer_memory) = Self::create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<u16>() * indices.len()).try_into().unwrap(),
@@ -132,7 +132,7 @@ impl Model {
 
         devices
             .logical
-            .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
+            .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
 
         devices
             .logical

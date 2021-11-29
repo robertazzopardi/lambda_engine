@@ -1,40 +1,26 @@
 extern crate ash;
 extern crate winit;
 
-mod Texture;
 mod model;
 mod pipeline;
 mod texture;
 
+use ash::extensions::{
+    ext::DebugUtils,
+    khr::{Surface, Swapchain},
+};
+use ash::{util::Align, vk, Device, Entry, Instance};
+use cgmath::{Deg, Matrix4, Point3, Quaternion, Rotation, Rotation3, SquareMatrix, Vector3};
 use model::{Model, ModelType};
-use ash::extensions::ext::DebugUtils;
-use ash::extensions::khr::{Surface, Swapchain};
-use ash::util::Align;
-use ash::vk::{
-    self, Buffer, BufferUsageFlags, CommandBuffer, CommandPool, CullModeFlags,
-    DebugUtilsMessengerEXT, DescriptorPool, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout,
-    DeviceSize, Extent2D, Extent3D, Fence, Format, Framebuffer, Image, ImageAspectFlags,
-    ImageSubresourceRange, ImageTiling, ImageUsageFlags, ImageView, MemoryPropertyFlags, Offset2D,
-    Pipeline, PipelineLayout, PresentModeKHR, PrimitiveTopology, Queue, RenderPass,
-    SampleCountFlags, Semaphore, ShaderModule, SurfaceCapabilitiesKHR, SurfaceFormatKHR,
-};
-use ash::vk::{DeviceMemory, PhysicalDevice, Sampler};
-use ash::vk::{SurfaceKHR, SwapchainKHR};
-use ash::Device;
-use ash::{Entry, Instance};
-use cgmath::{
-    Deg, Matrix4, Point3, Quaternion, Rotation, Rotation3, SquareMatrix, Vector2, Vector3, Zero,
-};
 
-use memoffset::offset_of;
 use pipeline::GraphicsPipeline;
 use winit::event::ElementState;
 
-use std::borrow::Cow;
-use std::ffi::{CStr, CString};
-use std::mem::size_of;
-use std::ops::{Mul, Sub};
-use std::ptr;
+use std::{
+    borrow::Cow,
+    ffi::{CStr, CString},
+    ptr,
+};
 
 use winit::{
     event::{Event, WindowEvent},
@@ -93,18 +79,18 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 pub struct LambdaDevices {
-    physical: PhysicalDevice,
+    physical: vk::PhysicalDevice,
     logical: Device,
-    present_queue: Queue,
-    graphics_queue: Queue,
+    present_queue: vk::Queue,
+    graphics_queue: vk::Queue,
 }
 
 impl LambdaDevices {
     fn new(
-        physical: PhysicalDevice,
+        physical: vk::PhysicalDevice,
         logical: Device,
-        present_queue: Queue,
-        graphics_queue: Queue,
+        present_queue: vk::Queue,
+        graphics_queue: vk::Queue,
     ) -> Self {
         Self {
             physical,
@@ -116,25 +102,25 @@ impl LambdaDevices {
 }
 
 struct SyncObjects {
-    image_available_semaphores: [Semaphore; MAX_FRAMES_IN_FLIGHT],
-    render_finished_semaphores: [Semaphore; MAX_FRAMES_IN_FLIGHT],
-    in_flight_fences: [Fence; MAX_FRAMES_IN_FLIGHT],
-    images_in_flight: Vec<Fence>,
+    image_available_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
+    render_finished_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
+    in_flight_fences: [vk::Fence; MAX_FRAMES_IN_FLIGHT],
+    images_in_flight: Vec<vk::Fence>,
 }
 
 struct SwapChainSupportDetails {
     capabilities: vk::SurfaceCapabilitiesKHR,
-    formats: Vec<SurfaceFormatKHR>,
-    present_modes: Vec<PresentModeKHR>,
+    formats: Vec<vk::SurfaceFormatKHR>,
+    present_modes: Vec<vk::PresentModeKHR>,
 }
 
 pub struct LambdaSwapchain {
     loader: Swapchain,
-    swapchain: SwapchainKHR,
-    swapchain_images: Vec<Image>,
-    swapchain_image_format: Format,
-    swapchain_extent: Extent2D,
-    swapchain_image_views: Vec<ImageView>,
+    swapchain: vk::SwapchainKHR,
+    swapchain_images: Vec<vk::Image>,
+    swapchain_image_format: vk::Format,
+    swapchain_extent: vk::Extent2D,
+    swapchain_image_views: Vec<vk::ImageView>,
 }
 
 pub struct QueueFamilyIndices {
@@ -173,23 +159,15 @@ impl Default for UniformBufferObject {
 }
 
 struct DepthResource {
-    image: Image,
-    memory: DeviceMemory,
-    view: ImageView,
+    image: vk::Image,
+    memory: vk::DeviceMemory,
+    view: vk::ImageView,
 }
 
 struct ColourResource {
-    image: Image,
-    memory: DeviceMemory,
-    view: ImageView,
-}
-
-pub struct LambdaDescriptorSet {
-    descriptor_sets: Vec<DescriptorSet>,
-    descriptor_set_layout: DescriptorSetLayout,
-    descriptor_pool: DescriptorPool,
-    uniform_buffers: Vec<Buffer>,
-    uniform_buffers_memory: Vec<DeviceMemory>,
+    image: vk::Image,
+    memory: vk::DeviceMemory,
+    view: vk::ImageView,
 }
 
 struct Camera {
@@ -198,24 +176,23 @@ struct Camera {
 
 struct Vulkan {
     instance: Instance,
-    entry: Entry,
-    // debug_messenger: Option<DebugUtilsMessengerEXT>,
-    surface: SurfaceKHR,
+    // debug_messenger: Option<vk::DebugUtilsMessengerEXT>,
+    surface: vk::SurfaceKHR,
     devices: LambdaDevices,
     swapchain: LambdaSwapchain,
     surface_loader: Surface,
-    command_buffers: Vec<CommandBuffer>,
+    command_buffers: Vec<vk::CommandBuffer>,
     sync_objects: SyncObjects,
     current_frame: usize,
     models: Vec<Model>,
 
-    render_pass: RenderPass,
+    render_pass: vk::RenderPass,
     color_resource: ColourResource,
     depth_resource: DepthResource,
-    frame_buffers: Vec<Framebuffer>,
-    command_pool: CommandPool,
+    frame_buffers: Vec<vk::Framebuffer>,
+    command_pool: vk::CommandPool,
 
-    msaa_samples: SampleCountFlags,
+    msaa_samples: vk::SampleCountFlags,
 
     ubo: UniformBufferObject,
     camera: Camera,
@@ -325,7 +302,6 @@ impl Vulkan {
             current_frame: 0,
             models: shapes,
             ubo: UniformBufferObject::default(),
-            entry,
             render_pass,
             color_resource,
             depth_resource,
@@ -344,8 +320,8 @@ impl Vulkan {
         instance: &Instance,
         devices: &LambdaDevices,
         surface_loader: &Surface,
-        surface: &SurfaceKHR,
-    ) -> CommandPool {
+        surface: &vk::SurfaceKHR,
+    ) -> vk::CommandPool {
         let queue_family_indices =
             Self::find_queue_family(instance, devices.physical, surface_loader, surface);
 
@@ -406,7 +382,7 @@ impl Vulkan {
     unsafe fn setup_debug_messenger(
         instance: &Instance,
         entry: &Entry,
-    ) -> Option<DebugUtilsMessengerEXT> {
+    ) -> Option<vk::DebugUtilsMessengerEXT> {
         if !enable_validation_layers() {}
 
         let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
@@ -422,7 +398,7 @@ impl Vulkan {
         )
     }
 
-    fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> SurfaceKHR {
+    fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> vk::SurfaceKHR {
         unsafe {
             ash_window::create_surface(entry, instance, window, None)
                 .expect("Failed to create window surface!")
@@ -431,8 +407,8 @@ impl Vulkan {
 
     fn get_max_usable_sample_count(
         instance: &Instance,
-        physical_device: PhysicalDevice,
-    ) -> SampleCountFlags {
+        physical_device: vk::PhysicalDevice,
+    ) -> vk::SampleCountFlags {
         unsafe {
             let physical_device_properties =
                 instance.get_physical_device_properties(physical_device);
@@ -470,8 +446,8 @@ impl Vulkan {
     fn pick_physical_device(
         instance: &Instance,
         entry: &Entry,
-        surface: &SurfaceKHR,
-    ) -> (PhysicalDevice, u32, Surface, SampleCountFlags) {
+        surface: &vk::SurfaceKHR,
+    ) -> (vk::PhysicalDevice, u32, Surface, vk::SampleCountFlags) {
         unsafe {
             let devices = instance
                 .enumerate_physical_devices()
@@ -522,7 +498,7 @@ impl Vulkan {
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         surface_loader: &Surface,
-        surface: &SurfaceKHR,
+        surface: &vk::SurfaceKHR,
     ) -> QueueFamilyIndices {
         let queue_families =
             unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
@@ -561,11 +537,11 @@ impl Vulkan {
 
     fn create_logical_device(
         instance: &Instance,
-        physical_device: PhysicalDevice,
+        physical_device: vk::PhysicalDevice,
         queue_family_index: u32,
-        surface: &SurfaceKHR,
+        surface: &vk::SurfaceKHR,
         surface_loader: &Surface,
-    ) -> (Device, Queue, Queue) {
+    ) -> (Device, vk::Queue, vk::Queue) {
         let device_extension_names_raw = [Swapchain::name().as_ptr()];
 
         let features = vk::PhysicalDeviceFeatures::builder()
@@ -585,19 +561,18 @@ impl Vulkan {
             .enabled_extension_names(&device_extension_names_raw)
             .enabled_features(&features);
 
+        let queue_family =
+            Self::find_queue_family(instance, physical_device, surface_loader, surface);
+
         unsafe {
             let logical_device = instance
                 .create_device(physical_device, &device_create_info, None)
                 .unwrap();
 
-            let queue_family =
-                Self::find_queue_family(instance, physical_device, surface_loader, surface);
-
-            let graphics_queue = unsafe {
-                logical_device.get_device_queue(queue_family.graphics_family.unwrap(), 0)
-            };
+            let graphics_queue =
+                logical_device.get_device_queue(queue_family.graphics_family.unwrap(), 0);
             let present_queue =
-                unsafe { logical_device.get_device_queue(queue_family.present_family.unwrap(), 0) };
+                logical_device.get_device_queue(queue_family.present_family.unwrap(), 0);
 
             (logical_device, present_queue, graphics_queue)
         }
@@ -606,7 +581,7 @@ impl Vulkan {
     fn query_swapchain_support(
         _instance: &Instance,
         devices: &LambdaDevices,
-        surface: SurfaceKHR,
+        surface: vk::SurfaceKHR,
         surface_loader: &Surface,
     ) -> SwapChainSupportDetails {
         let mut details = SwapChainSupportDetails {
@@ -634,7 +609,7 @@ impl Vulkan {
         details
     }
 
-    fn choose_swap_surface_format(formats: &[SurfaceFormatKHR]) -> SurfaceFormatKHR {
+    fn choose_swap_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::SurfaceFormatKHR {
         for format in formats {
             if format.format == vk::Format::R8G8B8A8_SRGB
                 && format.color_space == vk::ColorSpaceKHR::EXTENDED_SRGB_NONLINEAR_EXT
@@ -646,7 +621,7 @@ impl Vulkan {
         formats[0]
     }
 
-    fn choose_present_mode(present_modes: Vec<PresentModeKHR>) -> PresentModeKHR {
+    fn choose_present_mode(present_modes: Vec<vk::PresentModeKHR>) -> vk::PresentModeKHR {
         for present_mode in present_modes {
             if present_mode == vk::PresentModeKHR::MAILBOX {
                 return present_mode;
@@ -655,13 +630,16 @@ impl Vulkan {
         vk::PresentModeKHR::FIFO
     }
 
-    fn choose_swap_extent(capabilities: SurfaceCapabilitiesKHR, window: &Window) -> Extent2D {
+    fn choose_swap_extent(
+        capabilities: vk::SurfaceCapabilitiesKHR,
+        window: &Window,
+    ) -> vk::Extent2D {
         if capabilities.current_extent.width != u32::MAX {
             capabilities.current_extent
         } else {
             let size = window.inner_size();
 
-            Extent2D {
+            vk::Extent2D {
                 width: size.width.clamp(
                     capabilities.min_image_extent.width,
                     capabilities.max_image_extent.width,
@@ -677,7 +655,7 @@ impl Vulkan {
     fn create_swapchain(
         instance: &Instance,
         devices: &LambdaDevices,
-        surface: SurfaceKHR,
+        surface: vk::SurfaceKHR,
         surface_loader: &Surface,
         window: &Window,
     ) -> LambdaSwapchain {
@@ -710,7 +688,7 @@ impl Vulkan {
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
             .clipped(true)
-            .old_swapchain(SwapchainKHR::null());
+            .old_swapchain(vk::SwapchainKHR::null());
 
         let queue_family_indices =
             Self::find_queue_family(instance, devices.physical, surface_loader, &surface);
@@ -756,8 +734,8 @@ impl Vulkan {
 
     fn create_image_views(
         devices: &LambdaDevices,
-        swapchain_images: &Vec<Image>,
-        surface_format: &SurfaceFormatKHR,
+        swapchain_images: &Vec<vk::Image>,
+        surface_format: &vk::SurfaceFormatKHR,
         mip_levels: u32,
     ) -> Vec<vk::ImageView> {
         let mut swapchain_imageviews = vec![];
@@ -788,7 +766,7 @@ impl Vulkan {
                 devices
                     .logical
                     .create_image_view(&imageview_create_info, None)
-                    .expect("Failed to create Image View!")
+                    .expect("Failed to create vk::Image View!")
             };
             swapchain_imageviews.push(imageview);
         }
@@ -796,7 +774,10 @@ impl Vulkan {
         swapchain_imageviews
     }
 
-    unsafe fn find_depth_format(instance: &Instance, physical_device: &PhysicalDevice) -> Format {
+    unsafe fn find_depth_format(
+        instance: &Instance,
+        physical_device: &vk::PhysicalDevice,
+    ) -> vk::Format {
         let candidates = [
             vk::Format::D32_SFLOAT,
             vk::Format::D32_SFLOAT_S8_UINT,
@@ -840,8 +821,8 @@ impl Vulkan {
         instance: &Instance,
         devices: &LambdaDevices,
         swapchain: &LambdaSwapchain,
-        msaa_samples: SampleCountFlags,
-    ) -> RenderPass {
+        msaa_samples: vk::SampleCountFlags,
+    ) -> vk::RenderPass {
         let renderpass_attachments = [
             vk::AttachmentDescription {
                 format: swapchain.swapchain_image_format,
@@ -953,18 +934,18 @@ impl Vulkan {
         width: u32,
         height: u32,
         mip_levels: u32,
-        samples: SampleCountFlags,
-        format: Format,
-        tiling: ImageTiling,
-        usage: ImageUsageFlags,
-        properties: MemoryPropertyFlags,
+        samples: vk::SampleCountFlags,
+        format: vk::Format,
+        tiling: vk::ImageTiling,
+        usage: vk::ImageUsageFlags,
+        properties: vk::MemoryPropertyFlags,
         devices: &LambdaDevices,
         instance: &Instance,
-    ) -> (Image, DeviceMemory) {
+    ) -> (vk::Image, vk::DeviceMemory) {
         let image_info = vk::ImageCreateInfo {
             s_type: vk::StructureType::IMAGE_CREATE_INFO,
             image_type: vk::ImageType::TYPE_2D,
-            extent: Extent3D {
+            extent: vk::Extent3D {
                 width,
                 height,
                 depth: 1,
@@ -1015,18 +996,18 @@ impl Vulkan {
     }
 
     fn create_image_view(
-        image: Image,
-        format: Format,
-        aspect_mask: ImageAspectFlags,
+        image: vk::Image,
+        format: vk::Format,
+        aspect_mask: vk::ImageAspectFlags,
         level_count: u32,
         devices: &LambdaDevices,
-    ) -> ImageView {
+    ) -> vk::ImageView {
         let image_view_info = vk::ImageViewCreateInfo {
             s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
             image,
             view_type: vk::ImageViewType::TYPE_2D,
             format,
-            subresource_range: ImageSubresourceRange {
+            subresource_range: vk::ImageSubresourceRange {
                 aspect_mask,
                 base_mip_level: 0,
                 level_count,
@@ -1047,7 +1028,7 @@ impl Vulkan {
     fn create_colour_resources(
         devices: &LambdaDevices,
         swapchain: &LambdaSwapchain,
-        samples: SampleCountFlags,
+        samples: vk::SampleCountFlags,
         instance: &Instance,
     ) -> ColourResource {
         let color_format = swapchain.swapchain_image_format;
@@ -1077,8 +1058,8 @@ impl Vulkan {
 
     fn create_resource(
         _devuces: &LambdaDevices,
-        _swapchain: &SwapchainKHR,
-        _samples: SampleCountFlags,
+        _swapchain: &vk::SwapchainKHR,
+        _samples: vk::SampleCountFlags,
         _instance: &Instance,
     ) {
     }
@@ -1086,7 +1067,7 @@ impl Vulkan {
     fn create_depth_resource(
         devices: &LambdaDevices,
         swapchain: &LambdaSwapchain,
-        samples: SampleCountFlags,
+        samples: vk::SampleCountFlags,
         instance: &Instance,
     ) -> DepthResource {
         let depth_format = unsafe { Self::find_depth_format(instance, &devices.physical) };
@@ -1117,10 +1098,10 @@ impl Vulkan {
 
     fn create_frame_buffers(
         swapchain: &LambdaSwapchain,
-        depth_image_view: ImageView,
-        render_pass: RenderPass,
+        depth_image_view: vk::ImageView,
+        render_pass: vk::RenderPass,
         device: &Device,
-        color_resource: ImageView,
+        color_resource: vk::ImageView,
     ) -> Vec<vk::Framebuffer> {
         let mut frame_buffers = Vec::new();
 
@@ -1151,13 +1132,13 @@ impl Vulkan {
     }
 
     fn create_command_buffers(
-        command_pool: CommandPool,
+        command_pool: vk::CommandPool,
         swapchain: &LambdaSwapchain,
         devices: &LambdaDevices,
-        render_pass: RenderPass,
+        render_pass: vk::RenderPass,
         frame_buffers: &[vk::Framebuffer],
         shapes: &[Model],
-    ) -> Vec<CommandBuffer> {
+    ) -> Vec<vk::CommandBuffer> {
         let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(command_pool)
             .command_buffer_count(swapchain.swapchain_images.len() as u32)
@@ -1178,8 +1159,8 @@ impl Vulkan {
             .max_depth(1.);
 
         let scissor = vk::Rect2D::builder()
-            .offset(Offset2D { x: 0, y: 0 })
-            .extent(Extent2D {
+            .offset(vk::Offset2D { x: 0, y: 0 })
+            .extent(vk::Extent2D {
                 width: swapchain.swapchain_extent.width,
                 height: swapchain.swapchain_extent.height,
             });
@@ -1270,10 +1251,12 @@ impl Vulkan {
             ..Default::default()
         };
 
-        let mut image_available_semaphores: [Semaphore; MAX_FRAMES_IN_FLIGHT] = Default::default();
-        let mut render_finished_semaphores: [Semaphore; MAX_FRAMES_IN_FLIGHT] = Default::default();
-        let mut in_flight_fences: [Fence; MAX_FRAMES_IN_FLIGHT] = Default::default();
-        let images_in_flight: Vec<Fence> = [Fence::null(); 3].to_vec();
+        let mut image_available_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT] =
+            Default::default();
+        let mut render_finished_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT] =
+            Default::default();
+        let mut in_flight_fences: [vk::Fence; MAX_FRAMES_IN_FLIGHT] = Default::default();
+        let images_in_flight: Vec<vk::Fence> = [vk::Fence::null(); 3].to_vec();
 
         unsafe {
             for i in 0..MAX_FRAMES_IN_FLIGHT {
@@ -1298,8 +1281,8 @@ impl Vulkan {
     #[inline]
     unsafe fn map_memory<T>(
         device: &Device,
-        device_memory: DeviceMemory,
-        device_size: DeviceSize,
+        device_memory: vk::DeviceMemory,
+        device_size: vk::DeviceSize,
         to_map: &[T],
     ) where
         T: std::marker::Copy,
@@ -1424,7 +1407,7 @@ impl Vulkan {
             &self.models,
         );
 
-        self.sync_objects.images_in_flight = vec![Fence::null(); 1];
+        self.sync_objects.images_in_flight = vec![vk::Fence::null(); 1];
     }
 
     fn cleanup_swapchain(&self) {
@@ -1523,7 +1506,7 @@ impl Vulkan {
                         self.recreate_swapchain(window);
                         return;
                     }
-                    _ => panic!("Failed to acquire Swap Chain Image!"),
+                    _ => panic!("Failed to acquire Swap Chain vk::Image!"),
                 },
             }
         };

@@ -5,10 +5,7 @@ use ash::{vk, Instance};
 use crate::{LambdaDevices, Vulkan};
 
 pub struct Texture {
-    mip_levels: u32,
-    image: vk::Image,
     pub image_view: vk::ImageView,
-    image_memory: vk::DeviceMemory,
     pub sampler: vk::Sampler,
 }
 
@@ -20,7 +17,7 @@ impl Texture {
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
     ) -> Self {
-        let (image, image_memory, mip_levels) = Self::create_texture_image(
+        let (image, mip_levels) = Self::create_texture_image(
             instance,
             devices,
             image_buffer,
@@ -31,10 +28,7 @@ impl Texture {
         let sampler = Self::create_texture_sampler(instance, devices, mip_levels);
 
         Self {
-            mip_levels,
-            image,
             image_view,
-            image_memory,
             sampler,
         }
     }
@@ -421,7 +415,7 @@ impl Texture {
         image_buffer: &[u8],
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
-    ) -> (vk::Image, vk::DeviceMemory, u32) {
+    ) -> (vk::Image, u32) {
         let image_texture = image::load_from_memory(image_buffer)
             .unwrap()
             // .adjust_contrast(-25.)
@@ -454,7 +448,7 @@ impl Texture {
                 image_data.as_slice(),
             );
 
-            let (image, image_memory) = Vulkan::create_image(
+            let (image, _) = Vulkan::create_image(
                 image_dimensions.0,
                 image_dimensions.1,
                 mip_levels,
@@ -504,7 +498,7 @@ impl Texture {
                 mip_levels,
             );
 
-            (image, image_memory, mip_levels)
+            (image, mip_levels)
         }
     }
 
