@@ -6,14 +6,183 @@ use std::{
 use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3, Zero};
 
-use crate::{pipeline::GraphicsPipeline, texture::Texture, LambdaDevices, LambdaSwapchain, Vulkan};
+use crate::{pipeline::GraphicsPipeline, texture::Texture, Devices, SwapChain, Vulkan};
 
 const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
+const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
+
+const CUBE_VERTICES: [[Vertex; 4]; 6] = [
+    [
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+];
+
+const CUBE_INDICES: [u16; 36] = [
+    0, 1, 2, 2, 3, 0, // top
+    4, 5, 6, 6, 7, 4, // bottom
+    8, 9, 10, 8, 10, 11, // right
+    12, 13, 14, 12, 14, 15, // left
+    16, 17, 18, 16, 18, 19, // front
+    20, 21, 22, 20, 22, 23, // back
+];
 
 pub enum ModelType {
-    SPHERE,
-    CUBE,
-    RING,
+    Sphere,
+    Cube,
+    Ring,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -31,13 +200,15 @@ pub struct Model {
     pub texture: Texture,
     pub graphics_pipeline: GraphicsPipeline,
     pub vertex_buffer: vk::Buffer,
-    index_buffer: vk::Buffer,
+    pub vertex_buffer_memory: vk::DeviceMemory,
+    pub index_buffer: vk::Buffer,
+    pub index_buffer_memory: vk::DeviceMemory,
 }
 
 impl Model {
     pub fn new(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         image_buffer: &[u8],
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
@@ -45,14 +216,14 @@ impl Model {
         indexed: bool,
         topology: Option<vk::PrimitiveTopology>,
         cull_mode: Option<vk::CullModeFlags>,
-        swapchain: &LambdaSwapchain,
+        swapchain: &SwapChain,
         msaa_samples: vk::SampleCountFlags,
         render_pass: vk::RenderPass,
     ) -> Self {
         let (vertices, indices) = match shape_type {
-            ModelType::SPHERE => Self::sphere(0.4, 40, 40),
-            ModelType::CUBE => Self::cube(),
-            ModelType::RING => Self::ring(0.6, 40),
+            ModelType::Sphere => Self::sphere(0.4, 40, 40),
+            ModelType::Cube => Self::cube(),
+            ModelType::Ring => Self::ring(0.6, 40),
         };
 
         let texture = Texture::new(
@@ -63,7 +234,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (vertex_buffer, _vertex_buffer_memory) = Self::create_vertex_index_buffer(
+        let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
@@ -73,7 +244,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (index_buffer, _index_buffer_memory) = Self::create_vertex_index_buffer(
+        let (index_buffer, index_buffer_memory) = Self::create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<u16>() * indices.len()).try_into().unwrap(),
@@ -102,13 +273,15 @@ impl Model {
             texture,
             graphics_pipeline,
             vertex_buffer,
+            vertex_buffer_memory,
             index_buffer,
+            index_buffer_memory,
         }
     }
 
     pub unsafe fn bind(
         &self,
-        devices: &LambdaDevices,
+        devices: &Devices,
         command_buffer: vk::CommandBuffer,
         offsets: &[vk::DeviceSize],
         i: usize,
@@ -288,184 +461,18 @@ impl Model {
         indices
     }
 
+    #[inline]
     fn cube() -> (Vec<Vertex>, Vec<u16>) {
-        let mut cube: [[Vertex; 4]; 6] = [
-            [
-                Vertex {
-                    pos: Vector3::new(-0.5, -0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, -0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, 0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 1.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, 0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 1.),
-                },
-            ],
-            [
-                Vertex {
-                    pos: Vector3::new(-0.5, 0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, 0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, -0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 1.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, -0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 1.),
-                },
-            ],
-            [
-                Vertex {
-                    pos: Vector3::new(-0.5, 0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, 0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, -0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 1.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, -0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 1.),
-                },
-            ],
-            [
-                Vertex {
-                    pos: Vector3::new(0.5, -0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, -0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, 0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 1.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, 0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 1.),
-                },
-            ],
-            [
-                Vertex {
-                    pos: Vector3::new(0.5, 0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, 0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, 0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 1.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, 0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 1.),
-                },
-            ],
-            [
-                Vertex {
-                    pos: Vector3::new(0.5, -0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(0.5, -0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 0.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, -0.5, 0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(0., 1.),
-                },
-                Vertex {
-                    pos: Vector3::new(-0.5, -0.5, -0.5),
-                    colour: WHITE,
-                    normal: Vector3::zero(),
-                    tex_coord: Vector2::new(1., 1.),
-                },
-            ],
-        ];
-
-        let indices: Vec<u16> = vec![
-            0, 1, 2, 2, 3, 0, // top
-            4, 5, 6, 6, 7, 4, // bottom
-            8, 9, 10, 8, 10, 11, // right
-            12, 13, 14, 12, 14, 15, // left
-            16, 17, 18, 16, 18, 19, // front
-            20, 21, 22, 20, 22, 23, // back
-        ];
-
+        let mut cube = CUBE_VERTICES;
         for model in cube.iter_mut() {
             Self::calculate_normals(model);
         }
 
-        (cube.into_iter().flatten().collect(), indices)
+        (cube.into_iter().flatten().collect(), CUBE_INDICES.to_vec())
     }
 
     fn copy_buffer(
-        devices: &LambdaDevices,
+        devices: &Devices,
         command_pool: vk::CommandPool,
         _command_buffer_count: u32,
         size: u64,
@@ -495,7 +502,7 @@ impl Model {
 
     fn create_vertex_index_buffer<T>(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         buffer_size: u64,
         data: &[T],
         usage_flags: vk::BufferUsageFlags,

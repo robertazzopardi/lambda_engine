@@ -2,9 +2,11 @@ use std::cmp::max;
 
 use ash::{vk, Instance};
 
-use crate::{LambdaDevices, Vulkan};
+use crate::{Devices, Vulkan};
 
 pub struct Texture {
+    pub image: vk::Image,
+    pub memory: vk::DeviceMemory,
     pub image_view: vk::ImageView,
     pub sampler: vk::Sampler,
 }
@@ -12,12 +14,12 @@ pub struct Texture {
 impl Texture {
     pub fn new(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         image_buffer: &[u8],
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
     ) -> Self {
-        let (image, mip_levels) = Self::create_texture_image(
+        let (image, memory, mip_levels) = Self::create_texture_image(
             instance,
             devices,
             image_buffer,
@@ -28,6 +30,8 @@ impl Texture {
         let sampler = Self::create_texture_sampler(instance, devices, mip_levels);
 
         Self {
+            image,
+            memory,
             image_view,
             sampler,
         }
@@ -35,7 +39,7 @@ impl Texture {
 
     pub fn create_buffer(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         size: u64,
         usage: vk::BufferUsageFlags,
         properties: vk::MemoryPropertyFlags,
@@ -49,7 +53,7 @@ impl Texture {
             let buffer = devices
                 .logical
                 .create_buffer(&image_buffer_info, None)
-                .expect("Faild to create buffer");
+                .expect("Failed to create buffer");
 
             let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
 
@@ -219,7 +223,7 @@ impl Texture {
     }
 
     fn copy_buffer_to_image(
-        devices: &LambdaDevices,
+        devices: &Devices,
         command_pool: vk::CommandPool,
         _command_buffer_count: u32,
         width: u32,
@@ -266,7 +270,7 @@ impl Texture {
 
     fn generate_mipmaps(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         format: vk::Format,
         image: vk::Image,
         command_pool: vk::CommandPool,
@@ -411,11 +415,11 @@ impl Texture {
 
     fn create_texture_image(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         image_buffer: &[u8],
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
-    ) -> (vk::Image, u32) {
+    ) -> (vk::Image, vk::DeviceMemory, u32) {
         let image_texture = image::load_from_memory(image_buffer)
             .unwrap()
             // .adjust_contrast(-25.)
@@ -448,7 +452,7 @@ impl Texture {
                 image_data.as_slice(),
             );
 
-            let (image, _) = Vulkan::create_image(
+            let (image, memory) = Vulkan::create_image(
                 image_dimensions.0,
                 image_dimensions.1,
                 mip_levels,
@@ -498,12 +502,12 @@ impl Texture {
                 mip_levels,
             );
 
-            (image, mip_levels)
+            (image, memory, mip_levels)
         }
     }
 
     fn create_texture_image_view(
-        devices: &LambdaDevices,
+        devices: &Devices,
         image: vk::Image,
         mip_levels: u32,
     ) -> vk::ImageView {
@@ -518,7 +522,7 @@ impl Texture {
 
     fn create_texture_sampler(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         mip_levels: u32,
     ) -> vk::Sampler {
         unsafe {

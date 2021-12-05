@@ -3,11 +3,12 @@ use std::{ffi::CString, mem::size_of};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 
-use crate::{model::Vertex, texture::Texture, LambdaDevices, LambdaSwapchain, UniformBufferObject};
+use crate::{model::Vertex, texture::Texture, Devices, SwapChain, UniformBufferObject};
 
 pub struct LambdaDescriptorSet {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub descriptor_pool: vk::DescriptorPool,
+    pub descriptor_set_layout: vk::DescriptorSetLayout,
     pub uniform_buffers: Vec<vk::Buffer>,
     pub uniform_buffers_memory: Vec<vk::DeviceMemory>,
 }
@@ -25,8 +26,8 @@ impl GraphicsPipeline {
         instance: &Instance,
         topology: Option<vk::PrimitiveTopology>,
         cull_mode: Option<vk::CullModeFlags>,
-        devices: &LambdaDevices,
-        swapchain: &LambdaSwapchain,
+        devices: &Devices,
+        swapchain: &SwapChain,
         msaa_samples: vk::SampleCountFlags,
         render_pass: vk::RenderPass,
         texture_image_view: vk::ImageView,
@@ -54,20 +55,19 @@ impl GraphicsPipeline {
             render_pass,
         );
 
-        let descriptor_pool =
-            Self::create_descriptor_pool(devices, swapchain.swapchain_images.len() as u32);
+        let descriptor_pool = Self::create_descriptor_pool(devices, swapchain.images.len() as u32);
 
         let (uniform_buffers, uniform_buffers_memory) = GraphicsPipeline::create_uniform_buffers(
             instance,
             devices,
-            swapchain.swapchain_images.len() as u32,
+            swapchain.images.len() as u32,
         );
 
         let descriptor_sets = Self::create_descriptor_sets(
             devices,
             descriptor_set_layout,
             descriptor_pool,
-            swapchain.swapchain_images.len() as u32,
+            swapchain.images.len() as u32,
             texture_image_view,
             sampler,
             &uniform_buffers,
@@ -81,13 +81,14 @@ impl GraphicsPipeline {
             descriptor_set: LambdaDescriptorSet {
                 descriptor_sets,
                 descriptor_pool,
+                descriptor_set_layout,
                 uniform_buffers,
                 uniform_buffers_memory,
             },
         }
     }
 
-    fn create_shader_module(devices: &LambdaDevices, code: &[u32]) -> vk::ShaderModule {
+    fn create_shader_module(devices: &Devices, code: &[u32]) -> vk::ShaderModule {
         let create_info = vk::ShaderModuleCreateInfo::builder().code(code);
 
         unsafe {
@@ -99,10 +100,10 @@ impl GraphicsPipeline {
     }
 
     fn create_pipeline_and_layout(
-        devices: &LambdaDevices,
+        devices: &Devices,
         topology: vk::PrimitiveTopology,
         cull_mode: vk::CullModeFlags,
-        swapchain: &LambdaSwapchain,
+        swapchain: &SwapChain,
         msaa_samples: vk::SampleCountFlags,
         descriptor_set_layout: &vk::DescriptorSetLayout,
         render_pass: vk::RenderPass,
@@ -179,14 +180,14 @@ impl GraphicsPipeline {
         let view_port = vk::Viewport::builder()
             .x(0.)
             .y(0.)
-            .width(swapchain.swapchain_extent.width as f32)
-            .height(swapchain.swapchain_extent.height as f32)
+            .width(swapchain.extent.width as f32)
+            .height(swapchain.extent.height as f32)
             .min_depth(0.)
             .max_depth(1.);
 
         let scissor = vk::Rect2D::builder()
             .offset(vk::Offset2D { x: 0, y: 0 })
-            .extent(swapchain.swapchain_extent);
+            .extent(swapchain.extent);
 
         let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
             .viewports(std::slice::from_ref(&view_port))
@@ -311,7 +312,7 @@ impl GraphicsPipeline {
         }
     }
 
-    fn create_descriptor_set_layout(devices: &LambdaDevices) -> vk::DescriptorSetLayout {
+    fn create_descriptor_set_layout(devices: &Devices) -> vk::DescriptorSetLayout {
         let bindings = [
             Self::fun_name(),
             vk::DescriptorSetLayoutBinding {
@@ -333,10 +334,7 @@ impl GraphicsPipeline {
         }
     }
 
-    fn create_descriptor_pool(
-        devices: &LambdaDevices,
-        swapchain_image_count: u32,
-    ) -> vk::DescriptorPool {
+    fn create_descriptor_pool(devices: &Devices, swapchain_image_count: u32) -> vk::DescriptorPool {
         let pool_sizes = &[
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::UNIFORM_BUFFER,
@@ -362,7 +360,7 @@ impl GraphicsPipeline {
 
     fn create_uniform_buffers(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         swapchain_image_count: u32,
     ) -> (Vec<vk::Buffer>, Vec<vk::DeviceMemory>) {
         let mut uniform_buffers = Vec::new();
@@ -384,7 +382,7 @@ impl GraphicsPipeline {
     }
 
     fn create_descriptor_sets(
-        devices: &LambdaDevices,
+        devices: &Devices,
         descriptor_layout: vk::DescriptorSetLayout,
         descriptor_pool: vk::DescriptorPool,
         swapchain_image_count: u32,

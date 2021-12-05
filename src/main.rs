@@ -10,11 +10,13 @@ use ash::extensions::{
     khr::{Surface, Swapchain},
 };
 use ash::{util::Align, vk, Device, Entry, Instance};
-use cgmath::{Deg, Matrix4, Point3, Quaternion, Rotation, Rotation3, SquareMatrix, Vector3};
+use cgmath::{
+    Array, Deg, Matrix4, Point3, Quaternion, Rotation3, SquareMatrix, Transform, Vector3,
+};
 use model::{Model, ModelType};
 
 use pipeline::GraphicsPipeline;
-use winit::event::ElementState;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 
 use std::{
     borrow::Cow,
@@ -78,14 +80,14 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub struct LambdaDevices {
+pub struct Devices {
     physical: vk::PhysicalDevice,
     logical: Device,
     present_queue: vk::Queue,
     graphics_queue: vk::Queue,
 }
 
-impl LambdaDevices {
+impl Devices {
     fn new(
         physical: vk::PhysicalDevice,
         logical: Device,
@@ -114,13 +116,13 @@ struct SwapChainSupportDetails {
     present_modes: Vec<vk::PresentModeKHR>,
 }
 
-pub struct LambdaSwapchain {
+pub struct SwapChain {
     loader: Swapchain,
     swapchain: vk::SwapchainKHR,
-    swapchain_images: Vec<vk::Image>,
-    swapchain_image_format: vk::Format,
-    swapchain_extent: vk::Extent2D,
-    swapchain_image_views: Vec<vk::ImageView>,
+    images: Vec<vk::Image>,
+    image_format: vk::Format,
+    extent: vk::Extent2D,
+    image_views: Vec<vk::ImageView>,
 }
 
 pub struct QueueFamilyIndices {
@@ -141,6 +143,12 @@ impl QueueFamilyIndices {
     }
 }
 
+impl Default for QueueFamilyIndices {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 struct UniformBufferObject {
     model: Matrix4<f32>,
@@ -158,28 +166,136 @@ impl Default for UniformBufferObject {
     }
 }
 
-struct DepthResource {
+struct Resource {
     image: vk::Image,
     memory: vk::DeviceMemory,
     view: vk::ImageView,
 }
 
-struct ColourResource {
-    image: vk::Image,
-    memory: vk::DeviceMemory,
-    view: vk::ImageView,
+impl Resource {
+    fn create_colour_resources(
+        devices: &Devices,
+        swapchain: &SwapChain,
+        samples: vk::SampleCountFlags,
+        instance: &Instance,
+    ) -> Self {
+        let color_format = swapchain.image_format;
+
+        let (image, memory) = Vulkan::create_image(
+            swapchain.extent.width,
+            swapchain.extent.height,
+            1,
+            samples,
+            color_format,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
+            devices,
+            instance,
+        );
+
+        let view =
+            Vulkan::create_image_view(image, color_format, vk::ImageAspectFlags::COLOR, 1, devices);
+
+        Self {
+            image,
+            memory,
+            view,
+        }
+    }
+
+    fn create_depth_resource(
+        devices: &Devices,
+        swapchain: &SwapChain,
+        samples: vk::SampleCountFlags,
+        instance: &Instance,
+    ) -> Self {
+        let depth_format = unsafe { Self::find_depth_format(instance, &devices.physical) };
+
+        let (image, memory) = Vulkan::create_image(
+            swapchain.extent.width,
+            swapchain.extent.height,
+            1,
+            samples,
+            depth_format,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::TRANSIENT_ATTACHMENT
+                | vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
+            devices,
+            instance,
+        );
+
+        let view =
+            Vulkan::create_image_view(image, depth_format, vk::ImageAspectFlags::DEPTH, 1, devices);
+
+        Self {
+            image,
+            memory,
+            view,
+        }
+    }
+
+    unsafe fn find_depth_format(
+        instance: &Instance,
+        physical_device: &vk::PhysicalDevice,
+    ) -> vk::Format {
+        let candidates = [
+            vk::Format::D32_SFLOAT,
+            vk::Format::D32_SFLOAT_S8_UINT,
+            vk::Format::D24_UNORM_S8_UINT,
+        ];
+        Self::find_supported_format(
+            instance,
+            *physical_device,
+            &candidates,
+            vk::ImageTiling::OPTIMAL,
+            vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
+        )
+    }
+
+    fn find_supported_format(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        candidate_formats: &[vk::Format],
+        tiling: vk::ImageTiling,
+        features: vk::FormatFeatureFlags,
+    ) -> vk::Format {
+        for format in candidate_formats.iter() {
+            let format_properties =
+                unsafe { instance.get_physical_device_format_properties(physical_device, *format) };
+
+            if (tiling == vk::ImageTiling::LINEAR
+                && (format_properties.linear_tiling_features & features) == features)
+                || (tiling == vk::ImageTiling::OPTIMAL
+                    && (format_properties.optimal_tiling_features & features) == features)
+            {
+                return *format;
+            }
+        }
+
+        panic!("Failed to find supported format!")
+    }
 }
 
 struct Camera {
-    eye: Point3<f32>,
+    pos: Point3<f32>,
+    dest: Point3<f32>,
+}
+
+impl Camera {
+    fn looking_angle() -> f32 {
+        0.
+    }
 }
 
 struct Vulkan {
     instance: Instance,
-    // debug_messenger: Option<vk::DebugUtilsMessengerEXT>,
+    debug_messenger: vk::DebugUtilsMessengerEXT,
+    debug_utils: DebugUtils,
     surface: vk::SurfaceKHR,
-    devices: LambdaDevices,
-    swapchain: LambdaSwapchain,
+    devices: Devices,
+    swapchain: SwapChain,
     surface_loader: Surface,
     command_buffers: Vec<vk::CommandBuffer>,
     sync_objects: SyncObjects,
@@ -187,8 +303,8 @@ struct Vulkan {
     models: Vec<Model>,
 
     render_pass: vk::RenderPass,
-    color_resource: ColourResource,
-    depth_resource: DepthResource,
+    color_resource: Resource,
+    depth_resource: Resource,
     frame_buffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
 
@@ -204,7 +320,8 @@ impl Vulkan {
     fn new(window: &Window) -> Self {
         let (instance, entry) = Self::create_instance(window);
 
-        let _debug_messenger = unsafe { Self::setup_debug_messenger(&instance, &entry) };
+        let (debug_messenger, debug_utils) =
+            unsafe { Self::setup_debug_messenger(&instance, &entry) };
 
         let surface = Self::create_surface(&instance, &entry, window);
 
@@ -219,7 +336,7 @@ impl Vulkan {
             &surface_loader,
         );
 
-        let devices = LambdaDevices::new(
+        let devices = Devices::new(
             physical_device,
             logical_device,
             present_queue,
@@ -232,9 +349,9 @@ impl Vulkan {
         let render_pass = Self::create_render_pass(&instance, &devices, &swapchain, msaa_samples);
 
         let color_resource =
-            Self::create_colour_resources(&devices, &swapchain, msaa_samples, &instance);
+            Resource::create_colour_resources(&devices, &swapchain, msaa_samples, &instance);
         let depth_resource =
-            Self::create_depth_resource(&devices, &swapchain, msaa_samples, &instance);
+            Resource::create_depth_resource(&devices, &swapchain, msaa_samples, &instance);
 
         let frame_buffers = Self::create_frame_buffers(
             &swapchain,
@@ -253,8 +370,8 @@ impl Vulkan {
                 &devices,
                 include_bytes!("/Users/rob/Downloads/2k_saturn.jpg"),
                 command_pool,
-                swapchain.swapchain_images.len() as u32,
-                ModelType::SPHERE,
+                swapchain.images.len() as u32,
+                ModelType::Sphere,
                 true,
                 Some(vk::PrimitiveTopology::TRIANGLE_LIST),
                 Some(vk::CullModeFlags::BACK),
@@ -267,8 +384,8 @@ impl Vulkan {
                 &devices,
                 include_bytes!("/Users/rob/Downloads/2k_saturn_ring_alpha.png"),
                 command_pool,
-                swapchain.swapchain_images.len() as u32,
-                ModelType::RING,
+                swapchain.images.len() as u32,
+                ModelType::Ring,
                 false,
                 Some(vk::PrimitiveTopology::TRIANGLE_STRIP),
                 Some(vk::CullModeFlags::NONE),
@@ -292,6 +409,8 @@ impl Vulkan {
         // camera
         Self {
             instance,
+            debug_messenger,
+            debug_utils,
             surface,
             devices,
             swapchain,
@@ -309,7 +428,8 @@ impl Vulkan {
             command_pool,
 
             camera: Camera {
-                eye: Point3::new(5., 1., 2.),
+                pos: Point3::new(5., 1., 2.),
+                dest: Point3::new(0., 0., 0.),
             },
 
             is_framebuffer_resized: false,
@@ -318,7 +438,7 @@ impl Vulkan {
 
     fn create_command_pool(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         surface_loader: &Surface,
         surface: &vk::SurfaceKHR,
     ) -> vk::CommandPool {
@@ -382,7 +502,7 @@ impl Vulkan {
     unsafe fn setup_debug_messenger(
         instance: &Instance,
         entry: &Entry,
-    ) -> Option<vk::DebugUtilsMessengerEXT> {
+    ) -> (vk::DebugUtilsMessengerEXT, DebugUtils) {
         if !enable_validation_layers() {}
 
         let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
@@ -391,10 +511,11 @@ impl Vulkan {
             .pfn_user_callback(Some(vulkan_debug_callback));
 
         let debug_utils_loader = DebugUtils::new(entry, instance);
-        Some(
+        (
             debug_utils_loader
                 .create_debug_utils_messenger(&create_info, None)
                 .unwrap(),
+            debug_utils_loader,
         )
     }
 
@@ -505,12 +626,11 @@ impl Vulkan {
 
         let mut queue_family_indices = QueueFamilyIndices::new();
 
-        let mut index = 0;
-        for queue_family in queue_families.iter() {
+        for (index, queue_family) in queue_families.iter().enumerate() {
             if queue_family.queue_count > 0
                 && queue_family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
             {
-                queue_family_indices.graphics_family = Some(index);
+                queue_family_indices.graphics_family = Some(index.try_into().unwrap());
             }
 
             let is_present_support = unsafe {
@@ -522,14 +642,14 @@ impl Vulkan {
             }
             .unwrap();
             if queue_family.queue_count > 0 && is_present_support {
-                queue_family_indices.present_family = Some(index);
+                queue_family_indices.present_family = Some(index.try_into().unwrap());
             }
 
             if queue_family_indices.is_complete() {
                 break;
             }
 
-            index += 1;
+            // index += 1;
         }
 
         queue_family_indices
@@ -580,7 +700,7 @@ impl Vulkan {
 
     fn query_swapchain_support(
         _instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         surface: vk::SurfaceKHR,
         surface_loader: &Surface,
     ) -> SwapChainSupportDetails {
@@ -654,11 +774,11 @@ impl Vulkan {
 
     fn create_swapchain(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         surface: vk::SurfaceKHR,
         surface_loader: &Surface,
         window: &Window,
-    ) -> LambdaSwapchain {
+    ) -> SwapChain {
         let swapchain_support =
             Self::query_swapchain_support(instance, devices, surface, surface_loader);
 
@@ -721,20 +841,20 @@ impl Vulkan {
             let image_views =
                 Self::create_image_views(devices, &swapchain_images, &surface_format, 1);
 
-            LambdaSwapchain {
+            SwapChain {
                 loader: swapchain,
                 swapchain: swapchain_khr,
-                swapchain_images,
-                swapchain_image_format: surface_format.format,
-                swapchain_extent: extent,
-                swapchain_image_views: image_views,
+                images: swapchain_images,
+                image_format: surface_format.format,
+                extent,
+                image_views,
             }
         }
     }
 
     fn create_image_views(
-        devices: &LambdaDevices,
-        swapchain_images: &Vec<vk::Image>,
+        devices: &Devices,
+        swapchain_images: &[vk::Image],
         surface_format: &vk::SurfaceFormatKHR,
         mip_levels: u32,
     ) -> Vec<vk::ImageView> {
@@ -774,58 +894,15 @@ impl Vulkan {
         swapchain_imageviews
     }
 
-    unsafe fn find_depth_format(
-        instance: &Instance,
-        physical_device: &vk::PhysicalDevice,
-    ) -> vk::Format {
-        let candidates = [
-            vk::Format::D32_SFLOAT,
-            vk::Format::D32_SFLOAT_S8_UINT,
-            vk::Format::D24_UNORM_S8_UINT,
-        ];
-        Self::find_supported_format(
-            instance,
-            *physical_device,
-            &candidates,
-            vk::ImageTiling::OPTIMAL,
-            vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
-        )
-    }
-
-    fn find_supported_format(
-        instance: &ash::Instance,
-        physical_device: vk::PhysicalDevice,
-        candidate_formats: &[vk::Format],
-        tiling: vk::ImageTiling,
-        features: vk::FormatFeatureFlags,
-    ) -> vk::Format {
-        for format in candidate_formats.iter() {
-            let format_properties =
-                unsafe { instance.get_physical_device_format_properties(physical_device, *format) };
-
-            if tiling == vk::ImageTiling::LINEAR
-                && (format_properties.linear_tiling_features & features) == features
-            {
-                return *format;
-            } else if tiling == vk::ImageTiling::OPTIMAL
-                && (format_properties.optimal_tiling_features & features) == features
-            {
-                return *format;
-            }
-        }
-
-        panic!("Failed to find supported format!")
-    }
-
     fn create_render_pass(
         instance: &Instance,
-        devices: &LambdaDevices,
-        swapchain: &LambdaSwapchain,
+        devices: &Devices,
+        swapchain: &SwapChain,
         msaa_samples: vk::SampleCountFlags,
     ) -> vk::RenderPass {
         let renderpass_attachments = [
             vk::AttachmentDescription {
-                format: swapchain.swapchain_image_format,
+                format: swapchain.image_format,
                 samples: msaa_samples,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 store_op: vk::AttachmentStoreOp::DONT_CARE,
@@ -836,7 +913,7 @@ impl Vulkan {
                 ..Default::default()
             },
             vk::AttachmentDescription {
-                format: unsafe { Self::find_depth_format(instance, &devices.physical) },
+                format: unsafe { Resource::find_depth_format(instance, &devices.physical) },
                 samples: msaa_samples,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 store_op: vk::AttachmentStoreOp::DONT_CARE,
@@ -847,7 +924,7 @@ impl Vulkan {
                 ..Default::default()
             },
             vk::AttachmentDescription {
-                format: swapchain.swapchain_image_format,
+                format: swapchain.image_format,
                 samples: vk::SampleCountFlags::TYPE_1,
                 load_op: vk::AttachmentLoadOp::DONT_CARE,
                 store_op: vk::AttachmentStoreOp::DONT_CARE,
@@ -910,7 +987,7 @@ impl Vulkan {
 
     pub fn find_memory_type(
         instance: &Instance,
-        devices: &LambdaDevices,
+        devices: &Devices,
         type_filter: u32,
         properties: vk::MemoryPropertyFlags,
     ) -> u32 {
@@ -939,7 +1016,7 @@ impl Vulkan {
         tiling: vk::ImageTiling,
         usage: vk::ImageUsageFlags,
         properties: vk::MemoryPropertyFlags,
-        devices: &LambdaDevices,
+        devices: &Devices,
         instance: &Instance,
     ) -> (vk::Image, vk::DeviceMemory) {
         let image_info = vk::ImageCreateInfo {
@@ -1000,7 +1077,7 @@ impl Vulkan {
         format: vk::Format,
         aspect_mask: vk::ImageAspectFlags,
         level_count: u32,
-        devices: &LambdaDevices,
+        devices: &Devices,
     ) -> vk::ImageView {
         let image_view_info = vk::ImageViewCreateInfo {
             s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
@@ -1025,79 +1102,8 @@ impl Vulkan {
         }
     }
 
-    fn create_colour_resources(
-        devices: &LambdaDevices,
-        swapchain: &LambdaSwapchain,
-        samples: vk::SampleCountFlags,
-        instance: &Instance,
-    ) -> ColourResource {
-        let color_format = swapchain.swapchain_image_format;
-
-        let (image, memory) = Self::create_image(
-            swapchain.swapchain_extent.width,
-            swapchain.swapchain_extent.height,
-            1,
-            samples,
-            color_format,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
-            devices,
-            instance,
-        );
-
-        let view =
-            Self::create_image_view(image, color_format, vk::ImageAspectFlags::COLOR, 1, devices);
-
-        ColourResource {
-            image,
-            memory,
-            view,
-        }
-    }
-
-    fn create_resource(
-        _devuces: &LambdaDevices,
-        _swapchain: &vk::SwapchainKHR,
-        _samples: vk::SampleCountFlags,
-        _instance: &Instance,
-    ) {
-    }
-
-    fn create_depth_resource(
-        devices: &LambdaDevices,
-        swapchain: &LambdaSwapchain,
-        samples: vk::SampleCountFlags,
-        instance: &Instance,
-    ) -> DepthResource {
-        let depth_format = unsafe { Self::find_depth_format(instance, &devices.physical) };
-
-        let (image, memory) = Self::create_image(
-            swapchain.swapchain_extent.width,
-            swapchain.swapchain_extent.height,
-            1,
-            samples,
-            depth_format,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::TRANSIENT_ATTACHMENT
-                | vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
-            devices,
-            instance,
-        );
-
-        let view =
-            Self::create_image_view(image, depth_format, vk::ImageAspectFlags::DEPTH, 1, devices);
-
-        DepthResource {
-            image,
-            memory,
-            view,
-        }
-    }
-
     fn create_frame_buffers(
-        swapchain: &LambdaSwapchain,
+        swapchain: &SwapChain,
         depth_image_view: vk::ImageView,
         render_pass: vk::RenderPass,
         device: &Device,
@@ -1105,18 +1111,14 @@ impl Vulkan {
     ) -> Vec<vk::Framebuffer> {
         let mut frame_buffers = Vec::new();
 
-        for i in 0..swapchain.swapchain_images.len() {
-            let attachments = &[
-                color_resource,
-                depth_image_view,
-                swapchain.swapchain_image_views[i],
-            ];
+        for i in 0..swapchain.images.len() {
+            let attachments = &[color_resource, depth_image_view, swapchain.image_views[i]];
 
             let frame_buffer_info = vk::FramebufferCreateInfo::builder()
                 .render_pass(render_pass)
                 .attachments(attachments)
-                .width(swapchain.swapchain_extent.width)
-                .height(swapchain.swapchain_extent.height)
+                .width(swapchain.extent.width)
+                .height(swapchain.extent.height)
                 .layers(1);
 
             unsafe {
@@ -1133,15 +1135,15 @@ impl Vulkan {
 
     fn create_command_buffers(
         command_pool: vk::CommandPool,
-        swapchain: &LambdaSwapchain,
-        devices: &LambdaDevices,
+        swapchain: &SwapChain,
+        devices: &Devices,
         render_pass: vk::RenderPass,
         frame_buffers: &[vk::Framebuffer],
         shapes: &[Model],
     ) -> Vec<vk::CommandBuffer> {
         let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(command_pool)
-            .command_buffer_count(swapchain.swapchain_images.len() as u32)
+            .command_buffer_count(swapchain.images.len() as u32)
             .level(vk::CommandBufferLevel::PRIMARY);
 
         let command_buffers = unsafe {
@@ -1153,16 +1155,16 @@ impl Vulkan {
         let view_port = vk::Viewport::builder()
             .x(0.)
             .y(0.)
-            .width(swapchain.swapchain_extent.width as f32)
-            .height(swapchain.swapchain_extent.height as f32)
+            .width(swapchain.extent.width as f32)
+            .height(swapchain.extent.height as f32)
             .min_depth(0.)
             .max_depth(1.);
 
         let scissor = vk::Rect2D::builder()
             .offset(vk::Offset2D { x: 0, y: 0 })
             .extent(vk::Extent2D {
-                width: swapchain.swapchain_extent.width,
-                height: swapchain.swapchain_extent.height,
+                width: swapchain.extent.width,
+                height: swapchain.extent.height,
             });
 
         let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -1184,7 +1186,7 @@ impl Vulkan {
         let offsets = [0_u64];
 
         unsafe {
-            for i in 0..swapchain.swapchain_images.len() {
+            for i in 0..swapchain.images.len() {
                 devices
                     .logical
                     .begin_command_buffer(command_buffers[i as usize], &begin_info)
@@ -1197,7 +1199,7 @@ impl Vulkan {
                     framebuffer: frame_buffers[i],
                     render_area: vk::Rect2D {
                         offset: vk::Offset2D { x: 0, y: 0 },
-                        extent: swapchain.swapchain_extent,
+                        extent: swapchain.extent,
                     },
                     clear_value_count: clear_values.len() as u32,
                     p_clear_values: clear_values.as_ptr(),
@@ -1239,7 +1241,7 @@ impl Vulkan {
         command_buffers
     }
 
-    fn create_sync_objects(device: &Device, _swapchain: &LambdaSwapchain) -> SyncObjects {
+    fn create_sync_objects(device: &Device, _swapchain: &SwapChain) -> SyncObjects {
         let semaphore_create_info = vk::SemaphoreCreateInfo {
             s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
             ..Default::default()
@@ -1296,20 +1298,15 @@ impl Vulkan {
     }
 
     fn update_uniform_buffer(&mut self, current_image: usize) {
-        let rot = Quaternion::from_axis_angle(Vector3::new(0., 0., 1.), Deg(1.0))
-            .rotate_point(self.camera.eye);
-        self.camera.eye = rot;
+        // let rot = Quaternion::from_axis_angle(Vector3::unit_z(), Deg(1.0))
+        //     .rotate_point(self.camera.pos);
+        // self.camera.pos = rot;
 
-        let aspect = self.swapchain.swapchain_extent.width as f32
-            / self.swapchain.swapchain_extent.height as f32;
+        let aspect = self.swapchain.extent.width as f32 / self.swapchain.extent.height as f32;
 
         self.ubo = UniformBufferObject {
             model: Matrix4::identity(),
-            view: Matrix4::look_at_rh(
-                self.camera.eye,
-                Point3::new(0., 0., 0.),
-                Vector3::new(0., 0., 1.),
-            ),
+            view: Matrix4::look_at_rh(self.camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
             proj: {
                 let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 10.);
                 p[1][1] *= -1.;
@@ -1364,13 +1361,13 @@ impl Vulkan {
             &self.swapchain,
             self.msaa_samples,
         );
-        self.color_resource = Self::create_colour_resources(
+        self.color_resource = Resource::create_colour_resources(
             &self.devices,
             &self.swapchain,
             self.msaa_samples,
             &self.instance,
         );
-        self.depth_resource = Self::create_depth_resource(
+        self.depth_resource = Resource::create_depth_resource(
             &self.devices,
             &self.swapchain,
             self.msaa_samples,
@@ -1459,7 +1456,7 @@ impl Vulkan {
                 .destroy_swapchain(self.swapchain.swapchain, None);
 
             for model in &self.models {
-                for i in 0..self.swapchain.swapchain_images.len() {
+                for i in 0..self.swapchain.images.len() {
                     self.devices.logical.destroy_buffer(
                         model.graphics_pipeline.descriptor_set.uniform_buffers[i],
                         None,
@@ -1474,14 +1471,14 @@ impl Vulkan {
                 }
             }
 
-            for i in 0..self.swapchain.swapchain_images.len() {
+            for i in 0..self.swapchain.images.len() {
                 self.devices
                     .logical
                     .destroy_framebuffer(self.frame_buffers[i], None);
 
                 self.devices
                     .logical
-                    .destroy_image_view(self.swapchain.swapchain_image_views[i], None);
+                    .destroy_image_view(self.swapchain.image_views[i], None);
             }
         }
     }
@@ -1592,7 +1589,78 @@ impl Vulkan {
 
 impl Drop for Vulkan {
     fn drop(&mut self) {
-        unsafe {}
+        unsafe {
+            self.devices.logical.device_wait_idle().unwrap();
+
+            self.cleanup_swapchain();
+
+            for model in &self.models {
+                self.devices
+                    .logical
+                    .destroy_pipeline(model.graphics_pipeline.pipeline, None);
+                self.devices
+                    .logical
+                    .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
+
+                self.devices
+                    .logical
+                    .destroy_sampler(model.texture.sampler, None);
+                self.devices
+                    .logical
+                    .destroy_image_view(model.texture.image_view, None);
+
+                self.devices
+                    .logical
+                    .destroy_image(model.texture.image, None);
+                self.devices.logical.free_memory(model.texture.memory, None);
+
+                self.devices.logical.destroy_descriptor_set_layout(
+                    model.graphics_pipeline.descriptor_set.descriptor_set_layout,
+                    None,
+                );
+
+                self.devices
+                    .logical
+                    .destroy_buffer(model.vertex_buffer, None);
+                self.devices
+                    .logical
+                    .free_memory(model.vertex_buffer_memory, None);
+
+                self.devices
+                    .logical
+                    .destroy_buffer(model.index_buffer, None);
+                self.devices
+                    .logical
+                    .free_memory(model.index_buffer_memory, None);
+            }
+
+            for i in 0..MAX_FRAMES_IN_FLIGHT {
+                self.devices
+                    .logical
+                    .destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
+                self.devices
+                    .logical
+                    .destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
+                self.devices
+                    .logical
+                    .destroy_fence(self.sync_objects.in_flight_fences[i], None);
+            }
+
+            self.devices
+                .logical
+                .destroy_command_pool(self.command_pool, None);
+
+            self.devices.logical.destroy_device(None);
+
+            if enable_validation_layers() {
+                self.debug_utils
+                    .destroy_debug_utils_messenger(self.debug_messenger, None);
+            }
+
+            self.surface_loader.destroy_surface(self.surface, None);
+
+            self.instance.destroy_instance(None);
+        }
     }
 }
 
@@ -1606,7 +1674,7 @@ fn main() {
     let mut vulkan: Vulkan = Vulkan::new(&window);
 
     event_loop.run(move |event, _, control_flow| {
-        // *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::Poll;
 
         match event {
             Event::WindowEvent {
@@ -1621,6 +1689,50 @@ fn main() {
                     },
                 ..
             } => {}
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(virtual_code),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => match virtual_code {
+                VirtualKeyCode::Up => {
+                    let v = Vector3::new(
+                        -0.01 * vulkan.camera.pos.x,
+                        -0.01 * vulkan.camera.pos.y,
+                        -0.01 * vulkan.camera.pos.z,
+                    );
+
+                    let m = Matrix4::<f32>::from_translation(v);
+                    let z = m.transform_point(vulkan.camera.pos);
+                    vulkan.camera.pos = z;
+                }
+                VirtualKeyCode::Down => {
+                    let v = Vector3::new(
+                        0.01 * vulkan.camera.pos.x,
+                        0.01 * vulkan.camera.pos.y,
+                        0.01 * vulkan.camera.pos.z,
+                    );
+
+                    let m = Matrix4::<f32>::from_translation(v);
+                    let z = m.transform_point(vulkan.camera.pos);
+                    vulkan.camera.pos = z;
+                }
+                VirtualKeyCode::Left => {
+                    println!("here")
+                }
+                VirtualKeyCode::Right => {
+                    println!("here")
+                }
+                VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                _ => (),
+            },
             _ => (),
         }
 
