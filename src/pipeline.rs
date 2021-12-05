@@ -3,7 +3,7 @@ use std::{ffi::CString, mem::size_of};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 
-use crate::{model::Vertex, texture::Texture, Devices, SwapChain, UniformBufferObject};
+use crate::{model::Vertex, swapchain::SwapChain, texture::Texture, Devices, UniformBufferObject};
 
 pub struct LambdaDescriptorSet {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
@@ -28,7 +28,6 @@ impl GraphicsPipeline {
         cull_mode: Option<vk::CullModeFlags>,
         devices: &Devices,
         swapchain: &SwapChain,
-        msaa_samples: vk::SampleCountFlags,
         render_pass: vk::RenderPass,
         texture_image_view: vk::ImageView,
         sampler: vk::Sampler,
@@ -50,7 +49,6 @@ impl GraphicsPipeline {
             topology,
             cull_mode,
             swapchain,
-            msaa_samples,
             &descriptor_set_layout,
             render_pass,
         );
@@ -104,7 +102,6 @@ impl GraphicsPipeline {
         topology: vk::PrimitiveTopology,
         cull_mode: vk::CullModeFlags,
         swapchain: &SwapChain,
-        msaa_samples: vk::SampleCountFlags,
         descriptor_set_layout: &vk::DescriptorSetLayout,
         render_pass: vk::RenderPass,
     ) -> (vk::Pipeline, vk::PipelineLayout) {
@@ -205,7 +202,7 @@ impl GraphicsPipeline {
             .depth_bias_enable(false);
 
         let multisampling = vk::PipelineMultisampleStateCreateInfo::builder()
-            .rasterization_samples(msaa_samples)
+            .rasterization_samples(devices.msaa_samples)
             .sample_shading_enable(true)
             .min_sample_shading(0.2)
             .alpha_to_coverage_enable(false)

@@ -217,7 +217,6 @@ impl Model {
         topology: Option<vk::PrimitiveTopology>,
         cull_mode: Option<vk::CullModeFlags>,
         swapchain: &SwapChain,
-        msaa_samples: vk::SampleCountFlags,
         render_pass: vk::RenderPass,
     ) -> Self {
         let (vertices, indices) = match shape_type {
@@ -260,7 +259,6 @@ impl Model {
             cull_mode,
             devices,
             swapchain,
-            msaa_samples,
             render_pass,
             texture.image_view,
             texture.sampler,

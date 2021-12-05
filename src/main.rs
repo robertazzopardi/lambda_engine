@@ -1,21 +1,20 @@
 extern crate ash;
 extern crate winit;
 
+mod device;
 mod model;
 mod pipeline;
+mod swapchain;
 mod texture;
 
-use ash::extensions::{
-    ext::DebugUtils,
-    khr::{Surface, Swapchain},
-};
+use ash::extensions::{ext::DebugUtils, khr::Surface};
 use ash::{util::Align, vk, Device, Entry, Instance};
-use cgmath::{
-    Array, Deg, Matrix4, Point3, Quaternion, Rotation3, SquareMatrix, Transform, Vector3,
-};
+use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Transform, Vector3};
+use device::Devices;
 use model::{Model, ModelType};
 
 use pipeline::GraphicsPipeline;
+use swapchain::SwapChain;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 
 use std::{
@@ -80,73 +79,11 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub struct Devices {
-    physical: vk::PhysicalDevice,
-    logical: Device,
-    present_queue: vk::Queue,
-    graphics_queue: vk::Queue,
-}
-
-impl Devices {
-    fn new(
-        physical: vk::PhysicalDevice,
-        logical: Device,
-        present_queue: vk::Queue,
-        graphics_queue: vk::Queue,
-    ) -> Self {
-        Self {
-            physical,
-            logical,
-            present_queue,
-            graphics_queue,
-        }
-    }
-}
-
 struct SyncObjects {
     image_available_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
     render_finished_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
     in_flight_fences: [vk::Fence; MAX_FRAMES_IN_FLIGHT],
     images_in_flight: Vec<vk::Fence>,
-}
-
-struct SwapChainSupportDetails {
-    capabilities: vk::SurfaceCapabilitiesKHR,
-    formats: Vec<vk::SurfaceFormatKHR>,
-    present_modes: Vec<vk::PresentModeKHR>,
-}
-
-pub struct SwapChain {
-    loader: Swapchain,
-    swapchain: vk::SwapchainKHR,
-    images: Vec<vk::Image>,
-    image_format: vk::Format,
-    extent: vk::Extent2D,
-    image_views: Vec<vk::ImageView>,
-}
-
-pub struct QueueFamilyIndices {
-    pub graphics_family: Option<u32>,
-    pub present_family: Option<u32>,
-}
-
-impl QueueFamilyIndices {
-    pub fn new() -> QueueFamilyIndices {
-        QueueFamilyIndices {
-            graphics_family: None,
-            present_family: None,
-        }
-    }
-
-    pub fn is_complete(&self) -> bool {
-        self.graphics_family.is_some() && self.present_family.is_some()
-    }
-}
-
-impl Default for QueueFamilyIndices {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -176,7 +113,6 @@ impl Resource {
     fn create_colour_resources(
         devices: &Devices,
         swapchain: &SwapChain,
-        samples: vk::SampleCountFlags,
         instance: &Instance,
     ) -> Self {
         let color_format = swapchain.image_format;
@@ -185,7 +121,7 @@ impl Resource {
             swapchain.extent.width,
             swapchain.extent.height,
             1,
-            samples,
+            devices.msaa_samples,
             color_format,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | vk::ImageUsageFlags::COLOR_ATTACHMENT,
@@ -207,7 +143,6 @@ impl Resource {
     fn create_depth_resource(
         devices: &Devices,
         swapchain: &SwapChain,
-        samples: vk::SampleCountFlags,
         instance: &Instance,
     ) -> Self {
         let depth_format = unsafe { Self::find_depth_format(instance, &devices.physical) };
@@ -216,7 +151,7 @@ impl Resource {
             swapchain.extent.width,
             swapchain.extent.height,
             1,
-            samples,
+            devices.msaa_samples,
             depth_format,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSIENT_ATTACHMENT
@@ -280,19 +215,18 @@ impl Resource {
 
 struct Camera {
     pos: Point3<f32>,
-    dest: Point3<f32>,
 }
 
-impl Camera {
-    fn looking_angle() -> f32 {
-        0.
-    }
+impl Camera {}
+
+struct Debugging {
+    debug_messenger: vk::DebugUtilsMessengerEXT,
+    debug_utils: DebugUtils,
 }
 
 struct Vulkan {
     instance: Instance,
-    debug_messenger: vk::DebugUtilsMessengerEXT,
-    debug_utils: DebugUtils,
+    debugging: Option<Debugging>,
     surface: vk::SurfaceKHR,
     devices: Devices,
     swapchain: SwapChain,
@@ -308,8 +242,6 @@ struct Vulkan {
     frame_buffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
 
-    msaa_samples: vk::SampleCountFlags,
-
     ubo: UniformBufferObject,
     camera: Camera,
 
@@ -320,38 +252,21 @@ impl Vulkan {
     fn new(window: &Window) -> Self {
         let (instance, entry) = Self::create_instance(window);
 
-        let (debug_messenger, debug_utils) =
-            unsafe { Self::setup_debug_messenger(&instance, &entry) };
+        let debugging = unsafe { Self::setup_debug_messenger(&instance, &entry) };
 
         let surface = Self::create_surface(&instance, &entry, window);
 
-        let (physical_device, queue_family_index, surface_loader, msaa_samples) =
-            Self::pick_physical_device(&instance, &entry, &surface);
+        let surface_loader = Surface::new(&entry, &instance);
 
-        let (logical_device, present_queue, graphics_queue) = Self::create_logical_device(
-            &instance,
-            physical_device,
-            queue_family_index,
-            &surface,
-            &surface_loader,
-        );
-
-        let devices = Devices::new(
-            physical_device,
-            logical_device,
-            present_queue,
-            graphics_queue,
-        );
+        let devices = Devices::new(&instance, &surface, &surface_loader);
 
         let swapchain =
-            Self::create_swapchain(&instance, &devices, surface, &surface_loader, window);
+            SwapChain::create_swapchain(&instance, &devices, surface, &surface_loader, window);
 
-        let render_pass = Self::create_render_pass(&instance, &devices, &swapchain, msaa_samples);
+        let render_pass = Self::create_render_pass(&instance, &devices, &swapchain);
 
-        let color_resource =
-            Resource::create_colour_resources(&devices, &swapchain, msaa_samples, &instance);
-        let depth_resource =
-            Resource::create_depth_resource(&devices, &swapchain, msaa_samples, &instance);
+        let color_resource = Resource::create_colour_resources(&devices, &swapchain, &instance);
+        let depth_resource = Resource::create_depth_resource(&devices, &swapchain, &instance);
 
         let frame_buffers = Self::create_frame_buffers(
             &swapchain,
@@ -376,7 +291,6 @@ impl Vulkan {
                 Some(vk::PrimitiveTopology::TRIANGLE_LIST),
                 Some(vk::CullModeFlags::BACK),
                 &swapchain,
-                msaa_samples,
                 render_pass,
             ),
             Model::new(
@@ -390,7 +304,6 @@ impl Vulkan {
                 Some(vk::PrimitiveTopology::TRIANGLE_STRIP),
                 Some(vk::CullModeFlags::NONE),
                 &swapchain,
-                msaa_samples,
                 render_pass,
             ),
         ];
@@ -409,13 +322,11 @@ impl Vulkan {
         // camera
         Self {
             instance,
-            debug_messenger,
-            debug_utils,
+            debugging,
             surface,
             devices,
             swapchain,
             command_buffers,
-            msaa_samples,
             sync_objects,
             surface_loader,
             current_frame: 0,
@@ -426,12 +337,9 @@ impl Vulkan {
             depth_resource,
             frame_buffers,
             command_pool,
-
             camera: Camera {
                 pos: Point3::new(5., 1., 2.),
-                dest: Point3::new(0., 0., 0.),
             },
-
             is_framebuffer_resized: false,
         }
     }
@@ -443,7 +351,7 @@ impl Vulkan {
         surface: &vk::SurfaceKHR,
     ) -> vk::CommandPool {
         let queue_family_indices =
-            Self::find_queue_family(instance, devices.physical, surface_loader, surface);
+            Devices::find_queue_family(instance, devices.physical, surface_loader, surface);
 
         let pool_info = vk::CommandPoolCreateInfo::builder()
             .queue_family_index(queue_family_indices.graphics_family.unwrap());
@@ -499,24 +407,22 @@ impl Vulkan {
         }
     }
 
-    unsafe fn setup_debug_messenger(
-        instance: &Instance,
-        entry: &Entry,
-    ) -> (vk::DebugUtilsMessengerEXT, DebugUtils) {
-        if !enable_validation_layers() {}
+    unsafe fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debugging> {
+        if enable_validation_layers() {
+            let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+                .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
+                .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+                .pfn_user_callback(Some(vulkan_debug_callback));
 
-        let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
-            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
-            .pfn_user_callback(Some(vulkan_debug_callback));
-
-        let debug_utils_loader = DebugUtils::new(entry, instance);
-        (
-            debug_utils_loader
-                .create_debug_utils_messenger(&create_info, None)
-                .unwrap(),
-            debug_utils_loader,
-        )
+            let debug_utils_loader = DebugUtils::new(entry, instance);
+            Some(Debugging {
+                debug_messenger: debug_utils_loader
+                    .create_debug_utils_messenger(&create_info, None)
+                    .unwrap(),
+                debug_utils: debug_utils_loader,
+            });
+        }
+        None
     }
 
     fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> vk::SurfaceKHR {
@@ -526,384 +432,15 @@ impl Vulkan {
         }
     }
 
-    fn get_max_usable_sample_count(
-        instance: &Instance,
-        physical_device: vk::PhysicalDevice,
-    ) -> vk::SampleCountFlags {
-        unsafe {
-            let physical_device_properties =
-                instance.get_physical_device_properties(physical_device);
-
-            let counts = physical_device_properties
-                .limits
-                .framebuffer_color_sample_counts
-                & physical_device_properties
-                    .limits
-                    .framebuffer_depth_sample_counts;
-
-            if (counts & vk::SampleCountFlags::TYPE_64) == vk::SampleCountFlags::TYPE_64 {
-                return vk::SampleCountFlags::TYPE_64;
-            }
-            if (counts & vk::SampleCountFlags::TYPE_32) == vk::SampleCountFlags::TYPE_32 {
-                return vk::SampleCountFlags::TYPE_32;
-            }
-            if (counts & vk::SampleCountFlags::TYPE_16) == vk::SampleCountFlags::TYPE_16 {
-                return vk::SampleCountFlags::TYPE_16;
-            }
-            if (counts & vk::SampleCountFlags::TYPE_8) == vk::SampleCountFlags::TYPE_8 {
-                return vk::SampleCountFlags::TYPE_8;
-            }
-            if (counts & vk::SampleCountFlags::TYPE_4) == vk::SampleCountFlags::TYPE_4 {
-                return vk::SampleCountFlags::TYPE_4;
-            }
-            if (counts & vk::SampleCountFlags::TYPE_2) == vk::SampleCountFlags::TYPE_2 {
-                return vk::SampleCountFlags::TYPE_2;
-            }
-
-            vk::SampleCountFlags::TYPE_1
-        }
-    }
-
-    fn pick_physical_device(
-        instance: &Instance,
-        entry: &Entry,
-        surface: &vk::SurfaceKHR,
-    ) -> (vk::PhysicalDevice, u32, Surface, vk::SampleCountFlags) {
-        unsafe {
-            let devices = instance
-                .enumerate_physical_devices()
-                .expect("Failed to find GPUs with Vulkan support!");
-
-            let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
-
-            let (physical_device, queue_family_index) = devices
-                .iter()
-                .map(|pdevice| {
-                    instance
-                        .get_physical_device_queue_family_properties(*pdevice)
-                        .iter()
-                        .enumerate()
-                        .find_map(|(index, info)| {
-                            let supports_graphic_and_surface =
-                                info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
-                                    && surface_loader
-                                        .get_physical_device_surface_support(
-                                            *pdevice,
-                                            index as u32,
-                                            *surface,
-                                        )
-                                        .unwrap();
-                            if supports_graphic_and_surface {
-                                Some((*pdevice, index))
-                            } else {
-                                None
-                            }
-                        })
-                })
-                .flatten()
-                .next()
-                .expect("Couldn't find suitable device.");
-
-            let samples = Self::get_max_usable_sample_count(instance, physical_device);
-
-            (
-                physical_device,
-                queue_family_index as u32,
-                surface_loader,
-                samples,
-            )
-        }
-    }
-
-    pub fn find_queue_family(
-        instance: &ash::Instance,
-        physical_device: vk::PhysicalDevice,
-        surface_loader: &Surface,
-        surface: &vk::SurfaceKHR,
-    ) -> QueueFamilyIndices {
-        let queue_families =
-            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
-
-        let mut queue_family_indices = QueueFamilyIndices::new();
-
-        for (index, queue_family) in queue_families.iter().enumerate() {
-            if queue_family.queue_count > 0
-                && queue_family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
-            {
-                queue_family_indices.graphics_family = Some(index.try_into().unwrap());
-            }
-
-            let is_present_support = unsafe {
-                surface_loader.get_physical_device_surface_support(
-                    physical_device,
-                    index as u32,
-                    *surface,
-                )
-            }
-            .unwrap();
-            if queue_family.queue_count > 0 && is_present_support {
-                queue_family_indices.present_family = Some(index.try_into().unwrap());
-            }
-
-            if queue_family_indices.is_complete() {
-                break;
-            }
-
-            // index += 1;
-        }
-
-        queue_family_indices
-    }
-
-    fn create_logical_device(
-        instance: &Instance,
-        physical_device: vk::PhysicalDevice,
-        queue_family_index: u32,
-        surface: &vk::SurfaceKHR,
-        surface_loader: &Surface,
-    ) -> (Device, vk::Queue, vk::Queue) {
-        let device_extension_names_raw = [Swapchain::name().as_ptr()];
-
-        let features = vk::PhysicalDeviceFeatures::builder()
-            .sampler_anisotropy(true)
-            .sample_rate_shading(true)
-            .fill_mode_non_solid(true)
-            .shader_clip_distance(true);
-
-        let priorities = 1.0;
-
-        let queue_info = vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(queue_family_index)
-            .queue_priorities(std::slice::from_ref(&priorities));
-
-        let device_create_info = vk::DeviceCreateInfo::builder()
-            .queue_create_infos(std::slice::from_ref(&queue_info))
-            .enabled_extension_names(&device_extension_names_raw)
-            .enabled_features(&features);
-
-        let queue_family =
-            Self::find_queue_family(instance, physical_device, surface_loader, surface);
-
-        unsafe {
-            let logical_device = instance
-                .create_device(physical_device, &device_create_info, None)
-                .unwrap();
-
-            let graphics_queue =
-                logical_device.get_device_queue(queue_family.graphics_family.unwrap(), 0);
-            let present_queue =
-                logical_device.get_device_queue(queue_family.present_family.unwrap(), 0);
-
-            (logical_device, present_queue, graphics_queue)
-        }
-    }
-
-    fn query_swapchain_support(
-        _instance: &Instance,
-        devices: &Devices,
-        surface: vk::SurfaceKHR,
-        surface_loader: &Surface,
-    ) -> SwapChainSupportDetails {
-        let mut details = SwapChainSupportDetails {
-            formats: Vec::new(),
-            present_modes: Vec::new(),
-            capabilities: unsafe {
-                surface_loader
-                    .get_physical_device_surface_capabilities(devices.physical, surface)
-                    .unwrap()
-            },
-        };
-
-        details.formats = unsafe {
-            surface_loader
-                .get_physical_device_surface_formats(devices.physical, surface)
-                .expect("Could not get Physical Device Surface Formats")
-        };
-
-        details.present_modes = unsafe {
-            surface_loader
-                .get_physical_device_surface_present_modes(devices.physical, surface)
-                .expect("Could not get Physical Device Present Modes")
-        };
-
-        details
-    }
-
-    fn choose_swap_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::SurfaceFormatKHR {
-        for format in formats {
-            if format.format == vk::Format::R8G8B8A8_SRGB
-                && format.color_space == vk::ColorSpaceKHR::EXTENDED_SRGB_NONLINEAR_EXT
-            {
-                return *format;
-            }
-        }
-
-        formats[0]
-    }
-
-    fn choose_present_mode(present_modes: Vec<vk::PresentModeKHR>) -> vk::PresentModeKHR {
-        for present_mode in present_modes {
-            if present_mode == vk::PresentModeKHR::MAILBOX {
-                return present_mode;
-            }
-        }
-        vk::PresentModeKHR::FIFO
-    }
-
-    fn choose_swap_extent(
-        capabilities: vk::SurfaceCapabilitiesKHR,
-        window: &Window,
-    ) -> vk::Extent2D {
-        if capabilities.current_extent.width != u32::MAX {
-            capabilities.current_extent
-        } else {
-            let size = window.inner_size();
-
-            vk::Extent2D {
-                width: size.width.clamp(
-                    capabilities.min_image_extent.width,
-                    capabilities.max_image_extent.width,
-                ),
-                height: size.height.clamp(
-                    capabilities.min_image_extent.height,
-                    capabilities.max_image_extent.height,
-                ),
-            }
-        }
-    }
-
-    fn create_swapchain(
-        instance: &Instance,
-        devices: &Devices,
-        surface: vk::SurfaceKHR,
-        surface_loader: &Surface,
-        window: &Window,
-    ) -> SwapChain {
-        let swapchain_support =
-            Self::query_swapchain_support(instance, devices, surface, surface_loader);
-
-        let surface_format = Self::choose_swap_surface_format(&swapchain_support.formats);
-
-        let present_mode = Self::choose_present_mode(swapchain_support.present_modes);
-
-        let extent = Self::choose_swap_extent(swapchain_support.capabilities, window);
-
-        let mut swapchain_image_count = swapchain_support.capabilities.min_image_count + 1;
-
-        if swapchain_support.capabilities.max_image_count > 0
-            && swapchain_image_count > swapchain_support.capabilities.max_image_count
-        {
-            swapchain_image_count = swapchain_support.capabilities.max_image_count;
-        }
-
-        let mut create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface)
-            .min_image_count(swapchain_image_count)
-            .image_format(surface_format.format)
-            .image_color_space(surface_format.color_space)
-            .image_extent(extent)
-            .image_array_layers(1)
-            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .pre_transform(swapchain_support.capabilities.current_transform)
-            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-            .present_mode(present_mode)
-            .clipped(true)
-            .old_swapchain(vk::SwapchainKHR::null());
-
-        let queue_family_indices =
-            Self::find_queue_family(instance, devices.physical, surface_loader, &surface);
-
-        if queue_family_indices.graphics_family != queue_family_indices.present_family {
-            create_info.image_sharing_mode = vk::SharingMode::CONCURRENT;
-            create_info.queue_family_index_count = 2;
-
-            let queue_family_indices_arr = [
-                queue_family_indices.graphics_family.unwrap(),
-                queue_family_indices.present_family.unwrap(),
-            ];
-
-            create_info.p_queue_family_indices = queue_family_indices_arr.as_ptr();
-        } else {
-            create_info.image_sharing_mode = vk::SharingMode::EXCLUSIVE;
-        }
-
-        let swapchain = Swapchain::new(instance, &devices.logical);
-
-        unsafe {
-            let swapchain_khr = swapchain
-                .create_swapchain(&create_info, None)
-                .expect("Failed to create swapchain");
-
-            let swapchain_images = swapchain
-                .get_swapchain_images(swapchain_khr)
-                .expect("Could not get swapchain images");
-
-            let image_views =
-                Self::create_image_views(devices, &swapchain_images, &surface_format, 1);
-
-            SwapChain {
-                loader: swapchain,
-                swapchain: swapchain_khr,
-                images: swapchain_images,
-                image_format: surface_format.format,
-                extent,
-                image_views,
-            }
-        }
-    }
-
-    fn create_image_views(
-        devices: &Devices,
-        swapchain_images: &[vk::Image],
-        surface_format: &vk::SurfaceFormatKHR,
-        mip_levels: u32,
-    ) -> Vec<vk::ImageView> {
-        let mut swapchain_imageviews = vec![];
-
-        for &image in swapchain_images.iter() {
-            let imageview_create_info = vk::ImageViewCreateInfo {
-                s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
-                image,
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: surface_format.format,
-                components: vk::ComponentMapping {
-                    r: vk::ComponentSwizzle::IDENTITY,
-                    g: vk::ComponentSwizzle::IDENTITY,
-                    b: vk::ComponentSwizzle::IDENTITY,
-                    a: vk::ComponentSwizzle::IDENTITY,
-                },
-                subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::COLOR,
-                    base_mip_level: 0,
-                    level_count: mip_levels,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                },
-                ..Default::default()
-            };
-
-            let imageview = unsafe {
-                devices
-                    .logical
-                    .create_image_view(&imageview_create_info, None)
-                    .expect("Failed to create vk::Image View!")
-            };
-            swapchain_imageviews.push(imageview);
-        }
-
-        swapchain_imageviews
-    }
-
     fn create_render_pass(
         instance: &Instance,
         devices: &Devices,
         swapchain: &SwapChain,
-        msaa_samples: vk::SampleCountFlags,
     ) -> vk::RenderPass {
         let renderpass_attachments = [
             vk::AttachmentDescription {
                 format: swapchain.image_format,
-                samples: msaa_samples,
+                samples: devices.msaa_samples,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 store_op: vk::AttachmentStoreOp::DONT_CARE,
                 stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
@@ -914,7 +451,7 @@ impl Vulkan {
             },
             vk::AttachmentDescription {
                 format: unsafe { Resource::find_depth_format(instance, &devices.physical) },
-                samples: msaa_samples,
+                samples: devices.msaa_samples,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 store_op: vk::AttachmentStoreOp::DONT_CARE,
                 stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
@@ -1347,7 +884,7 @@ impl Vulkan {
 
         self.cleanup_swapchain();
 
-        self.swapchain = Self::create_swapchain(
+        self.swapchain = SwapChain::create_swapchain(
             &self.instance,
             &self.devices,
             self.surface,
@@ -1355,24 +892,11 @@ impl Vulkan {
             window,
         );
 
-        self.render_pass = Self::create_render_pass(
-            &self.instance,
-            &self.devices,
-            &self.swapchain,
-            self.msaa_samples,
-        );
-        self.color_resource = Resource::create_colour_resources(
-            &self.devices,
-            &self.swapchain,
-            self.msaa_samples,
-            &self.instance,
-        );
-        self.depth_resource = Resource::create_depth_resource(
-            &self.devices,
-            &self.swapchain,
-            self.msaa_samples,
-            &self.instance,
-        );
+        self.render_pass = Self::create_render_pass(&self.instance, &self.devices, &self.swapchain);
+        self.color_resource =
+            Resource::create_colour_resources(&self.devices, &self.swapchain, &self.instance);
+        self.depth_resource =
+            Resource::create_depth_resource(&self.devices, &self.swapchain, &self.instance);
         self.frame_buffers = Self::create_frame_buffers(
             &self.swapchain,
             self.depth_resource.view,
@@ -1388,7 +912,6 @@ impl Vulkan {
                 Some(model.graphics_pipeline.cull_mode),
                 &self.devices,
                 &self.swapchain,
-                self.msaa_samples,
                 self.render_pass,
                 model.texture.image_view,
                 model.texture.sampler,
@@ -1653,8 +1176,11 @@ impl Drop for Vulkan {
             self.devices.logical.destroy_device(None);
 
             if enable_validation_layers() {
-                self.debug_utils
-                    .destroy_debug_utils_messenger(self.debug_messenger, None);
+                if let Some(debugger) = &self.debugging {
+                    debugger
+                        .debug_utils
+                        .destroy_debug_utils_messenger(debugger.debug_messenger, None);
+                }
             }
 
             self.surface_loader.destroy_surface(self.surface, None);
