@@ -415,7 +415,7 @@ impl Vulkan {
                 .pfn_user_callback(Some(vulkan_debug_callback));
 
             let debug_utils_loader = DebugUtils::new(entry, instance);
-            Some(Debugging {
+            return Some(Debugging {
                 debug_messenger: debug_utils_loader
                     .create_debug_utils_messenger(&create_info, None)
                     .unwrap(),
