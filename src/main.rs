@@ -1,21 +1,28 @@
 extern crate ash;
 extern crate winit;
 
+mod camera;
 mod device;
 mod model;
 mod pipeline;
+mod resource;
 mod swapchain;
 mod texture;
 
-use ash::extensions::{ext::DebugUtils, khr::Surface};
-use ash::{util::Align, vk, Device, Entry, Instance};
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Transform, Vector3};
+use ash::{
+    extensions::{ext::DebugUtils, khr::Surface},
+    util::Align,
+    vk, Device, Entry, Instance,
+};
+use camera::Camera;
+use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
 use device::Devices;
 use model::{Model, ModelType};
 
 use pipeline::GraphicsPipeline;
+use resource::{Resource, ResourceType};
 use swapchain::SwapChain;
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
+use winit::event::{DeviceEvent, ElementState, KeyboardInput};
 
 use std::{
     borrow::Cow,
@@ -103,122 +110,6 @@ impl Default for UniformBufferObject {
     }
 }
 
-struct Resource {
-    image: vk::Image,
-    memory: vk::DeviceMemory,
-    view: vk::ImageView,
-}
-
-impl Resource {
-    fn create_colour_resources(
-        devices: &Devices,
-        swapchain: &SwapChain,
-        instance: &Instance,
-    ) -> Self {
-        let color_format = swapchain.image_format;
-
-        let (image, memory) = Vulkan::create_image(
-            swapchain.extent.width,
-            swapchain.extent.height,
-            1,
-            devices.msaa_samples,
-            color_format,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
-            devices,
-            instance,
-        );
-
-        let view =
-            Vulkan::create_image_view(image, color_format, vk::ImageAspectFlags::COLOR, 1, devices);
-
-        Self {
-            image,
-            memory,
-            view,
-        }
-    }
-
-    fn create_depth_resource(
-        devices: &Devices,
-        swapchain: &SwapChain,
-        instance: &Instance,
-    ) -> Self {
-        let depth_format = unsafe { Self::find_depth_format(instance, &devices.physical) };
-
-        let (image, memory) = Vulkan::create_image(
-            swapchain.extent.width,
-            swapchain.extent.height,
-            1,
-            devices.msaa_samples,
-            depth_format,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::TRANSIENT_ATTACHMENT
-                | vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
-            devices,
-            instance,
-        );
-
-        let view =
-            Vulkan::create_image_view(image, depth_format, vk::ImageAspectFlags::DEPTH, 1, devices);
-
-        Self {
-            image,
-            memory,
-            view,
-        }
-    }
-
-    unsafe fn find_depth_format(
-        instance: &Instance,
-        physical_device: &vk::PhysicalDevice,
-    ) -> vk::Format {
-        let candidates = [
-            vk::Format::D32_SFLOAT,
-            vk::Format::D32_SFLOAT_S8_UINT,
-            vk::Format::D24_UNORM_S8_UINT,
-        ];
-        Self::find_supported_format(
-            instance,
-            *physical_device,
-            &candidates,
-            vk::ImageTiling::OPTIMAL,
-            vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
-        )
-    }
-
-    fn find_supported_format(
-        instance: &ash::Instance,
-        physical_device: vk::PhysicalDevice,
-        candidate_formats: &[vk::Format],
-        tiling: vk::ImageTiling,
-        features: vk::FormatFeatureFlags,
-    ) -> vk::Format {
-        for format in candidate_formats.iter() {
-            let format_properties =
-                unsafe { instance.get_physical_device_format_properties(physical_device, *format) };
-
-            if (tiling == vk::ImageTiling::LINEAR
-                && (format_properties.linear_tiling_features & features) == features)
-                || (tiling == vk::ImageTiling::OPTIMAL
-                    && (format_properties.optimal_tiling_features & features) == features)
-            {
-                return *format;
-            }
-        }
-
-        panic!("Failed to find supported format!")
-    }
-}
-
-struct Camera {
-    pos: Point3<f32>,
-}
-
-impl Camera {}
-
 struct Debugging {
     debug_messenger: vk::DebugUtilsMessengerEXT,
     debug_utils: DebugUtils,
@@ -243,7 +134,6 @@ struct Vulkan {
     command_pool: vk::CommandPool,
 
     ubo: UniformBufferObject,
-    camera: Camera,
 
     is_framebuffer_resized: bool,
 }
@@ -265,8 +155,10 @@ impl Vulkan {
 
         let render_pass = Self::create_render_pass(&instance, &devices, &swapchain);
 
-        let color_resource = Resource::create_colour_resources(&devices, &swapchain, &instance);
-        let depth_resource = Resource::create_depth_resource(&devices, &swapchain, &instance);
+        let color_resource =
+            Resource::create_resource(&devices, &swapchain, &instance, ResourceType::Colour);
+        let depth_resource =
+            Resource::create_resource(&devices, &swapchain, &instance, ResourceType::Depth);
 
         let frame_buffers = Self::create_frame_buffers(
             &swapchain,
@@ -283,7 +175,7 @@ impl Vulkan {
             Model::new(
                 &instance,
                 &devices,
-                include_bytes!("/Users/rob/Downloads/2k_saturn.jpg"),
+                include_bytes!("../assets/2k_saturn.jpg"),
                 command_pool,
                 swapchain.images.len() as u32,
                 ModelType::Sphere,
@@ -296,7 +188,7 @@ impl Vulkan {
             Model::new(
                 &instance,
                 &devices,
-                include_bytes!("/Users/rob/Downloads/2k_saturn_ring_alpha.png"),
+                include_bytes!("../assets/2k_saturn_ring_alpha.png"),
                 command_pool,
                 swapchain.images.len() as u32,
                 ModelType::Ring,
@@ -319,7 +211,6 @@ impl Vulkan {
 
         let sync_objects = Self::create_sync_objects(&devices.logical, &swapchain);
 
-        // camera
         Self {
             instance,
             debugging,
@@ -337,9 +228,6 @@ impl Vulkan {
             depth_resource,
             frame_buffers,
             command_pool,
-            camera: Camera {
-                pos: Point3::new(5., 1., 2.),
-            },
             is_framebuffer_resized: false,
         }
     }
@@ -834,7 +722,7 @@ impl Vulkan {
         device.unmap_memory(device_memory);
     }
 
-    fn update_uniform_buffer(&mut self, current_image: usize) {
+    fn update_uniform_buffer(&mut self, camera: &mut Camera, current_image: usize) {
         // let rot = Quaternion::from_axis_angle(Vector3::unit_z(), Deg(1.0))
         //     .rotate_point(self.camera.pos);
         // self.camera.pos = rot;
@@ -843,7 +731,7 @@ impl Vulkan {
 
         self.ubo = UniformBufferObject {
             model: Matrix4::identity(),
-            view: Matrix4::look_at_rh(self.camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
+            view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
             proj: {
                 let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 10.);
                 p[1][1] *= -1.;
@@ -893,10 +781,19 @@ impl Vulkan {
         );
 
         self.render_pass = Self::create_render_pass(&self.instance, &self.devices, &self.swapchain);
-        self.color_resource =
-            Resource::create_colour_resources(&self.devices, &self.swapchain, &self.instance);
-        self.depth_resource =
-            Resource::create_depth_resource(&self.devices, &self.swapchain, &self.instance);
+        self.color_resource = Resource::create_resource(
+            &self.devices,
+            &self.swapchain,
+            &self.instance,
+            ResourceType::Colour,
+        );
+        self.depth_resource = Resource::create_resource(
+            &self.devices,
+            &self.swapchain,
+            &self.instance,
+            ResourceType::Depth,
+        );
+
         self.frame_buffers = Self::create_frame_buffers(
             &self.swapchain,
             self.depth_resource.view,
@@ -1006,7 +903,7 @@ impl Vulkan {
         }
     }
 
-    unsafe fn render(&mut self, window: &Window) {
+    unsafe fn render(&mut self, window: &Window, camera: &mut Camera) {
         self.devices
             .logical
             .wait_for_fences(&self.sync_objects.in_flight_fences, true, std::u64::MAX)
@@ -1031,7 +928,7 @@ impl Vulkan {
             }
         };
 
-        self.update_uniform_buffer(image_index.try_into().unwrap());
+        self.update_uniform_buffer(camera, image_index.try_into().unwrap());
 
         if self.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
             self.devices
@@ -1197,7 +1094,11 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
+    let mut camera = Camera::new(5., 1., 2.);
+
     let mut vulkan: Vulkan = Vulkan::new(&window);
+
+    // let mut dragging = false;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -1208,13 +1109,23 @@ fn main() {
                 window_id,
             } if window_id == window.id() => *control_flow = ControlFlow::Exit,
             Event::WindowEvent {
+                event: WindowEvent::CursorMoved { position, .. },
+                ..
+            } => {
+                // println!("{} {}", position.x, position.y)
+                camera.rotate(0.0, 0.0, 0.1);
+                println!("{:?}", camera.pos);
+            }
+            Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
                         state: ElementState::Pressed,
                         ..
                     },
                 ..
-            } => {}
+            } => {
+                println!("mouse")
+            }
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
@@ -1227,41 +1138,30 @@ fn main() {
                         ..
                     },
                 ..
-            } => match virtual_code {
-                VirtualKeyCode::Up => {
-                    let v = Vector3::new(
-                        -0.01 * vulkan.camera.pos.x,
-                        -0.01 * vulkan.camera.pos.y,
-                        -0.01 * vulkan.camera.pos.z,
-                    );
-
-                    let m = Matrix4::<f32>::from_translation(v);
-                    let z = m.transform_point(vulkan.camera.pos);
-                    vulkan.camera.pos = z;
-                }
-                VirtualKeyCode::Down => {
-                    let v = Vector3::new(
-                        0.01 * vulkan.camera.pos.x,
-                        0.01 * vulkan.camera.pos.y,
-                        0.01 * vulkan.camera.pos.z,
-                    );
-
-                    let m = Matrix4::<f32>::from_translation(v);
-                    let z = m.transform_point(vulkan.camera.pos);
-                    vulkan.camera.pos = z;
-                }
-                VirtualKeyCode::Left => {
-                    println!("here")
-                }
-                VirtualKeyCode::Right => {
-                    println!("here")
-                }
-                VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                _ => (),
+            } => camera.update_camera(control_flow, virtual_code),
+            Event::DeviceEvent { event, .. } => match event {
+                DeviceEvent::MouseWheel { delta } => match delta {
+                    winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                        println!("mouse wheel Line Delta: ({},{})", x, y);
+                        let pixels_per_line = 120.0;
+                        let mut pos = window.outer_position().unwrap();
+                        pos.x -= (x * pixels_per_line) as i32;
+                        pos.y -= (y * pixels_per_line) as i32;
+                        window.set_outer_position(pos)
+                    }
+                    winit::event::MouseScrollDelta::PixelDelta(p) => {
+                        println!("mouse wheel Pixel Delta: ({},{})", p.x, p.y);
+                        let mut pos = window.outer_position().unwrap();
+                        pos.x -= p.x as i32;
+                        pos.y -= p.y as i32;
+                        window.set_outer_position(pos)
+                    }
+                },
+                _ => {}
             },
             _ => (),
         }
 
-        unsafe { vulkan.render(&window) };
+        unsafe { vulkan.render(&window, &mut camera) };
     });
 }
