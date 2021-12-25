@@ -1,72 +1,129 @@
-use cgmath::{Matrix4, Point3, Transform, Vector3};
-use winit::{event::VirtualKeyCode, event_loop::ControlFlow};
+use cgmath::{EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Vector3};
+use std::f32::consts::FRAC_PI_2;
+use winit::{
+    dpi::PhysicalPosition,
+    event::{ElementState, MouseScrollDelta, VirtualKeyCode},
+};
+
+const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 pub struct Camera {
     pub pos: Point3<f32>,
+    rotate_horizontal: f32,
+    rotate_vertical: f32,
+    yaw: Rad<f32>,
+    pitch: Rad<f32>,
+    sensitivity: f32,
+    speed: f32,
+    scroll: f32,
+    amount_left: f32,
+    amount_right: f32,
+    amount_forward: f32,
+    amount_backward: f32,
+    amount_up: f32,
+    amount_down: f32,
 }
 
 impl Camera {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
             pos: Point3::new(x, y, z),
+            rotate_horizontal: 0.0,
+            rotate_vertical: 0.0,
+            yaw: Rad(0.0),
+            pitch: Rad(0.0),
+            sensitivity: 0.5,
+            speed: 0.5,
+            scroll: 0.0,
+            amount_left: 0.0,
+            amount_right: 0.0,
+            amount_forward: 0.0,
+            amount_backward: 0.0,
+            amount_up: 0.0,
+            amount_down: 0.0,
         }
     }
 
-    pub fn update_camera(&mut self, control_flow: &mut ControlFlow, virtual_code: VirtualKeyCode) {
-        match virtual_code {
-            VirtualKeyCode::Up => {
-                let v = Vector3::new(-0.01 * self.pos.x, -0.01 * self.pos.y, -0.01 * self.pos.z);
+    pub fn calc_matrix(&self, center: Point3<f32>) -> Matrix4<f32> {
+        // Matrix4::look_at_rh(self.pos, center, Vector3::unit_z())
+        Matrix4::look_to_rh(
+            self.pos,
+            Vector3::new(self.yaw.0.cos(), self.pitch.0.sin(), self.yaw.0.sin()).normalize(),
+            Vector3::unit_y(),
+        )
+    }
 
-                let m = Matrix4::<f32>::from_translation(v);
-                let z = m.transform_point(self.pos);
-                self.pos = z;
+    pub fn process_keyboard(&mut self, key: VirtualKeyCode, state: ElementState) {
+        let amount = if state == ElementState::Pressed {
+            1.0
+        } else {
+            0.0
+        };
+        match key {
+            VirtualKeyCode::W | VirtualKeyCode::Up => {
+                self.amount_forward = amount;
             }
-            VirtualKeyCode::Down => {
-                let v = Vector3::new(0.01 * self.pos.x, 0.01 * self.pos.y, 0.01 * self.pos.z);
-
-                let m = Matrix4::<f32>::from_translation(v);
-                let z = m.transform_point(self.pos);
-                self.pos = z;
+            VirtualKeyCode::S | VirtualKeyCode::Down => {
+                self.amount_backward = amount;
             }
-            VirtualKeyCode::Left => {
-                println!("here")
+            VirtualKeyCode::A | VirtualKeyCode::Left => {
+                self.amount_left = amount;
             }
-            VirtualKeyCode::Right => {
-                println!("here")
+            VirtualKeyCode::D | VirtualKeyCode::Right => {
+                self.amount_right = amount;
             }
-            VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+            VirtualKeyCode::Space => {
+                self.amount_up = amount;
+            }
+            VirtualKeyCode::LShift => {
+                self.amount_down = amount;
+            }
             _ => (),
         }
     }
 
-    pub fn rotate(&mut self, pitch: f32, roll: f32, yaw: f32) {
-        let cosa = yaw.cos();
-        let sina = yaw.sin();
+    pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
+        self.rotate_horizontal = mouse_dx as f32;
+        self.rotate_vertical = mouse_dy as f32;
+    }
 
-        let cosb = pitch.cos();
-        let sinb = pitch.sin();
+    pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
+        self.scroll = -match delta {
+            // I'm assuming a line is about 100 pixels
+            MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
+        };
+    }
 
-        let cosc = roll.cos();
-        let sinc = roll.sin();
+    pub fn rotate(&mut self, dt: f32) {
+        // Movement
+        let (yaw_sin, yaw_cos) = self.yaw.0.sin_cos();
+        let forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
+        let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+        self.pos += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
+        self.pos += right * (self.amount_right - self.amount_left) * self.speed * dt;
 
-        let axx = cosa * cosb;
-        let axy = cosa * sinb * sinc - sina * cosc;
-        let axz = cosa * sinb * cosc + sina * sinc;
+        // Zoom
+        let (pitch_sin, pitch_cos) = self.pitch.0.sin_cos();
+        let scrollward =
+            Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize();
+        self.pos += scrollward * self.scroll * self.speed * self.sensitivity * dt;
+        self.scroll = 0.0;
 
-        let ayx = sina * cosb;
-        let ayy = sina * sinb * sinc + cosa * cosc;
-        let ayz = sina * sinb * cosc - cosa * sinc;
+        self.pos.y += (self.amount_up - self.amount_down) * self.speed * dt;
 
-        let azx = -sinb;
-        let azy = cosb * sinc;
-        let azz = cosb * cosc;
+        // Rotation
+        self.yaw += Rad(self.rotate_horizontal) * self.sensitivity * dt;
+        self.pitch += Rad(-self.rotate_vertical) * self.sensitivity * dt;
 
-        let px = self.pos.x;
-        let py = self.pos.y;
-        let pz = self.pos.z;
+        self.rotate_horizontal = 0.0;
+        self.rotate_vertical = 0.0;
 
-        self.pos.x = axx * px + axy * py + axz * pz;
-        self.pos.y = ayx * px + ayy * py + ayz * pz;
-        self.pos.z = azx * px + azy * py + azz * pz;
+        // Keep the camera's angle from going too high/low.
+        if self.pitch < -Rad(SAFE_FRAC_PI_2) {
+            self.pitch = -Rad(SAFE_FRAC_PI_2);
+        } else if self.pitch > Rad(SAFE_FRAC_PI_2) {
+            self.pitch = Rad(SAFE_FRAC_PI_2);
+        }
     }
 }

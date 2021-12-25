@@ -8,14 +8,16 @@ mod pipeline;
 mod resource;
 mod swapchain;
 mod texture;
+mod time;
 
 use ash::{
     extensions::{ext::DebugUtils, khr::Surface},
     util::Align,
-    vk, Device, Entry, Instance,
+    vk::{self, Extent2D},
+    Device, Entry, Instance,
 };
 use camera::Camera;
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
+use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Transform, Vector3};
 use device::Devices;
 use model::{Model, ModelType};
 
@@ -28,6 +30,7 @@ use std::{
     borrow::Cow,
     ffi::{CStr, CString},
     ptr,
+    time::{Duration, Instant, SystemTime},
 };
 
 use winit::{
@@ -100,11 +103,25 @@ struct UniformBufferObject {
     proj: Matrix4<f32>,
 }
 
-impl Default for UniformBufferObject {
-    fn default() -> Self {
+impl UniformBufferObject {
+    fn update(&mut self, extent: Extent2D, camera: &mut Camera) {
+        let aspect = extent.width as f32 / extent.height as f32;
+
+        // self.model = Matrix4::from_angle_y(Deg(0.));
+
+        self.view = camera.calc_matrix(Point3::new(0., 0., 0.));
+        self.proj = {
+            let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 100.);
+            p[1][1] *= -1.;
+            p
+        };
+    }
+
+    fn new(camera: &mut Camera) -> Self {
         Self {
             model: Matrix4::identity(),
-            view: Matrix4::identity(),
+            // view: Matrix4::identity(),
+            view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
             proj: Matrix4::identity(),
         }
     }
@@ -139,7 +156,7 @@ struct Vulkan {
 }
 
 impl Vulkan {
-    fn new(window: &Window) -> Self {
+    fn new(window: &Window, camera: &mut Camera) -> Self {
         let (instance, entry) = Self::create_instance(window);
 
         let debugging = unsafe { Self::setup_debug_messenger(&instance, &entry) };
@@ -222,7 +239,7 @@ impl Vulkan {
             surface_loader,
             current_frame: 0,
             models: shapes,
-            ubo: UniformBufferObject::default(),
+            ubo: UniformBufferObject::new(camera),
             render_pass,
             color_resource,
             depth_resource,
@@ -727,18 +744,6 @@ impl Vulkan {
         //     .rotate_point(self.camera.pos);
         // self.camera.pos = rot;
 
-        let aspect = self.swapchain.extent.width as f32 / self.swapchain.extent.height as f32;
-
-        self.ubo = UniformBufferObject {
-            model: Matrix4::identity(),
-            view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
-            proj: {
-                let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 10.);
-                p[1][1] *= -1.;
-                p
-            },
-        };
-
         let ubos = [self.ubo];
 
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
@@ -1087,6 +1092,80 @@ impl Drop for Vulkan {
     }
 }
 
+fn handle_inputs(
+    control_flow: &mut ControlFlow,
+    event: Event<()>,
+    window: &Window,
+    camera: &mut Camera,
+    mouse_pressed: &mut bool,
+) {
+    *control_flow = ControlFlow::Poll;
+
+    match event {
+        Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            window_id,
+        } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+        Event::WindowEvent {
+            event:
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(key),
+                            state,
+                            ..
+                        },
+                    ..
+                },
+            ..
+        } => camera.process_keyboard(key, state),
+        Event::WindowEvent {
+            event: WindowEvent::MouseInput { state, .. },
+            ..
+        } => {
+            *mouse_pressed = state == ElementState::Pressed;
+            // println!("mouse")
+        }
+        Event::DeviceEvent { event, .. } => match event {
+            // DeviceEvent::MouseWheel { delta } => match delta {
+            //     winit::event::MouseScrollDelta::LineDelta(x, y) => {
+            //         println!("mouse wheel Line Delta: ({},{})", x, y);
+            //         let pixels_per_line = 120.0;
+            //         let mut pos = window.outer_position().unwrap();
+            //         pos.x -= (x * pixels_per_line) as i32;
+            //         pos.y -= (y * pixels_per_line) as i32;
+            //         window.set_outer_position(pos)
+            //     }
+            //     winit::event::MouseScrollDelta::PixelDelta(p) => {
+            //         println!("mouse wheel Pixel Delta: ({},{})", p.x, p.y);
+            //         let mut pos = window.outer_position().unwrap();
+            //         pos.x -= p.x as i32;
+            //         pos.y -= p.y as i32;
+            //         window.set_outer_position(pos)
+            //     }
+            // },
+            DeviceEvent::MouseWheel { delta, .. } => {
+                camera.process_scroll(&delta);
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                if *mouse_pressed {
+                    // println!("{:?}", delta);
+                    camera.process_mouse(delta.0, delta.1);
+                }
+            }
+            _ => {}
+        },
+        _ => (),
+    }
+}
+
+struct State {}
+
+fn update(vulkan: &mut Vulkan, camera: &mut Camera, dt: f32) {
+    camera.rotate(dt);
+    vulkan.ubo.update(vulkan.swapchain.extent, camera);
+}
+
 fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -1096,70 +1175,38 @@ fn main() {
 
     let mut camera = Camera::new(5., 1., 2.);
 
-    let mut vulkan: Vulkan = Vulkan::new(&window);
+    let mut vulkan: Vulkan = Vulkan::new(&window, &mut camera);
 
-    // let mut dragging = false;
+    let mut mouse_pressed = false;
+
+    let dt = Duration::from_secs_f32(0.01666);
+    let mut t = Duration::ZERO;
+    let mut current_time = std::time::Instant::now();
+    let mut accumulator = Duration::ZERO;
 
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+        let new_time = std::time::Instant::now();
+        let frame_time = new_time - current_time; // from ns to s
+        current_time = new_time;
 
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id,
-            } if window_id == window.id() => *control_flow = ControlFlow::Exit,
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { position, .. },
-                ..
-            } => {
-                // println!("{} {}", position.x, position.y)
-                camera.rotate(0.0, 0.0, 0.1);
-                println!("{:?}", camera.pos);
-            }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseInput {
-                        state: ElementState::Pressed,
-                        ..
-                    },
-                ..
-            } => {
-                println!("mouse")
-            }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                virtual_keycode: Some(virtual_code),
-                                state: ElementState::Pressed,
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            } => camera.update_camera(control_flow, virtual_code),
-            Event::DeviceEvent { event, .. } => match event {
-                DeviceEvent::MouseWheel { delta } => match delta {
-                    winit::event::MouseScrollDelta::LineDelta(x, y) => {
-                        println!("mouse wheel Line Delta: ({},{})", x, y);
-                        let pixels_per_line = 120.0;
-                        let mut pos = window.outer_position().unwrap();
-                        pos.x -= (x * pixels_per_line) as i32;
-                        pos.y -= (y * pixels_per_line) as i32;
-                        window.set_outer_position(pos)
-                    }
-                    winit::event::MouseScrollDelta::PixelDelta(p) => {
-                        println!("mouse wheel Pixel Delta: ({},{})", p.x, p.y);
-                        let mut pos = window.outer_position().unwrap();
-                        pos.x -= p.x as i32;
-                        pos.y -= p.y as i32;
-                        window.set_outer_position(pos)
-                    }
-                },
-                _ => {}
-            },
-            _ => (),
+        accumulator += frame_time;
+
+        handle_inputs(
+            control_flow,
+            event,
+            &window,
+            &mut camera,
+            &mut mouse_pressed,
+        );
+
+        while accumulator >= dt {
+            // update(t, dt);
+            update(&mut vulkan, &mut camera, dt.as_secs_f32());
+            accumulator -= dt;
+            t += dt;
+
+            // println!("{:?}", frame_time);
+            // println!("{:?}", dt.as_secs_f32())
         }
 
         unsafe { vulkan.render(&window, &mut camera) };
