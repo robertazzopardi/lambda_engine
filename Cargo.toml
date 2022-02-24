@@ -1,17 +1,8 @@
-[package]
-name = "lambda_engine"
-version = "0.1.0"
-edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-ash = "0.36.0"
-ash-window = "0.9.1"
-cgmath = "0.18.0"
-image = "0.24.1"
-winit = "0.26.1"
-memoffset = "0.6.5"
+[workspace]
+members = ["engine"]
+default-members = ["engine"]
 
 [profile.release]
 strip = true
