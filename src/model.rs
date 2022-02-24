@@ -6,7 +6,7 @@ use std::{
 use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3, Zero};
 
-use crate::{pipeline::GraphicsPipeline, texture::Texture, Devices, SwapChain, Vulkan};
+use crate::{pipeline::GraphicsPipeline, texture, Devices, SwapChain, Vulkan, command_buffer};
 
 const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
@@ -197,7 +197,7 @@ pub struct Model {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
     indexed: bool,
-    pub texture: Texture,
+    pub texture: texture::Texture,
     pub graphics_pipeline: GraphicsPipeline,
     pub vertex_buffer: vk::Buffer,
     pub vertex_buffer_memory: vk::DeviceMemory,
@@ -225,7 +225,7 @@ impl Model {
             ModelType::Ring => Self::ring(0.6, 40),
         };
 
-        let texture = Texture::new(
+        let texture = texture::Texture::new(
             instance,
             devices,
             image_buffer,
@@ -477,7 +477,8 @@ impl Model {
         src_buffer: vk::Buffer,
         dst_buffer: vk::Buffer,
     ) {
-        let command_buffer = Texture::begin_single_time_command(&devices.logical, command_pool);
+        let command_buffer =
+            command_buffer::begin_single_time_command(&devices.logical, command_pool);
 
         let copy_region = vk::BufferCopy::builder().size(size);
 
@@ -490,7 +491,7 @@ impl Model {
             );
         }
 
-        Texture::end_single_time_command(
+        command_buffer::end_single_time_command(
             &devices.logical,
             command_pool,
             devices.graphics_queue,
@@ -510,7 +511,7 @@ impl Model {
     where
         T: std::marker::Copy,
     {
-        let (staging_buffer, staging_buffer_memory) = Texture::create_buffer(
+        let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
             instance,
             devices,
             buffer_size,
@@ -522,7 +523,7 @@ impl Model {
             Vulkan::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
         }
 
-        let (buffer, buffer_memory) = Texture::create_buffer(
+        let (buffer, buffer_memory) = texture::create_buffer(
             instance,
             devices,
             buffer_size,

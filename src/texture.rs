@@ -1,8 +1,6 @@
-use std::cmp::max;
-
+use crate::{command_buffer, Devices, Vulkan};
 use ash::{vk, Instance};
-
-use crate::{Devices, Vulkan};
+use std::cmp::max;
 
 pub struct Texture {
     pub image: vk::Image,
@@ -19,7 +17,7 @@ impl Texture {
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
     ) -> Self {
-        let (image, memory, mip_levels) = Self::create_texture_image(
+        let (image, memory, mip_levels) = create_texture_image(
             instance,
             devices,
             image_buffer,
@@ -27,129 +25,13 @@ impl Texture {
             command_buffer_count,
         );
         let image_view = Self::create_texture_image_view(devices, image, mip_levels);
-        let sampler = Self::create_texture_sampler(instance, devices, mip_levels);
+        let sampler = create_texture_sampler(instance, devices, mip_levels);
 
         Self {
             image,
             memory,
             image_view,
             sampler,
-        }
-    }
-
-    pub fn create_buffer(
-        instance: &Instance,
-        devices: &Devices,
-        size: u64,
-        usage: vk::BufferUsageFlags,
-        properties: vk::MemoryPropertyFlags,
-    ) -> (vk::Buffer, vk::DeviceMemory) {
-        let image_buffer_info = vk::BufferCreateInfo::builder()
-            .size(size)
-            .usage(usage)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-        unsafe {
-            let buffer = devices
-                .logical
-                .create_buffer(&image_buffer_info, None)
-                .expect("Failed to create buffer");
-
-            let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
-
-            let memory_type_index = Vulkan::find_memory_type(
-                instance,
-                devices,
-                memory_requirements.memory_type_bits,
-                properties,
-            );
-
-            let image_buffer_allocate_info = vk::MemoryAllocateInfo::builder()
-                .allocation_size(memory_requirements.size)
-                .memory_type_index(memory_type_index);
-
-            let buffer_memory = devices
-                .logical
-                .allocate_memory(&image_buffer_allocate_info, None)
-                .expect("Failed to allocate buffer memory!");
-
-            devices
-                .logical
-                .bind_buffer_memory(buffer, buffer_memory, 0)
-                .expect("Could not bind command buffer memory");
-
-            (buffer, buffer_memory)
-        }
-    }
-
-    pub fn begin_single_time_command(
-        device: &ash::Device,
-        command_pool: vk::CommandPool,
-    ) -> vk::CommandBuffer {
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-            p_next: std::ptr::null(),
-            command_buffer_count: 1,
-            command_pool,
-            level: vk::CommandBufferLevel::PRIMARY,
-        };
-
-        let command_buffer = unsafe {
-            device
-                .allocate_command_buffers(&command_buffer_allocate_info)
-                .expect("Failed to allocate Command Buffers!")
-        }[0];
-
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-            p_next: std::ptr::null(),
-            p_inheritance_info: std::ptr::null(),
-            flags: vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT,
-        };
-
-        unsafe {
-            device
-                .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-                .expect("Failed to begin recording Command Buffer at beginning!");
-        }
-
-        command_buffer
-    }
-
-    pub fn end_single_time_command(
-        device: &ash::Device,
-        command_pool: vk::CommandPool,
-        submit_queue: vk::Queue,
-        command_buffer: vk::CommandBuffer,
-    ) {
-        unsafe {
-            device
-                .end_command_buffer(command_buffer)
-                .expect("Failed to record Command Buffer at Ending!");
-        }
-
-        let buffers_to_submit = [command_buffer];
-
-        let submit_infos = [vk::SubmitInfo {
-            s_type: vk::StructureType::SUBMIT_INFO,
-            p_next: std::ptr::null(),
-            wait_semaphore_count: 0,
-            p_wait_semaphores: std::ptr::null(),
-            p_wait_dst_stage_mask: std::ptr::null(),
-            command_buffer_count: 1,
-            p_command_buffers: buffers_to_submit.as_ptr(),
-            signal_semaphore_count: 0,
-            p_signal_semaphores: std::ptr::null(),
-        }];
-
-        unsafe {
-            device
-                .queue_submit(submit_queue, &submit_infos, vk::Fence::null())
-                .expect("Failed to Queue Submit!");
-            device
-                .queue_wait_idle(submit_queue)
-                .expect("Failed to wait Queue idle!");
-            device.free_command_buffers(command_pool, &buffers_to_submit);
         }
     }
 
@@ -163,7 +45,7 @@ impl Texture {
         new_layout: vk::ImageLayout,
         mip_levels: u32,
     ) {
-        let command_buffer = Self::begin_single_time_command(device, command_pool);
+        let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
 
         let src_access_mask;
         let dst_access_mask;
@@ -219,7 +101,7 @@ impl Texture {
             );
         }
 
-        Self::end_single_time_command(device, command_pool, submit_queue, command_buffer);
+        command_buffer::end_single_time_command(device, command_pool, submit_queue, command_buffer);
     }
 
     fn copy_buffer_to_image(
@@ -231,7 +113,8 @@ impl Texture {
         src_buffer: vk::Buffer,
         dst_image: vk::Image,
     ) {
-        let command_buffer = Self::begin_single_time_command(&devices.logical, command_pool);
+        let command_buffer =
+            command_buffer::begin_single_time_command(&devices.logical, command_pool);
 
         let image_subresource = vk::ImageSubresourceLayers::builder()
             .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -260,7 +143,7 @@ impl Texture {
             )
         }
 
-        Self::end_single_time_command(
+        command_buffer::end_single_time_command(
             &devices.logical,
             command_pool,
             devices.graphics_queue,
@@ -287,7 +170,8 @@ impl Texture {
             panic!("Texture image format does not support linear bilitting!");
         }
 
-        let command_buffer = Texture::begin_single_time_command(&devices.logical, command_pool);
+        let command_buffer =
+            command_buffer::begin_single_time_command(&devices.logical, command_pool);
 
         let mut image_barrier = vk::ImageMemoryBarrier::builder()
             .image(image)
@@ -405,105 +289,12 @@ impl Texture {
             );
         }
 
-        Texture::end_single_time_command(
+        command_buffer::end_single_time_command(
             &devices.logical,
             command_pool,
             devices.graphics_queue,
             command_buffer,
         );
-    }
-
-    fn create_texture_image(
-        instance: &Instance,
-        devices: &Devices,
-        image_buffer: &[u8],
-        command_pool: vk::CommandPool,
-        command_buffer_count: u32,
-    ) -> (vk::Image, vk::DeviceMemory, u32) {
-        let image_texture = image::load_from_memory(image_buffer)
-            .unwrap()
-            // .adjust_contrast(-25.)
-            .to_rgba8();
-
-        let image_dimensions = image_texture.dimensions();
-        let image_data = image_texture.into_raw();
-
-        let mip_levels = ((image_dimensions.0.max(image_dimensions.1) as f32)
-            .log2()
-            .floor()
-            + 1.) as u32;
-
-        let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
-            as vk::DeviceSize;
-
-        let (staging_buffer, staging_buffer_memory) = Self::create_buffer(
-            instance,
-            devices,
-            size,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        );
-
-        unsafe {
-            Vulkan::map_memory(
-                &devices.logical,
-                staging_buffer_memory,
-                size,
-                image_data.as_slice(),
-            );
-
-            let (image, memory) = Vulkan::create_image(
-                image_dimensions.0,
-                image_dimensions.1,
-                mip_levels,
-                vk::SampleCountFlags::TYPE_1,
-                vk::Format::R8G8B8A8_SRGB,
-                vk::ImageTiling::OPTIMAL,
-                vk::ImageUsageFlags::TRANSFER_SRC
-                    | vk::ImageUsageFlags::TRANSFER_DST
-                    | vk::ImageUsageFlags::SAMPLED,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-                devices,
-                instance,
-            );
-
-            Self::transition_image_layout(
-                &devices.logical,
-                command_pool,
-                devices.graphics_queue,
-                image,
-                vk::Format::R8G8B8A8_SRGB,
-                vk::ImageLayout::UNDEFINED,
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                mip_levels,
-            );
-
-            Self::copy_buffer_to_image(
-                devices,
-                command_pool,
-                command_buffer_count,
-                image_dimensions.0,
-                image_dimensions.1,
-                staging_buffer,
-                image,
-            );
-
-            devices.logical.destroy_buffer(staging_buffer, None);
-            devices.logical.free_memory(staging_buffer_memory, None);
-
-            Self::generate_mipmaps(
-                instance,
-                devices,
-                vk::Format::R8G8B8A8_SRGB,
-                image,
-                command_pool,
-                image_dimensions.0.try_into().unwrap(),
-                image_dimensions.1.try_into().unwrap(),
-                mip_levels,
-            );
-
-            (image, memory, mip_levels)
-        }
     }
 
     fn create_texture_image_view(
@@ -519,36 +310,170 @@ impl Texture {
             devices,
         )
     }
+}
 
-    fn create_texture_sampler(
-        instance: &Instance,
-        devices: &Devices,
-        mip_levels: u32,
-    ) -> vk::Sampler {
-        unsafe {
-            let properties = instance.get_physical_device_properties(devices.physical);
+fn create_texture_sampler(instance: &Instance, devices: &Devices, mip_levels: u32) -> vk::Sampler {
+    unsafe {
+        let properties = instance.get_physical_device_properties(devices.physical);
 
-            let sampler_create_info = vk::SamplerCreateInfo::builder()
-                .mag_filter(vk::Filter::LINEAR)
-                .min_filter(vk::Filter::LINEAR)
-                .address_mode_u(vk::SamplerAddressMode::REPEAT)
-                .address_mode_v(vk::SamplerAddressMode::REPEAT)
-                .address_mode_w(vk::SamplerAddressMode::REPEAT)
-                .anisotropy_enable(true)
-                .max_anisotropy(properties.limits.max_sampler_anisotropy)
-                .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
-                .unnormalized_coordinates(false)
-                .compare_enable(false)
-                .compare_op(vk::CompareOp::ALWAYS)
-                .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
-                .min_lod(0.)
-                .max_lod(mip_levels as f32)
-                .mip_lod_bias(0.);
+        let sampler_create_info = vk::SamplerCreateInfo::builder()
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .anisotropy_enable(true)
+            .max_anisotropy(properties.limits.max_sampler_anisotropy)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .unnormalized_coordinates(false)
+            .compare_enable(false)
+            .compare_op(vk::CompareOp::ALWAYS)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+            .min_lod(0.)
+            .max_lod(mip_levels as f32)
+            .mip_lod_bias(0.);
 
-            devices
-                .logical
-                .create_sampler(&sampler_create_info, None)
-                .expect("Failed to create Sampler!")
-        }
+        devices
+            .logical
+            .create_sampler(&sampler_create_info, None)
+            .expect("Failed to create Sampler!")
+    }
+}
+
+fn create_texture_image(
+    instance: &Instance,
+    devices: &Devices,
+    image_buffer: &[u8],
+    command_pool: vk::CommandPool,
+    command_buffer_count: u32,
+) -> (vk::Image, vk::DeviceMemory, u32) {
+    let image_texture = image::load_from_memory(image_buffer)
+        .unwrap()
+        // .adjust_contrast(-25.)
+        .to_rgba8();
+
+    let image_dimensions = image_texture.dimensions();
+    let image_data = image_texture.into_raw();
+
+    let mip_levels = ((image_dimensions.0.max(image_dimensions.1) as f32)
+        .log2()
+        .floor()
+        + 1.) as u32;
+
+    let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
+        as vk::DeviceSize;
+
+    let (staging_buffer, staging_buffer_memory) = create_buffer(
+        instance,
+        devices,
+        size,
+        vk::BufferUsageFlags::TRANSFER_SRC,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    );
+
+    unsafe {
+        Vulkan::map_memory(
+            &devices.logical,
+            staging_buffer_memory,
+            size,
+            image_data.as_slice(),
+        );
+
+        let (image, memory) = Vulkan::create_image(
+            image_dimensions.0,
+            image_dimensions.1,
+            mip_levels,
+            vk::SampleCountFlags::TYPE_1,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::TRANSFER_SRC
+                | vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::SAMPLED,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            devices,
+            instance,
+        );
+
+        Texture::transition_image_layout(
+            &devices.logical,
+            command_pool,
+            devices.graphics_queue,
+            image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            mip_levels,
+        );
+
+        Texture::copy_buffer_to_image(
+            devices,
+            command_pool,
+            command_buffer_count,
+            image_dimensions.0,
+            image_dimensions.1,
+            staging_buffer,
+            image,
+        );
+
+        devices.logical.destroy_buffer(staging_buffer, None);
+        devices.logical.free_memory(staging_buffer_memory, None);
+
+        Texture::generate_mipmaps(
+            instance,
+            devices,
+            vk::Format::R8G8B8A8_SRGB,
+            image,
+            command_pool,
+            image_dimensions.0.try_into().unwrap(),
+            image_dimensions.1.try_into().unwrap(),
+            mip_levels,
+        );
+
+        (image, memory, mip_levels)
+    }
+}
+
+pub fn create_buffer(
+    instance: &Instance,
+    devices: &Devices,
+    size: u64,
+    usage: vk::BufferUsageFlags,
+    properties: vk::MemoryPropertyFlags,
+) -> (vk::Buffer, vk::DeviceMemory) {
+    let image_buffer_info = vk::BufferCreateInfo::builder()
+        .size(size)
+        .usage(usage)
+        .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+    unsafe {
+        let buffer = devices
+            .logical
+            .create_buffer(&image_buffer_info, None)
+            .expect("Failed to create buffer");
+
+        let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
+
+        let memory_type_index = Vulkan::find_memory_type(
+            instance,
+            devices,
+            memory_requirements.memory_type_bits,
+            properties,
+        );
+
+        let image_buffer_allocate_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(memory_requirements.size)
+            .memory_type_index(memory_type_index);
+
+        let buffer_memory = devices
+            .logical
+            .allocate_memory(&image_buffer_allocate_info, None)
+            .expect("Failed to allocate buffer memory!");
+
+        devices
+            .logical
+            .bind_buffer_memory(buffer, buffer_memory, 0)
+            .expect("Could not bind command buffer memory");
+
+        (buffer, buffer_memory)
     }
 }

@@ -1,7 +1,9 @@
 extern crate ash;
 extern crate winit;
 
+mod Texture;
 mod camera;
+mod command_buffer;
 mod device;
 mod model;
 mod pipeline;
@@ -17,27 +19,22 @@ use ash::{
     Device, Entry, Instance,
 };
 use camera::Camera;
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Transform, Vector3};
+use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
 use device::Devices;
 use model::{Model, ModelType};
-
 use pipeline::GraphicsPipeline;
 use resource::{Resource, ResourceType};
-use swapchain::SwapChain;
-use winit::event::{DeviceEvent, ElementState, KeyboardInput};
-
 use std::{
     borrow::Cow,
     ffi::{CStr, CString},
     ptr,
-    time::{Duration, Instant, SystemTime},
+    time::Duration,
 };
-
+use swapchain::SwapChain;
 use winit::{
-    event::{Event, WindowEvent},
+    event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::Window,
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
 
 const WINDOW_WIDTH: u32 = 1280;
@@ -303,7 +300,7 @@ impl Vulkan {
             .enabled_extension_names(&extension_names_raw);
 
         unsafe {
-            let entry = Entry::new().unwrap();
+            let entry = Entry::load().unwrap();
             let instance: Instance = entry
                 .create_instance(&create_info, None)
                 .expect("Instance creation error");
@@ -315,8 +312,8 @@ impl Vulkan {
     unsafe fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debugging> {
         if enable_validation_layers() {
             let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
-                .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+                .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::default())
+                .message_type(vk::DebugUtilsMessageTypeFlagsEXT::default())
                 .pfn_user_callback(Some(vulkan_debug_callback));
 
             let debug_utils_loader = DebugUtils::new(entry, instance);
@@ -1188,7 +1185,6 @@ fn main() {
         let new_time = std::time::Instant::now();
         let frame_time = new_time - current_time; // from ns to s
         current_time = new_time;
-
         accumulator += frame_time;
 
         handle_inputs(

@@ -3,7 +3,7 @@ use std::{ffi::CString, mem::size_of};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 
-use crate::{model::Vertex, swapchain::SwapChain, texture::Texture, Devices, UniformBufferObject};
+use crate::{model::Vertex, swapchain::SwapChain, texture::{Texture, self}, Devices, UniformBufferObject};
 
 pub struct LambdaDescriptorSet {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
@@ -364,7 +364,7 @@ impl GraphicsPipeline {
         let mut uniform_buffer_memory = Vec::new();
 
         for _i in 0..swapchain_image_count {
-            let (buffer, memory) = Texture::create_buffer(
+            let (buffer, memory) = texture::create_buffer(
                 instance,
                 devices,
                 size_of::<UniformBufferObject>() as u64,

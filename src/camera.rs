@@ -1,5 +1,5 @@
-use cgmath::{EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Vector3};
-use std::f32::consts::FRAC_PI_2;
+use cgmath::{InnerSpace, Matrix4, Point3, Rad, Vector3};
+use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseScrollDelta, VirtualKeyCode},
@@ -7,6 +7,7 @@ use winit::{
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
+#[derive(PartialEq, Debug)]
 pub struct Camera {
     pub pos: Point3<f32>,
     rotate_horizontal: f32,
@@ -125,5 +126,135 @@ impl Camera {
         } else if self.pitch > Rad(SAFE_FRAC_PI_2) {
             self.pitch = Rad(SAFE_FRAC_PI_2);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cgmath::Vector4;
+
+    use super::*;
+
+    #[test]
+    fn test_camera_new() {
+        let camera = Camera::new(0.91, 0.3, 0.7);
+
+        assert_eq!(camera.pos, Point3::new(0.91, 0.3, 0.7));
+
+        let expected_camera = Camera {
+            pos: Point3::new(0.91, 0.3, 0.7),
+            rotate_horizontal: 0.0,
+            rotate_vertical: 0.0,
+            yaw: Rad(0.0),
+            pitch: Rad(0.0),
+            sensitivity: 0.5,
+            speed: 0.5,
+            scroll: 0.0,
+            amount_left: 0.0,
+            amount_right: 0.0,
+            amount_forward: 0.0,
+            amount_backward: 0.0,
+            amount_up: 0.0,
+            amount_down: 0.0,
+        };
+
+        assert_eq!(expected_camera, camera);
+    }
+
+    #[test]
+    fn test_camera_calc_matric() {
+        let camera = Camera::new(5., 5., 5.);
+
+        let matrix = camera.calc_matrix(Point3::new(0., 0., 0.));
+
+        println!("{:#?}", matrix);
+
+        let expected_matrix = Matrix4 {
+            x: Vector4::new(0.0, 0.0, -1.0, 0.0),
+            y: Vector4::new(0.0, 1.0, -0.0, 0.0),
+            z: Vector4::new(1.0, 0.0, -0.0, 0.0),
+            w: Vector4::new(-5.0, -5.0, 5.0, 1.0),
+        };
+
+        assert_eq!(expected_matrix, matrix)
+    }
+
+    #[test]
+    fn test_camera_process_keyboard() {
+        let mut camera = Camera::new(0., 0., 0.);
+
+        camera.process_keyboard(VirtualKeyCode::W, ElementState::Pressed);
+        assert_eq!(camera.amount_forward, 1.);
+        camera.process_keyboard(VirtualKeyCode::Up, ElementState::Pressed);
+        assert_eq!(camera.amount_forward, 1.);
+        camera.process_keyboard(VirtualKeyCode::W, ElementState::Released);
+        assert_eq!(camera.amount_forward, 0.);
+        camera.process_keyboard(VirtualKeyCode::Up, ElementState::Released);
+        assert_eq!(camera.amount_forward, 0.);
+
+        camera.process_keyboard(VirtualKeyCode::S, ElementState::Pressed);
+        assert_eq!(camera.amount_backward, 1.);
+        camera.process_keyboard(VirtualKeyCode::Down, ElementState::Pressed);
+        assert_eq!(camera.amount_backward, 1.);
+        camera.process_keyboard(VirtualKeyCode::S, ElementState::Released);
+        assert_eq!(camera.amount_backward, 0.);
+        camera.process_keyboard(VirtualKeyCode::Down, ElementState::Released);
+        assert_eq!(camera.amount_backward, 0.);
+
+        camera.process_keyboard(VirtualKeyCode::A, ElementState::Pressed);
+        assert_eq!(camera.amount_left, 1.);
+        camera.process_keyboard(VirtualKeyCode::Left, ElementState::Pressed);
+        assert_eq!(camera.amount_left, 1.);
+        camera.process_keyboard(VirtualKeyCode::A, ElementState::Released);
+        assert_eq!(camera.amount_left, 0.);
+        camera.process_keyboard(VirtualKeyCode::Left, ElementState::Released);
+        assert_eq!(camera.amount_left, 0.);
+
+        camera.process_keyboard(VirtualKeyCode::D, ElementState::Pressed);
+        assert_eq!(camera.amount_right, 1.);
+        camera.process_keyboard(VirtualKeyCode::Right, ElementState::Pressed);
+        assert_eq!(camera.amount_right, 1.);
+        camera.process_keyboard(VirtualKeyCode::D, ElementState::Released);
+        assert_eq!(camera.amount_right, 0.);
+        camera.process_keyboard(VirtualKeyCode::Right, ElementState::Released);
+        assert_eq!(camera.amount_right, 0.);
+
+        camera.process_keyboard(VirtualKeyCode::Space, ElementState::Pressed);
+        assert_eq!(camera.amount_up, 1.);
+        camera.process_keyboard(VirtualKeyCode::Space, ElementState::Released);
+        assert_eq!(camera.amount_up, 0.);
+
+        camera.process_keyboard(VirtualKeyCode::LShift, ElementState::Pressed);
+        assert_eq!(camera.amount_down, 1.);
+        camera.process_keyboard(VirtualKeyCode::LShift, ElementState::Released);
+        assert_eq!(camera.amount_down, 0.);
+    }
+
+    #[test]
+    fn test_camera_process_mouse() {
+        let mut camera = Camera::new(0., 0., 0.);
+
+        camera.process_mouse(-65., 32.);
+
+        assert_eq!(camera.rotate_horizontal, -65.);
+        assert_eq!(camera.rotate_vertical, 32.);
+    }
+
+    #[test]
+    fn test_camera_process_scroll() {
+        let mut camera = Camera::new(0., 0., 0.);
+
+        camera.process_scroll(&MouseScrollDelta::LineDelta(1.2, 4.5));
+        assert_eq!(camera.scroll, -4.5 * 100.);
+        camera.process_scroll(&MouseScrollDelta::PixelDelta(PhysicalPosition {
+            y: 30.,
+            ..Default::default()
+        }));
+        assert_eq!(camera.scroll, -30.);
+    }
+
+    #[test]
+    fn test_camera_rotate() {
+        todo!();
     }
 }
