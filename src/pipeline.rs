@@ -3,7 +3,7 @@ use std::{ffi::CString, mem::size_of};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 
-use crate::{model::Vertex, swapchain::SwapChain, texture::{Texture, self}, Devices, UniformBufferObject};
+use crate::{model::Vertex, swapchain::SwapChain, texture, Devices, UniformBufferObject};
 
 pub struct LambdaDescriptorSet {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
@@ -31,6 +31,7 @@ impl GraphicsPipeline {
         render_pass: vk::RenderPass,
         texture_image_view: vk::ImageView,
         sampler: vk::Sampler,
+        
     ) -> Self {
         let topology = match topology {
             Some(topology) => topology,
