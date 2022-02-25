@@ -19,6 +19,9 @@ pub fn check_validation_layer_support(_window_handle: &Window) -> bool {
     true
 }
 
+/// # Safety
+///
+/// Expand on the safety of this function
 pub unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -52,7 +55,7 @@ pub unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub unsafe fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debug> {
+pub fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debug> {
     if enable_validation_layers() {
         let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::default())
@@ -60,12 +63,14 @@ pub unsafe fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Optio
             .pfn_user_callback(Some(vulkan_debug_callback));
 
         let debug_utils_loader = DebugUtils::new(entry, instance);
-        return Some(Debug {
-            debug_messenger: debug_utils_loader
-                .create_debug_utils_messenger(&create_info, None)
-                .unwrap(),
-            debug_utils: debug_utils_loader,
-        });
+        unsafe {
+            return Some(Debug {
+                debug_messenger: debug_utils_loader
+                    .create_debug_utils_messenger(&create_info, None)
+                    .unwrap(),
+                debug_utils: debug_utils_loader,
+            });
+        }
     }
     None
 }

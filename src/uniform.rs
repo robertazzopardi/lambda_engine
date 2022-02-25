@@ -1,5 +1,5 @@
-use crate::camera::Camera;
-use ash::vk::Extent2D;
+use crate::Camera;
+use ash::vk;
 use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
 
 #[derive(Clone, Copy, Debug)]
@@ -10,7 +10,7 @@ pub struct UniformBufferObject {
 }
 
 impl UniformBufferObject {
-    pub fn update(&mut self, extent: Extent2D, camera: &mut Camera) {
+    pub fn update(&mut self, extent: vk::Extent2D, camera: &mut Camera) {
         let aspect = extent.width as f32 / extent.height as f32;
 
         // self.model = Matrix4::from_angle_y(Deg(0.));

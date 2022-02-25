@@ -1,4 +1,4 @@
-use crate::{Devices, SwapChain, Vulkan};
+use crate::{create_image, create_image_view, Devices, SwapChain, Vulkan};
 use ash::{vk, Instance};
 
 pub enum ResourceType {
@@ -32,7 +32,7 @@ impl Resource {
             ),
         };
 
-        let (image, memory) = Vulkan::create_image(
+        let (image, memory) = create_image(
             swapchain.extent.width,
             swapchain.extent.height,
             1,
@@ -45,7 +45,7 @@ impl Resource {
             instance,
         );
 
-        let view = Vulkan::create_image_view(image, format, aspect_flags, 1, devices);
+        let view = create_image_view(image, format, aspect_flags, 1, devices);
 
         Self {
             image,

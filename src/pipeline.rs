@@ -1,5 +1,5 @@
 use crate::{
-    model::Vertex, swapchain::SwapChain, texture, uniform_buffer::UniformBufferObject, Devices,
+    model::Vertex, swapchain::SwapChain, texture, uniform::UniformBufferObject, Devices,
 };
 use ash::{vk, Instance};
 use memoffset::offset_of;

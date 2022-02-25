@@ -1,6 +1,19 @@
-use crate::camera::Camera;
-use winit::event::{DeviceEvent, ElementState, KeyboardInput, WindowEvent};
-use winit::{event::Event, event_loop::ControlFlow, window::Window};
+use crate::Camera;
+use ash::{vk, Entry, Instance};
+use winit::{
+    event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
+    event_loop::ControlFlow,
+    window::Window,
+};
+
+// pub struct Window {}
+
+pub fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> vk::SurfaceKHR {
+    unsafe {
+        ash_window::create_surface(entry, instance, window, None)
+            .expect("Failed to create window surface!")
+    }
+}
 
 pub fn handle_inputs(
     control_flow: &mut ControlFlow,

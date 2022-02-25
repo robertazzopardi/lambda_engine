@@ -1,11 +1,11 @@
-use crate::Vulkan;
 use crate::{
-    command_buffer::{begin_single_time_command, end_single_time_command},
+    command::{begin_single_time_command, end_single_time_command},
     device::Devices,
     pipeline::GraphicsPipeline,
     swapchain::SwapChain,
     texture::{self, Texture},
 };
+use crate::{map_memory, Vulkan};
 use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3, Zero};
 use std::{
@@ -282,7 +282,7 @@ impl Model {
         }
     }
 
-    pub unsafe fn bind(
+    pub unsafe fn bind_index_and_vertex_buffers(
         &self,
         devices: &Devices,
         command_buffer: vk::CommandBuffer,
@@ -378,7 +378,7 @@ impl Model {
         );
 
         unsafe {
-            Vulkan::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
+            map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
         }
 
         let (buffer, buffer_memory) = texture::create_buffer(
@@ -520,7 +520,7 @@ fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec
 }
 
 fn cube() -> (Vec<Vertex>, Vec<u16>) {
-    let mut cube = CUBE_VERTICES;
+    let cube = CUBE_VERTICES;
     // for model in cube.iter_mut() {
     //     Model::calculate_normals(model);
     // }
