@@ -1,18 +1,18 @@
 extern crate ash;
 extern crate winit;
 
-mod camera;
-mod command_buffer;
-mod debug;
-mod device;
-mod model;
-mod pipeline;
-mod resource;
-mod swapchain;
-mod texture;
-mod time;
-mod uniform_buffer;
-mod window;
+pub mod camera;
+pub mod command_buffer;
+pub mod debug;
+pub mod device;
+pub mod model;
+pub mod pipeline;
+pub mod resource;
+pub mod swapchain;
+pub mod texture;
+pub mod time;
+pub mod uniform_buffer;
+pub mod window;
 
 use ash::{
     extensions::{ext::DebugUtils, khr::Surface},
@@ -34,8 +34,6 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-const WINDOW_WIDTH: u32 = 1280;
-const WINDOW_HEIGHT: u32 = 720;
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 struct SyncObjects {
@@ -69,7 +67,7 @@ pub struct Vulkan {
 }
 
 impl Vulkan {
-    fn new(window: &Window, camera: &mut Camera) -> Self {
+    pub fn new(window: &Window, camera: &mut Camera) -> Self {
         let (instance, entry) = Self::create_instance(window);
 
         let debugging = unsafe { debug::setup_debug_messenger(&instance, &entry) };
@@ -102,7 +100,7 @@ impl Vulkan {
             Model::new(
                 &instance,
                 &devices,
-                include_bytes!("../../assets/2k_saturn.jpg"),
+                include_bytes!("../assets/2k_saturn.jpg"),
                 command_pool,
                 swapchain.images.len() as u32,
                 ModelType::Sphere,
@@ -115,7 +113,7 @@ impl Vulkan {
             Model::new(
                 &instance,
                 &devices,
-                include_bytes!("../../assets/2k_saturn_ring_alpha.png"),
+                include_bytes!("../assets/2k_saturn_ring_alpha.png"),
                 command_pool,
                 swapchain.images.len() as u32,
                 ModelType::Ring,
@@ -800,7 +798,7 @@ impl Vulkan {
         }
     }
 
-    unsafe fn render(&mut self, window: &Window, camera: &mut Camera) {
+    pub unsafe fn render(&mut self, window: &Window, camera: &mut Camera) {
         self.devices
             .logical
             .wait_for_fences(&self.sync_objects.in_flight_fences, true, std::u64::MAX)
@@ -986,53 +984,7 @@ impl Drop for Vulkan {
 
 struct State {}
 
-fn update(vulkan: &mut Vulkan, camera: &mut Camera, dt: f32) {
+pub fn update(vulkan: &mut Vulkan, camera: &mut Camera, dt: f32) {
     camera.rotate(dt);
     vulkan.ubo.update(vulkan.swapchain.extent, camera);
-}
-
-fn main() {
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_inner_size(winit::dpi::LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
-        .build(&event_loop)
-        .unwrap();
-
-    let mut camera = Camera::new(5., 1., 2.);
-
-    let mut vulkan: Vulkan = Vulkan::new(&window, &mut camera);
-
-    let mut mouse_pressed = false;
-
-    let dt = Duration::from_secs_f32(0.01666);
-    let mut t = Duration::ZERO;
-    let mut current_time = std::time::Instant::now();
-    let mut accumulator = Duration::ZERO;
-
-    event_loop.run(move |event, _, control_flow| {
-        let new_time = std::time::Instant::now();
-        let frame_time = new_time - current_time; // from ns to s
-        current_time = new_time;
-        accumulator += frame_time;
-
-        window::handle_inputs(
-            control_flow,
-            event,
-            &window,
-            &mut camera,
-            &mut mouse_pressed,
-        );
-
-        while accumulator >= dt {
-            // update(t, dt);
-            update(&mut vulkan, &mut camera, dt.as_secs_f32());
-            accumulator -= dt;
-            t += dt;
-
-            // println!("{:?}", frame_time);
-            // println!("{:?}", 1. / dt.as_secs_f32())
-        }
-
-        unsafe { vulkan.render(&window, &mut camera) };
-    });
 }

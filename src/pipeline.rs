@@ -1,4 +1,6 @@
-use crate::{model::Vertex, swapchain::SwapChain, texture, Devices, uniform_buffer::UniformBufferObject};
+use crate::{
+    model::Vertex, swapchain::SwapChain, texture, uniform_buffer::UniformBufferObject, Devices,
+};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 use std::{ffi::CString, mem::size_of};

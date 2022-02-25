@@ -1,7 +1,6 @@
+use crate::camera::Camera;
 use ash::vk::Extent2D;
 use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
-
-use crate::camera::Camera;
 
 #[derive(Clone, Copy, Debug)]
 pub struct UniformBufferObject {

@@ -1,7 +1,6 @@
+use crate::camera::Camera;
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, WindowEvent};
 use winit::{event::Event, event_loop::ControlFlow, window::Window};
-
-use crate::camera::Camera;
 
 pub fn handle_inputs(
     control_flow: &mut ControlFlow,

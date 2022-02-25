@@ -1,8 +1,18 @@
+[package]
+name = "lambda_engine"
+version = "0.1.0"
+edition = "2021"
+include = ["src/**/*", "README.md", "assets/2k_saturn.jpg", "assets/2k_saturn_ring_alpha.png", "!**/*.jpg", "!**/*.png"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = ["engine"]
-default-members = ["engine"]
+[dependencies]
+ash = "0.36.0"
+ash-window = "0.9.1"
+cgmath = "0.18.0"
+image = "0.24.1"
+memoffset = "0.6.5"
+winit = "0.26.1"
 
 [profile.release]
 strip = true
@@ -10,3 +20,7 @@ opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[[example]]
+name = "saturn"
+crate-type = ["bin"]

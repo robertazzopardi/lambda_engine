@@ -1,4 +1,11 @@
-use crate::{command_buffer, pipeline::GraphicsPipeline, texture, Devices, SwapChain, Vulkan};
+use crate::Vulkan;
+use crate::{
+    command_buffer::{begin_single_time_command, end_single_time_command},
+    device::Devices,
+    pipeline::GraphicsPipeline,
+    swapchain::SwapChain,
+    texture::{self, Texture},
+};
 use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3, Zero};
 use std::{
@@ -195,7 +202,7 @@ pub struct Model {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
     indexed: bool,
-    pub texture: texture::Texture,
+    pub texture: Texture,
     pub graphics_pipeline: GraphicsPipeline,
     pub vertex_buffer: vk::Buffer,
     pub vertex_buffer_memory: vk::DeviceMemory,
@@ -329,8 +336,7 @@ impl Model {
         src_buffer: vk::Buffer,
         dst_buffer: vk::Buffer,
     ) {
-        let command_buffer =
-            command_buffer::begin_single_time_command(&devices.logical, command_pool);
+        let command_buffer = begin_single_time_command(&devices.logical, command_pool);
 
         let copy_region = vk::BufferCopy::builder().size(size);
 
@@ -343,7 +349,7 @@ impl Model {
             );
         }
 
-        command_buffer::end_single_time_command(
+        end_single_time_command(
             &devices.logical,
             command_pool,
             devices.graphics_queue,
