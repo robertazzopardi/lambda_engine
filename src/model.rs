@@ -282,6 +282,9 @@ impl Model {
         }
     }
 
+    /// # Safety
+    ///
+    /// Expand on safety of this function
     pub unsafe fn bind_index_and_vertex_buffers(
         &self,
         devices: &Devices,

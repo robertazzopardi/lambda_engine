@@ -1,12 +1,7 @@
-use crate::{
-    command, create_image, create_image_view,
-    memory::{find_memory_type, map_memory},
-    Devices,
-};
+use crate::types::Tuple;
+use crate::{command, memory, utility, Devices};
 use ash::{vk, Instance};
 use std::cmp::max;
-
-struct Dimension<W, H>(W, H);
 
 pub struct Texture {
     pub image: vk::Image,
@@ -47,7 +42,7 @@ fn create_texture_image_view(
     image: vk::Image,
     mip_levels: u32,
 ) -> vk::ImageView {
-    create_image_view(
+    utility::create_image_view(
         image,
         vk::Format::R8G8B8A8_SRGB,
         vk::ImageAspectFlags::COLOR,
@@ -116,16 +111,15 @@ fn create_texture_image(
     );
 
     unsafe {
-        map_memory(
+        memory::map_memory(
             &devices.logical,
             staging_buffer_memory,
             size,
             image_data.as_slice(),
         );
 
-        let (image, memory) = create_image(
-            image_dimensions.0,
-            image_dimensions.1,
+        let (image, memory) = utility::create_image(
+            Tuple(image_dimensions.0, image_dimensions.1),
             mip_levels,
             vk::SampleCountFlags::TYPE_1,
             vk::Format::R8G8B8A8_SRGB,
@@ -144,8 +138,10 @@ fn create_texture_image(
             devices.graphics_queue,
             image,
             vk::Format::R8G8B8A8_SRGB,
-            vk::ImageLayout::UNDEFINED,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            Tuple(
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            ),
             mip_levels,
         );
 
@@ -168,7 +164,7 @@ fn create_texture_image(
             vk::Format::R8G8B8A8_SRGB,
             image,
             command_pool,
-            Dimension(
+            Tuple(
                 image_dimensions.0.try_into().unwrap(),
                 image_dimensions.1.try_into().unwrap(),
             ),
@@ -199,7 +195,7 @@ pub fn create_buffer(
 
         let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
 
-        let memory_type_index = find_memory_type(
+        let memory_type_index = memory::find_memory_type(
             instance,
             devices,
             memory_requirements.memory_type_bits,
@@ -230,8 +226,7 @@ fn transition_image_layout(
     submit_queue: vk::Queue,
     image: vk::Image,
     _format: vk::Format,
-    old_layout: vk::ImageLayout,
-    new_layout: vk::ImageLayout,
+    Tuple(old_layout, new_layout): Tuple<vk::ImageLayout, vk::ImageLayout>,
     mip_levels: u32,
 ) {
     let command_buffer = command::begin_single_time_command(device, command_pool);
@@ -345,7 +340,7 @@ fn generate_mipmaps(
     format: vk::Format,
     image: vk::Image,
     command_pool: vk::CommandPool,
-    mip_dimension: Dimension<i32, i32>,
+    mip_dimension: Tuple<i32, i32>,
     mip_levels: u32,
 ) {
     let format_properties =
@@ -371,7 +366,7 @@ fn generate_mipmaps(
             layer_count: 1,
         });
 
-    let Dimension(mut w, mut h) = mip_dimension;
+    let Tuple(mut w, mut h) = mip_dimension;
 
     for i in 1..mip_levels {
         image_barrier.subresource_range.base_mip_level = i - 1;
