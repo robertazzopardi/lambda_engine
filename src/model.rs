@@ -1,11 +1,11 @@
 use crate::{
     command::{begin_single_time_command, end_single_time_command},
     device::Devices,
+    memory::map_memory,
     pipeline::GraphicsPipeline,
     swapchain::SwapChain,
     texture::{self, Texture},
 };
-use crate::{map_memory, Vulkan};
 use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3, Zero};
 use std::{

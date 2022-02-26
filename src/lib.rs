@@ -2,29 +2,31 @@ extern crate ash;
 extern crate winit;
 
 pub mod camera;
-pub mod command;
-pub mod debug;
-pub mod device;
+mod command;
+mod debug;
+mod device;
+pub mod display;
+mod memory;
 pub mod model;
-pub mod pipeline;
+mod pipeline;
 mod render;
-pub mod resource;
-pub mod swapchain;
+mod resource;
+mod swapchain;
 mod sync_objects;
-pub mod texture;
+mod texture;
 pub mod time;
-pub mod uniform;
-pub mod window;
+mod uniform;
 
 use ash::{
     extensions::{ext::DebugUtils, khr::Surface},
-    util::Align,
     vk, Device, Entry, Instance,
 };
 use camera::Camera;
 use command::{create_command_buffers, create_command_pool};
 use debug::Debug;
 use device::Devices;
+use display::{create_surface, Display};
+use memory::{find_memory_type, map_memory};
 use model::{Model, ModelType};
 use pipeline::GraphicsPipeline;
 use render::create_render_pass;
@@ -32,8 +34,8 @@ use resource::{Resource, ResourceType};
 use std::{ffi::CString, ptr};
 use swapchain::SwapChain;
 use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
+use time::Time;
 use uniform::UniformBufferObject;
-use window::create_surface;
 use winit::window::Window;
 
 pub struct Vulkan {
@@ -430,26 +432,10 @@ impl Vulkan {
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
-}
 
-pub fn find_memory_type(
-    instance: &Instance,
-    devices: &Devices,
-    type_filter: u32,
-    properties: vk::MemoryPropertyFlags,
-) -> u32 {
-    unsafe {
-        let mem_properties = instance.get_physical_device_memory_properties(devices.physical);
-
-        for i in 0..mem_properties.memory_type_count {
-            if ((1 << i) & type_filter) != 0
-                && mem_properties.memory_types[i as usize].property_flags & properties == properties
-            {
-                return i;
-            }
-        }
-
-        panic!("Failed to find suitable memory type!")
+    pub fn update_state(&mut self, camera: &mut Camera, dt: f32) {
+        camera.rotate(dt);
+        self.ubo.update(self.swapchain.extent, camera);
     }
 }
 
@@ -533,32 +519,6 @@ impl Drop for Vulkan {
     }
 }
 
-struct State {}
-
-pub fn update(vulkan: &mut Vulkan, camera: &mut Camera, dt: f32) {
-    camera.rotate(dt);
-    vulkan.ubo.update(vulkan.swapchain.extent, camera);
-}
-
-/// # Safety
-///
-/// Expand on the safety of this function
-pub unsafe fn map_memory<T>(
-    device: &Device,
-    device_memory: vk::DeviceMemory,
-    device_size: vk::DeviceSize,
-    to_map: &[T],
-) where
-    T: std::marker::Copy,
-{
-    let data = device
-        .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
-        .unwrap();
-    let mut vert_align = Align::new(data, std::mem::align_of::<T>() as u64, device_size);
-    vert_align.copy_from_slice(to_map);
-    device.unmap_memory(device_memory);
-}
-
 fn create_instance(window: &Window) -> (Instance, Entry) {
     if debug::enable_validation_layers() && !debug::check_validation_layer_support(window) {
         panic!("Validation layers requested, but not available!")
@@ -602,7 +562,7 @@ fn create_instance(window: &Window) -> (Instance, Entry) {
     }
 }
 
-pub fn create_image(
+pub(crate) fn create_image(
     width: u32,
     height: u32,
     mip_levels: u32,
@@ -667,7 +627,7 @@ pub fn create_image(
     }
 }
 
-pub fn create_image_view(
+pub(crate) fn create_image_view(
     image: vk::Image,
     format: vk::Format,
     aspect_mask: vk::ImageAspectFlags,
@@ -726,4 +686,28 @@ fn create_frame_buffers(
     }
 
     frame_buffers
+}
+
+pub fn run(
+    mut vulkan: Vulkan,
+    display: Display,
+    mut time: Time,
+    mut camera: Camera,
+    mut mouse_pressed: bool,
+) {
+    display.event_loop.run(move |event, _, control_flow| {
+        time.tick();
+
+        display::handle_inputs(
+            control_flow,
+            event,
+            &display.window,
+            &mut camera,
+            &mut mouse_pressed,
+        );
+
+        time.step(&mut vulkan, &mut camera);
+
+        unsafe { vulkan.render(&display.window, &mut camera) };
+    });
 }

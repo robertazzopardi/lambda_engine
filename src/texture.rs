@@ -1,4 +1,8 @@
-use crate::{command, create_image, create_image_view, find_memory_type, map_memory, Devices};
+use crate::{
+    command, create_image, create_image_view,
+    memory::{find_memory_type, map_memory},
+    Devices,
+};
 use ash::{vk, Instance};
 use std::cmp::max;
 

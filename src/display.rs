@@ -1,12 +1,28 @@
 use crate::Camera;
 use ash::{vk, Entry, Instance};
 use winit::{
+    dpi::LogicalSize,
     event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
-    event_loop::ControlFlow,
-    window::Window,
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
 };
 
-// pub struct Window {}
+pub struct Display {
+    pub window: Window,
+    pub event_loop: EventLoop<()>,
+}
+
+impl Display {
+    pub fn new(w: u32, h: u32) -> Self {
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new()
+            .with_inner_size(LogicalSize::new(w, h))
+            .build(&event_loop)
+            .unwrap();
+
+        Self { event_loop, window }
+    }
+}
 
 pub fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> vk::SurfaceKHR {
     unsafe {
