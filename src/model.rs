@@ -184,6 +184,36 @@ const CUBE_INDICES: [u16; 36] = [
     20, 21, 22, 20, 22, 23, // back
 ];
 
+pub enum ModelTopology {
+    TriangleList,
+    TriangleStrip,
+}
+
+impl From<ModelTopology> for vk::PrimitiveTopology {
+    fn from(topology: ModelTopology) -> Self {
+        match topology {
+            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+        }
+    }
+}
+
+pub enum ModelCullMode {
+    Front,
+    Back,
+    None,
+}
+
+impl From<ModelCullMode> for vk::CullModeFlags {
+    fn from(cull_mode: ModelCullMode) -> Self {
+        match cull_mode {
+            ModelCullMode::Front => vk::CullModeFlags::FRONT,
+            ModelCullMode::Back => vk::CullModeFlags::BACK,
+            ModelCullMode::None => vk::CullModeFlags::NONE,
+        }
+    }
+}
+
 pub enum ModelType {
     Sphere,
     Cube,

@@ -7,12 +7,10 @@ pub struct Debug {
     pub debug_utils: DebugUtils,
 }
 
-#[inline]
 pub fn enable_validation_layers() -> bool {
     cfg!(debug_assertions)
 }
 
-#[inline]
 pub fn check_validation_layer_support(_window_handle: &Window) -> bool {
     // let mut _layer_count: u32;
 

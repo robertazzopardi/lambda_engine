@@ -25,6 +25,7 @@ impl Texture {
             command_pool,
             command_buffer_count,
         );
+
         let image_view = create_texture_image_view(devices, image, mip_levels);
         let sampler = create_texture_sampler(instance, devices, mip_levels);
 
