@@ -1,7 +1,7 @@
 use crate::device::Devices;
 use ash::{util::Align, vk, Device, Instance};
 
-pub fn find_memory_type(
+pub(crate) fn find_memory_type(
     instance: &Instance,
     devices: &Devices,
     type_filter: u32,
@@ -25,7 +25,7 @@ pub fn find_memory_type(
 /// # Safety
 ///
 /// Expand on the safety of this function
-pub unsafe fn map_memory<T>(
+pub(crate) unsafe fn map_memory<T>(
     device: &Device,
     device_memory: vk::DeviceMemory,
     device_size: vk::DeviceSize,

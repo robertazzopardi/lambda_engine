@@ -4,7 +4,7 @@ use cgmath::Point2;
 use std::ffi::CString;
 use winit::window::Window;
 
-pub fn create_instance(window: &Window) -> (Instance, Entry) {
+pub(crate) fn create_instance(window: &Window) -> (Instance, Entry) {
     if debug::enable_validation_layers() && !debug::check_validation_layer_support(window) {
         panic!("Validation layers requested, but not available!")
     }
@@ -141,7 +141,7 @@ pub(crate) fn create_image_view(
     }
 }
 
-pub fn create_frame_buffers(
+pub(crate) fn create_frame_buffers(
     swapchain: &SwapChain,
     depth_image_view: vk::ImageView,
     render_pass: vk::RenderPass,

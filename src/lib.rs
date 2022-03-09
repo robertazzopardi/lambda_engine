@@ -288,7 +288,7 @@ impl Vulkan {
     }
 
     // TODO marked for refactor
-    pub fn update_uniform_buffer(&self, camera: &mut Camera, current_image: usize) {
+    fn update_uniform_buffer(&self, camera: &mut Camera, current_image: usize) {
         // let rot = Quaternion::from_axis_angle(Vector3::unit_z(), Deg(1.0))
         //     .rotate_point(self.camera.pos);
         // self.camera.pos = rot;
@@ -315,7 +315,7 @@ impl Vulkan {
     /// # Safety
     ///
     /// This function can probably be optimized
-    pub unsafe fn render(&mut self, window: &Window, camera: &mut Camera) {
+    unsafe fn render(&mut self, window: &Window, camera: &mut Camera) {
         self.devices
             .logical
             .wait_for_fences(&self.sync_objects.in_flight_fences, true, std::u64::MAX)
@@ -424,7 +424,7 @@ impl Vulkan {
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
-    pub fn update_state(&mut self, camera: &mut Camera, dt: f32) {
+    pub(crate) fn update_state(&mut self, camera: &mut Camera, dt: f32) {
         camera.rotate(dt);
         self.ubo.update(self.swapchain.extent, camera);
     }

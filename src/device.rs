@@ -5,7 +5,7 @@ use ash::{
 };
 
 #[derive(Default)]
-pub struct QueueFamilyIndices {
+pub(crate) struct QueueFamilyIndices {
     pub graphics_family: Option<u32>,
     pub present_family: Option<u32>,
 }
@@ -43,6 +43,7 @@ impl Devices {
             surface,
             surface_loader,
         );
+
         Self {
             physical,
             logical,
@@ -53,7 +54,7 @@ impl Devices {
     }
 }
 
-pub fn find_queue_family(
+pub(crate) fn find_queue_family(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
     surface_loader: &Surface,
@@ -79,6 +80,7 @@ pub fn find_queue_family(
             )
         }
         .unwrap();
+
         if queue_family.queue_count > 0 && is_present_support {
             queue_family_indices.present_family = Some(index.try_into().unwrap());
         }

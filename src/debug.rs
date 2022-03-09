@@ -2,16 +2,16 @@ use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;
 
-pub struct Debug {
+pub(crate) struct Debug {
     pub debug_messenger: vk::DebugUtilsMessengerEXT,
     pub debug_utils: DebugUtils,
 }
 
-pub fn enable_validation_layers() -> bool {
+pub(crate) fn enable_validation_layers() -> bool {
     cfg!(debug_assertions)
 }
 
-pub fn check_validation_layer_support(_window_handle: &Window) -> bool {
+pub(crate) fn check_validation_layer_support(_window_handle: &Window) -> bool {
     // let mut _layer_count: u32;
 
     true
@@ -20,7 +20,7 @@ pub fn check_validation_layer_support(_window_handle: &Window) -> bool {
 /// # Safety
 ///
 /// Expand on the safety of this function
-pub unsafe extern "system" fn vulkan_debug_callback(
+pub(crate) unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
@@ -53,7 +53,7 @@ pub unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debug> {
+pub(crate) fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debug> {
     if enable_validation_layers() {
         let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::default())

@@ -1,9 +1,9 @@
 use crate::swapchain::SwapChain;
 use ash::{vk, Device};
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
+pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
-pub struct SyncObjects {
+pub(crate) struct SyncObjects {
     pub image_available_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
     pub render_finished_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
     pub in_flight_fences: [vk::Fence; MAX_FRAMES_IN_FLIGHT],

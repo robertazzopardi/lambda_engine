@@ -24,7 +24,7 @@ impl Display {
     }
 }
 
-pub fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> vk::SurfaceKHR {
+pub(crate) fn create_surface(instance: &Instance, entry: &Entry, window: &Window) -> vk::SurfaceKHR {
     unsafe {
         ash_window::create_surface(entry, instance, window, None)
             .expect("Failed to create window surface!")

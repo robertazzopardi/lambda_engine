@@ -3,8 +3,7 @@ extern crate lambda_engine;
 use lambda_engine::{
     camera::Camera,
     display::Display,
-    model::ModelProperties,
-    model::{ModelCullMode, ModelTopology, ModelType},
+    model::{ModelCullMode, ModelProperties, ModelTopology, ModelType},
     time::Time,
     SceneProperties, Vulkan,
 };

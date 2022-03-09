@@ -1,17 +1,17 @@
+mod utilities;
+
+use self::utilities::{
+    calculate_normals, calculate_sphere_indices, create_vertex_index_buffer, make_point,
+};
 use crate::{
-    command,
     device::Devices,
-    memory,
     pipeline::GraphicsPipeline,
     swapchain::SwapChain,
     texture::{self, Texture},
 };
 use ash::{vk, Instance};
-use cgmath::{Vector2, Vector3, Vector4, Zero};
-use std::{
-    mem::size_of,
-    ops::{Mul, Sub},
-};
+use cgmath::{Vector2, Vector3, Zero};
+use std::{mem::size_of, ops::Mul};
 
 // pub type Vertex = Vector4<Vector3<f32>>;
 
@@ -187,8 +187,11 @@ const CUBE_INDICES: [u16; 36] = [
 ];
 
 pub enum ModelTopology {
+    TriangleFan,
     TriangleList,
+    TriangleListWithAdjacency,
     TriangleStrip,
+    TriangleStripWithAdjacency,
 }
 
 impl From<ModelTopology> for vk::PrimitiveTopology {
@@ -196,6 +199,13 @@ impl From<ModelTopology> for vk::PrimitiveTopology {
         match topology {
             ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
             ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
+            ModelTopology::TriangleListWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
+            }
+            ModelTopology::TriangleStripWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
+            }
         }
     }
 }
@@ -203,6 +213,7 @@ impl From<ModelTopology> for vk::PrimitiveTopology {
 pub enum ModelCullMode {
     Front,
     Back,
+    FrontAndBack,
     None,
 }
 
@@ -211,6 +222,7 @@ impl From<ModelCullMode> for vk::CullModeFlags {
         match cull_mode {
             ModelCullMode::Front => vk::CullModeFlags::FRONT,
             ModelCullMode::Back => vk::CullModeFlags::BACK,
+            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
             ModelCullMode::None => vk::CullModeFlags::NONE,
         }
     }
@@ -384,115 +396,7 @@ impl Model {
     }
 }
 
-fn copy_buffer(
-    devices: &Devices,
-    command_pool: vk::CommandPool,
-    _command_buffer_count: u32,
-    size: u64,
-    src_buffer: vk::Buffer,
-    dst_buffer: vk::Buffer,
-) {
-    let command_buffer = command::begin_single_time_command(&devices.logical, command_pool);
-
-    let copy_region = vk::BufferCopy::builder().size(size);
-
-    unsafe {
-        devices.logical.cmd_copy_buffer(
-            command_buffer,
-            src_buffer,
-            dst_buffer,
-            std::slice::from_ref(&copy_region),
-        );
-    }
-
-    command::end_single_time_command(
-        &devices.logical,
-        command_pool,
-        devices.graphics_queue,
-        command_buffer,
-    );
-}
-
-fn create_vertex_index_buffer<T>(
-    instance: &Instance,
-    devices: &Devices,
-    buffer_size: u64,
-    data: &[T],
-    usage_flags: vk::BufferUsageFlags,
-    command_pool: vk::CommandPool,
-    command_buffer_count: u32,
-) -> (vk::Buffer, vk::DeviceMemory)
-where
-    T: std::marker::Copy,
-{
-    let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
-        instance,
-        devices,
-        buffer_size,
-        vk::BufferUsageFlags::TRANSFER_SRC,
-        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-    );
-
-    unsafe {
-        memory::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
-    }
-
-    let (buffer, buffer_memory) = texture::create_buffer(
-        instance,
-        devices,
-        buffer_size,
-        usage_flags,
-        vk::MemoryPropertyFlags::DEVICE_LOCAL,
-    );
-
-    copy_buffer(
-        devices,
-        command_pool,
-        command_buffer_count,
-        buffer_size,
-        staging_buffer,
-        buffer,
-    );
-
-    unsafe {
-        devices.logical.destroy_buffer(staging_buffer, None);
-        devices.logical.free_memory(staging_buffer_memory, None);
-    }
-
-    (buffer, buffer_memory)
-}
-
-fn calculate_normals(model: &mut [Vertex; 4]) {
-    let normal = normal(model[0].pos, model[1].pos, model[2].pos);
-
-    for point in model {
-        point.normal = normal;
-    }
-}
-
-fn normal(p1: Vector3<f32>, p2: Vector3<f32>, p3: Vector3<f32>) -> Vector3<f32> {
-    let a = p3.sub(p2);
-    let b = p1.sub(p2);
-    a.cross(b)
-}
-
-fn make_point(
-    angle: &mut f32,
-    radius: f32,
-    step: f32,
-    length: f32,
-    tex_coord: Vector2<f32>,
-) -> Vertex {
-    let pos_0 = angle.to_radians().cos() * radius;
-    let pos_1 = angle.to_radians().sin() * radius;
-    *angle += step;
-
-    let pos = Vector3::new(pos_0, pos_1, 0.);
-
-    Vertex::new(pos, WHITE, pos.mul(length), tex_coord)
-}
-
-fn ring(_radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+pub fn ring(_radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
     let stack_count = 2;
 
     let mut angle = 0.;
@@ -527,7 +431,7 @@ fn ring(_radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
     )
 }
 
-fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec<u16>) {
     let length = 1. / radius;
 
     let sector_step = 2. * std::f32::consts::PI / sector_count as f32;
@@ -550,10 +454,10 @@ fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec
 
             let normal = pos.mul(length);
 
-            let tex_coord = Vector2 {
-                x: j as f32 / sector_count as f32,
-                y: i as f32 / stack_count as f32,
-            };
+            let tex_coord = Vector2::new(
+                j as f32 / sector_count as f32,
+                i as f32 / stack_count as f32,
+            );
 
             vertices.push(Vertex::new(pos, WHITE, normal, tex_coord));
         }
@@ -565,7 +469,7 @@ fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec
     )
 }
 
-fn cube() -> (Vec<Vertex>, Vec<u16>) {
+pub fn cube() -> (Vec<Vertex>, Vec<u16>) {
     let cube = CUBE_VERTICES;
     // for model in cube.iter_mut() {
     //     Model::calculate_normals(model);
@@ -574,34 +478,4 @@ fn cube() -> (Vec<Vertex>, Vec<u16>) {
     cube.map(|_| calculate_normals);
 
     (cube.into_iter().flatten().collect(), CUBE_INDICES.to_vec())
-}
-
-fn calculate_sphere_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {
-    let mut k1: u16;
-    let mut k2: u16;
-
-    let mut indices: Vec<u16> = Vec::new();
-    for i in 0..stack_count {
-        k1 = i as u16 * (sector_count + 1) as u16;
-        k2 = k1 + (stack_count + 1) as u16;
-
-        for _j in 0..sector_count {
-            if i != 0 {
-                indices.push(k1);
-                indices.push(k2);
-                indices.push(k1 + 1);
-            }
-
-            if i != (stack_count - 1) {
-                indices.push(k1 + 1);
-                indices.push(k2);
-                indices.push(k2 + 1);
-            }
-
-            k1 += 1;
-            k2 += 1;
-        }
-    }
-
-    indices
 }

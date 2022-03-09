@@ -179,7 +179,7 @@ fn create_texture_image(
     }
 }
 
-pub fn create_buffer(
+pub(crate) fn create_buffer(
     instance: &Instance,
     devices: &Devices,
     size: u64,
