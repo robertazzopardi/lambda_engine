@@ -10,6 +10,15 @@ pub struct UniformBufferObject {
 }
 
 impl UniformBufferObject {
+    pub fn new(camera: &mut Camera) -> Self {
+        Self {
+            model: Matrix4::identity(),
+            // view: Matrix4::identity(),
+            view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
+            proj: Matrix4::identity(),
+        }
+    }
+
     pub fn update(&mut self, extent: vk::Extent2D, camera: &mut Camera) {
         let aspect = extent.width as f32 / extent.height as f32;
 
@@ -21,14 +30,5 @@ impl UniformBufferObject {
             p[1][1] *= -1.;
             p
         };
-    }
-
-    pub fn new(camera: &mut Camera) -> Self {
-        Self {
-            model: Matrix4::identity(),
-            // view: Matrix4::identity(),
-            view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
-            proj: Matrix4::identity(),
-        }
     }
 }

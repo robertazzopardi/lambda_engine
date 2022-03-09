@@ -1,5 +1,6 @@
-use crate::{debug, device::Devices, memory, swapchain::SwapChain, types::Tuple};
+use crate::{debug, device::Devices, memory, swapchain::SwapChain};
 use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
+use cgmath::Point2;
 use std::ffi::CString;
 use winit::window::Window;
 
@@ -47,7 +48,7 @@ pub fn create_instance(window: &Window) -> (Instance, Entry) {
 }
 
 pub(crate) fn create_image(
-    Tuple(w, h): Tuple<u32, u32>,
+    Point2 { x, y }: Point2<u32>,
     mip_levels: u32,
     samples: vk::SampleCountFlags,
     format: vk::Format,
@@ -61,8 +62,8 @@ pub(crate) fn create_image(
         s_type: vk::StructureType::IMAGE_CREATE_INFO,
         image_type: vk::ImageType::TYPE_2D,
         extent: vk::Extent3D {
-            width: w,
-            height: h,
+            width: x,
+            height: y,
             depth: 1,
         },
         mip_levels,

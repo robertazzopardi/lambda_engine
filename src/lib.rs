@@ -15,7 +15,6 @@ mod swapchain;
 mod sync_objects;
 mod texture;
 pub mod time;
-mod types;
 mod uniform;
 mod utility;
 
@@ -24,7 +23,7 @@ use camera::Camera;
 use debug::Debug;
 use device::Devices;
 use display::Display;
-use model::{Model, ModelCullMode, ModelTopology, ModelType, Vertex};
+use model::{Model, ModelProperties};
 use pipeline::GraphicsPipeline;
 use resource::{Resource, ResourceType};
 use std::ptr;
@@ -33,15 +32,6 @@ use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
 use time::Time;
 use uniform::UniformBufferObject;
 use winit::window::Window;
-
-// TODO vertices
-pub struct ModelProperties {
-    pub texture: Vec<u8>,
-    pub model_type: ModelType,
-    pub indexed: bool,
-    pub topology: ModelTopology,
-    pub cull_mode: ModelCullMode,
-}
 
 pub struct SceneProperties {
     pub models: Vec<ModelProperties>,
@@ -57,8 +47,8 @@ pub struct Vulkan {
     sync_objects: SyncObjects,
     current_frame: usize,
 
-    models: Option<Vec<Model>>,
-    command_buffers: Option<Vec<vk::CommandBuffer>>,
+    models: Vec<Model>,
+    command_buffers: Vec<vk::CommandBuffer>,
 
     render_pass: vk::RenderPass,
     color_resource: Resource,
@@ -101,40 +91,34 @@ impl Vulkan {
         let command_pool =
             command::create_command_pool(&instance, &devices, &surface_loader, &surface);
 
-        let sync_objects = SyncObjects::create_sync_objects(&devices.logical, &swapchain);
+        let sync_objects = SyncObjects::new(&devices.logical, &swapchain);
 
         let swapchain_len = swapchain.images.len() as u32;
 
-        let models = Some(
-            scene_properties
-                .models
-                .into_iter()
-                .map(|model| {
-                    Model::new(
-                        &instance,
-                        &devices,
-                        &model.texture,
-                        command_pool,
-                        swapchain_len,
-                        model.model_type,
-                        model.indexed,
-                        Some(model.topology.into()),
-                        Some(model.cull_mode.into()),
-                        &swapchain,
-                        render_pass,
-                    )
-                })
-                .collect::<Vec<Model>>(),
-        );
+        let models = scene_properties
+            .models
+            .into_iter()
+            .map(|property| {
+                Model::new(
+                    &instance,
+                    &devices,
+                    command_pool,
+                    swapchain_len,
+                    &swapchain,
+                    render_pass,
+                    property,
+                )
+            })
+            .collect::<Vec<Model>>();
 
-        let command_buffers = Some(command::create_command_buffers(
+        let command_buffers = command::create_command_buffers(
             command_pool,
             &swapchain,
             &devices,
             render_pass,
             &frame_buffers,
-            models.as_ref().unwrap(),
-        ));
+            &models,
+        );
 
         Self {
             instance,
@@ -204,42 +188,27 @@ impl Vulkan {
 
         self.sync_objects.images_in_flight = vec![vk::Fence::null(); 1];
 
-        if let Some(models) = &mut self.models {
-            let _ = models.iter_mut().map(|mut model| {
-                model.graphics_pipeline = GraphicsPipeline::new(
-                    &self.instance,
-                    Some(model.graphics_pipeline.topology),
-                    Some(model.graphics_pipeline.cull_mode),
-                    &self.devices,
-                    &self.swapchain,
-                    self.render_pass,
-                    model.texture.image_view,
-                    model.texture.sampler,
-                )
-            });
-
-            // for model in &mut models {
-            //     model.graphics_pipeline = GraphicsPipeline::new(
-            //         &self.instance,
-            //         Some(model.graphics_pipeline.topology),
-            //         Some(model.graphics_pipeline.cull_mode),
-            //         &self.devices,
-            //         &self.swapchain,
-            //         self.render_pass,
-            //         model.texture.image_view,
-            //         model.texture.sampler,
-            //     );
-            // }
-
-            self.command_buffers = Some(command::create_command_buffers(
-                self.command_pool,
-                &self.swapchain,
+        let _ = self.models.iter_mut().map(|mut model| {
+            model.graphics_pipeline = GraphicsPipeline::new(
+                &self.instance,
+                Some(model.graphics_pipeline.topology),
+                Some(model.graphics_pipeline.cull_mode),
                 &self.devices,
+                &self.swapchain,
                 self.render_pass,
-                &self.frame_buffers,
-                models,
-            ));
-        }
+                model.texture.image_view,
+                model.texture.sampler,
+            )
+        });
+
+        self.command_buffers = command::create_command_buffers(
+            self.command_pool,
+            &self.swapchain,
+            &self.devices,
+            self.render_pass,
+            &self.frame_buffers,
+            &self.models,
+        );
     }
 
     fn cleanup_swapchain(&self) {
@@ -264,40 +233,37 @@ impl Vulkan {
                 .logical
                 .free_memory(self.depth_resource.memory, None);
 
-            if let Some(models) = &self.models {
-                for model in models {
-                    self.devices
-                        .logical
-                        .destroy_pipeline(model.graphics_pipeline.pipeline, None);
-                    self.devices
-                        .logical
-                        .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
+            for model in &self.models {
+                self.devices
+                    .logical
+                    .destroy_pipeline(model.graphics_pipeline.pipeline, None);
+                self.devices
+                    .logical
+                    .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
 
-                    self.devices.logical.destroy_descriptor_pool(
-                        model.graphics_pipeline.descriptor_set.descriptor_pool,
+                self.devices.logical.destroy_descriptor_pool(
+                    model.graphics_pipeline.descriptor_set.descriptor_pool,
+                    None,
+                );
+            }
+
+            self.devices
+                .logical
+                .free_command_buffers(self.command_pool, &self.command_buffers);
+
+            for model in &self.models {
+                for i in 0..self.swapchain.images.len() {
+                    self.devices.logical.destroy_buffer(
+                        model.graphics_pipeline.descriptor_set.uniform_buffers[i],
                         None,
                     );
-                }
-
-                self.devices.logical.free_command_buffers(
-                    self.command_pool,
-                    self.command_buffers.as_ref().unwrap(),
-                );
-
-                for model in models {
-                    for i in 0..self.swapchain.images.len() {
-                        self.devices.logical.destroy_buffer(
-                            model.graphics_pipeline.descriptor_set.uniform_buffers[i],
-                            None,
-                        );
-                        self.devices.logical.free_memory(
-                            model
-                                .graphics_pipeline
-                                .descriptor_set
-                                .uniform_buffers_memory[i],
-                            None,
-                        );
-                    }
+                    self.devices.logical.free_memory(
+                        model
+                            .graphics_pipeline
+                            .descriptor_set
+                            .uniform_buffers_memory[i],
+                        None,
+                    );
                 }
             }
 
@@ -331,19 +297,17 @@ impl Vulkan {
 
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
-        if let Some(models) = &self.models {
-            for model in models.iter() {
-                unsafe {
-                    memory::map_memory(
-                        &self.devices.logical,
-                        model
-                            .graphics_pipeline
-                            .descriptor_set
-                            .uniform_buffers_memory[current_image],
-                        buffer_size,
-                        &ubos,
-                    );
-                }
+        for model in self.models.iter() {
+            unsafe {
+                memory::map_memory(
+                    &self.devices.logical,
+                    model
+                        .graphics_pipeline
+                        .descriptor_set
+                        .uniform_buffers_memory[current_image],
+                    buffer_size,
+                    &ubos,
+                );
             }
         }
     }
@@ -408,7 +372,7 @@ impl Vulkan {
             p_wait_semaphores: wait_semaphores.as_ptr(),
             p_wait_dst_stage_mask: wait_stages.as_ptr(),
             command_buffer_count: 1,
-            p_command_buffers: &self.command_buffers.as_ref().unwrap()[image_index as usize],
+            p_command_buffers: &self.command_buffers[image_index as usize],
             signal_semaphore_count: signal_semaphores.len() as u32,
             p_signal_semaphores: signal_semaphores.as_ptr(),
         }];
@@ -473,46 +437,44 @@ impl Drop for Vulkan {
 
             self.cleanup_swapchain();
 
-            if let Some(models) = &self.models {
-                for model in models {
-                    self.devices
-                        .logical
-                        .destroy_pipeline(model.graphics_pipeline.pipeline, None);
-                    self.devices
-                        .logical
-                        .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
+            for model in &self.models {
+                self.devices
+                    .logical
+                    .destroy_pipeline(model.graphics_pipeline.pipeline, None);
+                self.devices
+                    .logical
+                    .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
 
-                    self.devices
-                        .logical
-                        .destroy_sampler(model.texture.sampler, None);
-                    self.devices
-                        .logical
-                        .destroy_image_view(model.texture.image_view, None);
+                self.devices
+                    .logical
+                    .destroy_sampler(model.texture.sampler, None);
+                self.devices
+                    .logical
+                    .destroy_image_view(model.texture.image_view, None);
 
-                    self.devices
-                        .logical
-                        .destroy_image(model.texture.image, None);
-                    self.devices.logical.free_memory(model.texture.memory, None);
+                self.devices
+                    .logical
+                    .destroy_image(model.texture.image, None);
+                self.devices.logical.free_memory(model.texture.memory, None);
 
-                    self.devices.logical.destroy_descriptor_set_layout(
-                        model.graphics_pipeline.descriptor_set.descriptor_set_layout,
-                        None,
-                    );
+                self.devices.logical.destroy_descriptor_set_layout(
+                    model.graphics_pipeline.descriptor_set.descriptor_set_layout,
+                    None,
+                );
 
-                    self.devices
-                        .logical
-                        .destroy_buffer(model.vertex_buffer, None);
-                    self.devices
-                        .logical
-                        .free_memory(model.vertex_buffer_memory, None);
+                self.devices
+                    .logical
+                    .destroy_buffer(model.vertex_buffer, None);
+                self.devices
+                    .logical
+                    .free_memory(model.vertex_buffer_memory, None);
 
-                    self.devices
-                        .logical
-                        .destroy_buffer(model.index_buffer, None);
-                    self.devices
-                        .logical
-                        .free_memory(model.index_buffer_memory, None);
-                }
+                self.devices
+                    .logical
+                    .destroy_buffer(model.index_buffer, None);
+                self.devices
+                    .logical
+                    .free_memory(model.index_buffer_memory, None);
             }
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
@@ -530,6 +492,8 @@ impl Drop for Vulkan {
             self.devices
                 .logical
                 .destroy_command_pool(self.command_pool, None);
+
+            println!("here");
 
             self.devices.logical.destroy_device(None);
 

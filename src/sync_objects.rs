@@ -11,7 +11,7 @@ pub struct SyncObjects {
 }
 
 impl SyncObjects {
-    pub fn create_sync_objects(device: &Device, _swapchain: &SwapChain) -> Self {
+    pub fn new(device: &Device, _swapchain: &SwapChain) -> Self {
         let semaphore_create_info = vk::SemaphoreCreateInfo {
             s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
             ..Default::default()

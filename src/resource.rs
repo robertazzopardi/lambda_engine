@@ -1,5 +1,6 @@
-use crate::{types::Tuple, utility, Devices, SwapChain};
+use crate::{utility, Devices, SwapChain};
 use ash::{vk, Instance};
+use cgmath::Point2;
 
 pub enum ResourceType {
     Colour,
@@ -33,7 +34,7 @@ impl Resource {
         };
 
         let (image, memory) = utility::create_image(
-            Tuple(swapchain.extent.width, swapchain.extent.height),
+            Point2::new(swapchain.extent.width, swapchain.extent.height),
             1,
             devices.msaa_samples,
             format,

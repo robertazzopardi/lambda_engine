@@ -1,17 +1,19 @@
 use crate::{
-    command::{begin_single_time_command, end_single_time_command},
+    command,
     device::Devices,
-    memory::map_memory,
+    memory,
     pipeline::GraphicsPipeline,
     swapchain::SwapChain,
     texture::{self, Texture},
 };
 use ash::{vk, Instance};
-use cgmath::{Vector2, Vector3, Zero};
+use cgmath::{Vector2, Vector3, Vector4, Zero};
 use std::{
     mem::size_of,
     ops::{Mul, Sub},
 };
+
+// pub type Vertex = Vector4<Vector3<f32>>;
 
 const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
@@ -220,12 +222,36 @@ pub enum ModelType {
     Ring,
 }
 
+pub struct ModelProperties {
+    pub texture: Vec<u8>,
+    pub model_type: ModelType,
+    pub indexed: bool,
+    pub topology: ModelTopology,
+    pub cull_mode: ModelCullMode,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Vertex {
     pub pos: Vector3<f32>,
     pub colour: Vector3<f32>,
     pub normal: Vector3<f32>,
     pub tex_coord: Vector2<f32>,
+}
+
+impl Vertex {
+    pub fn new(
+        pos: Vector3<f32>,
+        colour: Vector3<f32>,
+        normal: Vector3<f32>,
+        tex_coord: Vector2<f32>,
+    ) -> Self {
+        Self {
+            pos,
+            colour,
+            normal,
+            tex_coord,
+        }
+    }
 }
 
 pub struct Model {
@@ -244,17 +270,13 @@ impl Model {
     pub fn new(
         instance: &Instance,
         devices: &Devices,
-        image_buffer: &[u8],
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
-        shape_type: ModelType,
-        indexed: bool,
-        topology: Option<vk::PrimitiveTopology>,
-        cull_mode: Option<vk::CullModeFlags>,
         swapchain: &SwapChain,
         render_pass: vk::RenderPass,
+        property: ModelProperties,
     ) -> Self {
-        let (vertices, indices) = match shape_type {
+        let (vertices, indices) = match property.model_type {
             ModelType::Sphere => sphere(0.4, 40, 40),
             ModelType::Cube => cube(),
             ModelType::Ring => ring(0.6, 40),
@@ -263,12 +285,12 @@ impl Model {
         let texture = texture::Texture::new(
             instance,
             devices,
-            image_buffer,
+            &property.texture,
             command_pool,
             command_buffer_count,
         );
 
-        let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_index_buffer(
+        let (vertex_buffer, vertex_buffer_memory) = create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
@@ -278,7 +300,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (index_buffer, index_buffer_memory) = Self::create_vertex_index_buffer(
+        let (index_buffer, index_buffer_memory) = create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<u16>() * indices.len()).try_into().unwrap(),
@@ -290,8 +312,8 @@ impl Model {
 
         let graphics_pipeline = GraphicsPipeline::new(
             instance,
-            topology,
-            cull_mode,
+            Some(property.topology.into()),
+            Some(property.cull_mode.into()),
             devices,
             swapchain,
             render_pass,
@@ -302,7 +324,7 @@ impl Model {
         Self {
             vertices,
             indices,
-            indexed,
+            indexed: property.indexed,
             texture,
             graphics_pipeline,
             vertex_buffer,
@@ -320,7 +342,7 @@ impl Model {
         devices: &Devices,
         command_buffer: vk::CommandBuffer,
         offsets: &[vk::DeviceSize],
-        i: usize,
+        index: usize,
     ) {
         devices.logical.cmd_bind_pipeline(
             command_buffer,
@@ -333,7 +355,7 @@ impl Model {
             vk::PipelineBindPoint::GRAPHICS,
             self.graphics_pipeline.layout,
             0,
-            std::slice::from_ref(&self.graphics_pipeline.descriptor_set.descriptor_sets[i]),
+            std::slice::from_ref(&self.graphics_pipeline.descriptor_set.descriptor_sets[index]),
             &[],
         );
 
@@ -360,84 +382,84 @@ impl Model {
                 .cmd_draw_indexed(command_buffer, self.indices.len() as u32, 1, 0, 0, 0);
         }
     }
+}
 
-    fn copy_buffer(
-        devices: &Devices,
-        command_pool: vk::CommandPool,
-        _command_buffer_count: u32,
-        size: u64,
-        src_buffer: vk::Buffer,
-        dst_buffer: vk::Buffer,
-    ) {
-        let command_buffer = begin_single_time_command(&devices.logical, command_pool);
+fn copy_buffer(
+    devices: &Devices,
+    command_pool: vk::CommandPool,
+    _command_buffer_count: u32,
+    size: u64,
+    src_buffer: vk::Buffer,
+    dst_buffer: vk::Buffer,
+) {
+    let command_buffer = command::begin_single_time_command(&devices.logical, command_pool);
 
-        let copy_region = vk::BufferCopy::builder().size(size);
+    let copy_region = vk::BufferCopy::builder().size(size);
 
-        unsafe {
-            devices.logical.cmd_copy_buffer(
-                command_buffer,
-                src_buffer,
-                dst_buffer,
-                std::slice::from_ref(&copy_region),
-            );
-        }
-
-        end_single_time_command(
-            &devices.logical,
-            command_pool,
-            devices.graphics_queue,
+    unsafe {
+        devices.logical.cmd_copy_buffer(
             command_buffer,
+            src_buffer,
+            dst_buffer,
+            std::slice::from_ref(&copy_region),
         );
     }
 
-    fn create_vertex_index_buffer<T>(
-        instance: &Instance,
-        devices: &Devices,
-        buffer_size: u64,
-        data: &[T],
-        usage_flags: vk::BufferUsageFlags,
-        command_pool: vk::CommandPool,
-        command_buffer_count: u32,
-    ) -> (vk::Buffer, vk::DeviceMemory)
-    where
-        T: std::marker::Copy,
-    {
-        let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
-            instance,
-            devices,
-            buffer_size,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        );
+    command::end_single_time_command(
+        &devices.logical,
+        command_pool,
+        devices.graphics_queue,
+        command_buffer,
+    );
+}
 
-        unsafe {
-            map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
-        }
+fn create_vertex_index_buffer<T>(
+    instance: &Instance,
+    devices: &Devices,
+    buffer_size: u64,
+    data: &[T],
+    usage_flags: vk::BufferUsageFlags,
+    command_pool: vk::CommandPool,
+    command_buffer_count: u32,
+) -> (vk::Buffer, vk::DeviceMemory)
+where
+    T: std::marker::Copy,
+{
+    let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
+        instance,
+        devices,
+        buffer_size,
+        vk::BufferUsageFlags::TRANSFER_SRC,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    );
 
-        let (buffer, buffer_memory) = texture::create_buffer(
-            instance,
-            devices,
-            buffer_size,
-            usage_flags,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        );
-
-        Self::copy_buffer(
-            devices,
-            command_pool,
-            command_buffer_count,
-            buffer_size,
-            staging_buffer,
-            buffer,
-        );
-
-        unsafe {
-            devices.logical.destroy_buffer(staging_buffer, None);
-            devices.logical.free_memory(staging_buffer_memory, None);
-        }
-
-        (buffer, buffer_memory)
+    unsafe {
+        memory::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
     }
+
+    let (buffer, buffer_memory) = texture::create_buffer(
+        instance,
+        devices,
+        buffer_size,
+        usage_flags,
+        vk::MemoryPropertyFlags::DEVICE_LOCAL,
+    );
+
+    copy_buffer(
+        devices,
+        command_pool,
+        command_buffer_count,
+        buffer_size,
+        staging_buffer,
+        buffer,
+    );
+
+    unsafe {
+        devices.logical.destroy_buffer(staging_buffer, None);
+        devices.logical.free_memory(staging_buffer_memory, None);
+    }
+
+    (buffer, buffer_memory)
 }
 
 fn calculate_normals(model: &mut [Vertex; 4]) {
@@ -466,12 +488,8 @@ fn make_point(
     *angle += step;
 
     let pos = Vector3::new(pos_0, pos_1, 0.);
-    Vertex {
-        pos,
-        colour: WHITE,
-        normal: pos.mul(length),
-        tex_coord,
-    }
+
+    Vertex::new(pos, WHITE, pos.mul(length), tex_coord)
 }
 
 fn ring(_radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
@@ -537,12 +555,7 @@ fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec
                 y: i as f32 / stack_count as f32,
             };
 
-            vertices.push(Vertex {
-                pos,
-                colour: WHITE,
-                normal,
-                tex_coord,
-            });
+            vertices.push(Vertex::new(pos, WHITE, normal, tex_coord));
         }
     }
 

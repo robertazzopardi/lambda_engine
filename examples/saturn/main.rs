@@ -3,9 +3,10 @@ extern crate lambda_engine;
 use lambda_engine::{
     camera::Camera,
     display::Display,
+    model::ModelProperties,
     model::{ModelCullMode, ModelTopology, ModelType},
     time::Time,
-    ModelProperties, SceneProperties, Vulkan,
+    SceneProperties, Vulkan,
 };
 
 fn main() {

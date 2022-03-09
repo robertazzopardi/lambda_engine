@@ -1,9 +1,7 @@
-use crate::{
-    model::Vertex, swapchain::SwapChain, texture, uniform::UniformBufferObject, Devices,
-};
+use crate::{model::Vertex, swapchain::SwapChain, texture, uniform::UniformBufferObject, Devices};
 use ash::{vk, Instance};
 use memoffset::offset_of;
-use std::{ffi::CString, mem::size_of};
+use std::{ffi::CString, mem};
 
 pub struct Descriptor {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
@@ -148,7 +146,7 @@ fn create_uniform_buffers(
         let (buffer, memory) = texture::create_buffer(
             instance,
             devices,
-            size_of::<UniformBufferObject>() as u64,
+            mem::size_of::<UniformBufferObject>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         );
@@ -209,7 +207,7 @@ fn create_pipeline_and_layout(
 
     let binding_description = vk::VertexInputBindingDescription::builder()
         .binding(0)
-        .stride(size_of::<Vertex>().try_into().unwrap())
+        .stride(mem::size_of::<Vertex>().try_into().unwrap())
         .input_rate(vk::VertexInputRate::VERTEX);
 
     let attribute_descriptions = [
@@ -406,7 +404,7 @@ fn create_descriptor_sets(
             let buffer_info = vk::DescriptorBufferInfo {
                 buffer: uniform_buffers[i],
                 offset: 0,
-                range: size_of::<UniformBufferObject>() as u64,
+                range: mem::size_of::<UniformBufferObject>() as u64,
             };
 
             let descriptor_writes = [

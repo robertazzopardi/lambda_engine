@@ -1,7 +1,7 @@
-use crate::types::Tuple;
 use crate::{command, memory, utility, Devices};
 use ash::{vk, Instance};
-use std::cmp::max;
+use cgmath::Point2;
+use std::cmp;
 
 pub struct Texture {
     pub image: vk::Image,
@@ -120,7 +120,10 @@ fn create_texture_image(
         );
 
         let (image, memory) = utility::create_image(
-            Tuple(image_dimensions.0, image_dimensions.1),
+            Point2 {
+                x: image_dimensions.0,
+                y: image_dimensions.1,
+            },
             mip_levels,
             vk::SampleCountFlags::TYPE_1,
             vk::Format::R8G8B8A8_SRGB,
@@ -139,10 +142,10 @@ fn create_texture_image(
             devices.graphics_queue,
             image,
             vk::Format::R8G8B8A8_SRGB,
-            Tuple(
-                vk::ImageLayout::UNDEFINED,
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            ),
+            Point2 {
+                x: vk::ImageLayout::UNDEFINED,
+                y: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            },
             mip_levels,
         );
 
@@ -165,10 +168,10 @@ fn create_texture_image(
             vk::Format::R8G8B8A8_SRGB,
             image,
             command_pool,
-            Tuple(
-                image_dimensions.0.try_into().unwrap(),
-                image_dimensions.1.try_into().unwrap(),
-            ),
+            Point2 {
+                x: image_dimensions.0.try_into().unwrap(),
+                y: image_dimensions.1.try_into().unwrap(),
+            },
             mip_levels,
         );
 
@@ -227,7 +230,7 @@ fn transition_image_layout(
     submit_queue: vk::Queue,
     image: vk::Image,
     _format: vk::Format,
-    Tuple(old_layout, new_layout): Tuple<vk::ImageLayout, vk::ImageLayout>,
+    Point2 { x, y }: Point2<vk::ImageLayout>,
     mip_levels: u32,
 ) {
     let command_buffer = command::begin_single_time_command(device, command_pool);
@@ -237,15 +240,13 @@ fn transition_image_layout(
     let source_stage;
     let destination_stage;
 
-    if old_layout == vk::ImageLayout::UNDEFINED
-        && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-    {
+    if x == vk::ImageLayout::UNDEFINED && y == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
         src_access_mask = vk::AccessFlags::empty();
         dst_access_mask = vk::AccessFlags::TRANSFER_WRITE;
         source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
         destination_stage = vk::PipelineStageFlags::TRANSFER;
-    } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-        && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+    } else if x == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+        && y == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
     {
         src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
         dst_access_mask = vk::AccessFlags::SHADER_READ;
@@ -260,8 +261,8 @@ fn transition_image_layout(
         p_next: std::ptr::null(),
         src_access_mask,
         dst_access_mask,
-        old_layout,
-        new_layout,
+        old_layout: x,
+        new_layout: y,
         src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
         dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
         image,
@@ -341,7 +342,7 @@ fn generate_mipmaps(
     format: vk::Format,
     image: vk::Image,
     command_pool: vk::CommandPool,
-    mip_dimension: Tuple<i32, i32>,
+    mip_dimension: Point2<i32>,
     mip_levels: u32,
 ) {
     let format_properties =
@@ -367,7 +368,7 @@ fn generate_mipmaps(
             layer_count: 1,
         });
 
-    let Tuple(mut w, mut h) = mip_dimension;
+    let Point2 { mut x, mut y } = mip_dimension;
 
     for i in 1..mip_levels {
         image_barrier.subresource_range.base_mip_level = i - 1;
@@ -397,7 +398,7 @@ fn generate_mipmaps(
             },
             src_offsets: [
                 vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D { x: w, y: h, z: 1 },
+                vk::Offset3D { x, y, z: 1 },
             ],
             dst_subresource: vk::ImageSubresourceLayers {
                 aspect_mask: vk::ImageAspectFlags::COLOR,
@@ -408,8 +409,8 @@ fn generate_mipmaps(
             dst_offsets: [
                 vk::Offset3D { x: 0, y: 0, z: 0 },
                 vk::Offset3D {
-                    x: max(w / 2, 1),
-                    y: max(h / 2, 1),
+                    x: cmp::max(x / 2, 1),
+                    y: cmp::max(y / 2, 1),
                     z: 1,
                 },
             ],
@@ -444,8 +445,8 @@ fn generate_mipmaps(
             );
         }
 
-        w = max(w / 2, 1);
-        h = max(h / 2, 1);
+        x = cmp::max(x / 2, 1);
+        y = cmp::max(y / 2, 1);
     }
 
     image_barrier.subresource_range.base_mip_level = mip_levels - 1;
