@@ -18,7 +18,11 @@ pub mod time;
 mod uniform;
 mod utility;
 
-use ash::{extensions::khr::Surface, vk, Instance};
+use ash::{
+    extensions::khr::Surface,
+    vk::{self, Extent2D},
+    Instance,
+};
 use camera::Camera;
 use debug::Debug;
 use device::Devices;
@@ -32,6 +36,10 @@ use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
 use time::Time;
 use uniform::UniformBufferObject;
 use winit::window::Window;
+
+// struct Models<const S: usize> {
+//     models: [Model; S],
+// }
 
 pub struct SceneProperties {
     pub models: Vec<ModelProperties>,
@@ -58,7 +66,7 @@ pub struct Vulkan {
 
     ubo: UniformBufferObject,
 
-    is_framebuffer_resized: bool,
+    is_frame_buffer_resized: bool,
 }
 
 impl Vulkan {
@@ -91,7 +99,7 @@ impl Vulkan {
         let command_pool =
             command::create_command_pool(&instance, &devices, &surface_loader, &surface);
 
-        let sync_objects = SyncObjects::new(&devices.logical, &swapchain);
+        let sync_objects = SyncObjects::new(&devices.logical);
 
         let swapchain_len = swapchain.images.len() as u32;
 
@@ -137,7 +145,7 @@ impl Vulkan {
             depth_resource,
             frame_buffers,
             command_pool,
-            is_framebuffer_resized: false,
+            is_frame_buffer_resized: false,
         }
     }
 
@@ -191,13 +199,12 @@ impl Vulkan {
         let _ = self.models.iter_mut().map(|mut model| {
             model.graphics_pipeline = GraphicsPipeline::new(
                 &self.instance,
-                Some(model.graphics_pipeline.topology),
-                Some(model.graphics_pipeline.cull_mode),
                 &self.devices,
                 &self.swapchain,
                 self.render_pass,
                 model.texture.image_view,
                 model.texture.sampler,
+                model.properties.clone(),
             )
         });
 
@@ -288,7 +295,7 @@ impl Vulkan {
     }
 
     // TODO marked for refactor
-    fn update_uniform_buffer(&self, camera: &mut Camera, current_image: usize) {
+    fn update_uniform_buffer(&self, _camera: &mut Camera, current_image: usize) {
         // let rot = Quaternion::from_axis_angle(Vector3::unit_z(), Deg(1.0))
         //     .rotate_point(self.camera.pos);
         // self.camera.pos = rot;
@@ -298,17 +305,15 @@ impl Vulkan {
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
         for model in self.models.iter() {
-            unsafe {
-                memory::map_memory(
-                    &self.devices.logical,
-                    model
-                        .graphics_pipeline
-                        .descriptor_set
-                        .uniform_buffers_memory[current_image],
-                    buffer_size,
-                    &ubos,
-                );
-            }
+            memory::map_memory(
+                &self.devices.logical,
+                model
+                    .graphics_pipeline
+                    .descriptor_set
+                    .uniform_buffers_memory[current_image],
+                buffer_size,
+                &ubos,
+            );
         }
     }
 
@@ -341,12 +346,6 @@ impl Vulkan {
         };
 
         self.update_uniform_buffer(camera, image_index.try_into().unwrap());
-        // self.ubo.map_to_models(
-        //     &self.devices.logical,
-        //     camera,
-        //     &self.models,
-        //     image_index.try_into().unwrap(),
-        // );
 
         if self.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
             self.devices
@@ -410,24 +409,29 @@ impl Vulkan {
             .queue_present(self.devices.present_queue, &present_info);
 
         let is_resized = match result {
-            Ok(_) => self.is_framebuffer_resized,
+            Ok(_) => self.is_frame_buffer_resized,
             Err(vk_result) => match vk_result {
                 vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
                 _ => panic!("Failed to execute queue present."),
             },
         };
         if is_resized {
-            self.is_framebuffer_resized = false;
+            self.is_frame_buffer_resized = false;
             self.recreate_swapchain(window);
         }
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
+}
 
-    pub(crate) fn update_state(&mut self, camera: &mut Camera, dt: f32) {
-        camera.rotate(dt);
-        self.ubo.update(self.swapchain.extent, camera);
-    }
+pub(crate) fn update_state(
+    ubo: &mut UniformBufferObject,
+    extent: Extent2D,
+    camera: &mut Camera,
+    dt: f32,
+) {
+    camera.rotate(dt);
+    ubo.update(extent, camera);
 }
 
 impl Drop for Vulkan {
@@ -530,7 +534,12 @@ pub fn run(
             &mut mouse_pressed,
         );
 
-        time.step(&mut vulkan, &mut camera);
+        time.step(
+            update_state,
+            &mut camera,
+            &mut vulkan.ubo,
+            vulkan.swapchain.extent,
+        );
 
         unsafe { vulkan.render(&display.window, &mut camera) };
     });

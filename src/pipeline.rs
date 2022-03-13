@@ -1,4 +1,10 @@
-use crate::{model::Vertex, swapchain::SwapChain, texture, uniform::UniformBufferObject, Devices};
+use crate::{
+    model::{ModelProperties, Vertex},
+    swapchain::SwapChain,
+    texture,
+    uniform::UniformBufferObject,
+    Devices,
+};
 use ash::{vk, Instance};
 use memoffset::offset_of;
 use std::{ffi::CString, mem};
@@ -22,33 +28,21 @@ pub struct GraphicsPipeline {
 impl GraphicsPipeline {
     pub fn new(
         instance: &Instance,
-        topology: Option<vk::PrimitiveTopology>,
-        cull_mode: Option<vk::CullModeFlags>,
         devices: &Devices,
         swapchain: &SwapChain,
         render_pass: vk::RenderPass,
         texture_image_view: vk::ImageView,
         sampler: vk::Sampler,
+        properties: ModelProperties,
     ) -> Self {
-        let topology = match topology {
-            Some(topology) => topology,
-            None => vk::PrimitiveTopology::TRIANGLE_LIST,
-        };
-
-        let cull_mode = match cull_mode {
-            Some(cull_mode) => cull_mode,
-            None => vk::CullModeFlags::BACK,
-        };
-
         let descriptor_set_layout = create_descriptor_set_layout(devices);
 
         let (pipeline, layout) = create_pipeline_and_layout(
             devices,
-            topology,
-            cull_mode,
             swapchain,
             &descriptor_set_layout,
             render_pass,
+            properties.clone(),
         );
 
         let descriptor_pool = create_descriptor_pool(devices, swapchain.images.len() as u32);
@@ -67,8 +61,8 @@ impl GraphicsPipeline {
         );
 
         Self {
-            topology,
-            cull_mode,
+            topology: properties.topology.into(),
+            cull_mode: properties.cull_mode.into(),
             pipeline,
             layout,
             descriptor_set: Descriptor {
@@ -170,11 +164,10 @@ fn create_shader_module(devices: &Devices, code: &[u32]) -> vk::ShaderModule {
 
 fn create_pipeline_and_layout(
     devices: &Devices,
-    topology: vk::PrimitiveTopology,
-    cull_mode: vk::CullModeFlags,
     swapchain: &SwapChain,
     descriptor_set_layout: &vk::DescriptorSetLayout,
     render_pass: vk::RenderPass,
+    properties: ModelProperties,
 ) -> (vk::Pipeline, vk::PipelineLayout) {
     let entry_point = CString::new("main").unwrap();
 
@@ -242,7 +235,7 @@ fn create_pipeline_and_layout(
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(topology)
+        .topology(properties.topology.into())
         .primitive_restart_enable(false);
 
     let view_port = vk::Viewport::builder()
@@ -268,7 +261,7 @@ fn create_pipeline_and_layout(
         // .polygon_mode(vk::PolygonMode::LINE)
         // .polygon_mode(vk::PolygonMode::POINT)
         .line_width(1.)
-        .cull_mode(cull_mode)
+        .cull_mode(properties.cull_mode.into())
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 

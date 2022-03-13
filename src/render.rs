@@ -1,4 +1,4 @@
-use crate::{device::Devices, swapchain::SwapChain, resource};
+use crate::{device::Devices, resource, swapchain::SwapChain};
 use ash::{vk, Instance};
 
 pub fn create_render_pass(
@@ -19,7 +19,7 @@ pub fn create_render_pass(
             ..Default::default()
         },
         vk::AttachmentDescription {
-            format: unsafe { resource::find_depth_format(instance, &devices.physical) },
+            format: resource::find_depth_format(instance, &devices.physical),
             samples: devices.msaa_samples,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::DONT_CARE,

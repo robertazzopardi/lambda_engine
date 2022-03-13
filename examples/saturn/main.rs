@@ -3,7 +3,11 @@ extern crate lambda_engine;
 use lambda_engine::{
     camera::Camera,
     display::Display,
-    model::{ModelCullMode, ModelProperties, ModelTopology, ModelType},
+    model::{
+        self,
+        utilities::{ModelCullMode, ModelTopology},
+        ModelProperties,
+    },
     time::Time,
     SceneProperties, Vulkan,
 };
@@ -16,17 +20,17 @@ fn main() {
     let models = vec![
         ModelProperties {
             texture: include_bytes!("../../assets/2k_saturn.jpg").to_vec(),
-            model_type: ModelType::Sphere,
             indexed: true,
             topology: ModelTopology::TriangleList,
             cull_mode: ModelCullMode::Back,
+            vertices_and_indices: model::sphere(0.4, 20, 20),
         },
         ModelProperties {
             texture: include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
-            model_type: ModelType::Ring,
             indexed: false,
             topology: ModelTopology::TriangleStrip,
             cull_mode: ModelCullMode::None,
+            vertices_and_indices: model::ring(0.5, 1., 40),
         },
     ];
 

@@ -1,6 +1,5 @@
 use crate::{debug, device::Devices, memory, swapchain::SwapChain};
 use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
-use cgmath::Point2;
 use std::ffi::CString;
 use winit::window::Window;
 
@@ -48,7 +47,7 @@ pub(crate) fn create_instance(window: &Window) -> (Instance, Entry) {
 }
 
 pub(crate) fn create_image(
-    Point2 { x, y }: Point2<u32>,
+    dimensions: (u32, u32),
     mip_levels: u32,
     samples: vk::SampleCountFlags,
     format: vk::Format,
@@ -62,8 +61,8 @@ pub(crate) fn create_image(
         s_type: vk::StructureType::IMAGE_CREATE_INFO,
         image_type: vk::ImageType::TYPE_2D,
         extent: vk::Extent3D {
-            width: x,
-            height: y,
+            width: dimensions.0,
+            height: dimensions.1,
             depth: 1,
         },
         mip_levels,

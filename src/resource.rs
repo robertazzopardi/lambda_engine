@@ -1,6 +1,5 @@
 use crate::{utility, Devices, SwapChain};
 use ash::{vk, Instance};
-use cgmath::Point2;
 
 pub enum ResourceType {
     Colour,
@@ -27,14 +26,14 @@ impl Resource {
                 vk::ImageAspectFlags::COLOR,
             ),
             ResourceType::Depth => (
-                unsafe { find_depth_format(instance, &devices.physical) },
+                find_depth_format(instance, &devices.physical),
                 vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
                 vk::ImageAspectFlags::DEPTH,
             ),
         };
 
         let (image, memory) = utility::create_image(
-            Point2::new(swapchain.extent.width, swapchain.extent.height),
+            (swapchain.extent.width, swapchain.extent.height),
             1,
             devices.msaa_samples,
             format,
@@ -55,10 +54,7 @@ impl Resource {
     }
 }
 
-pub unsafe fn find_depth_format(
-    instance: &Instance,
-    physical_device: &vk::PhysicalDevice,
-) -> vk::Format {
+pub fn find_depth_format(instance: &Instance, physical_device: &vk::PhysicalDevice) -> vk::Format {
     let candidates = [
         vk::Format::D32_SFLOAT,
         vk::Format::D32_SFLOAT_S8_UINT,

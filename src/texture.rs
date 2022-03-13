@@ -87,10 +87,7 @@ fn create_texture_image(
     command_pool: vk::CommandPool,
     command_buffer_count: u32,
 ) -> (vk::Image, vk::DeviceMemory, u32) {
-    let image_texture = image::load_from_memory(image_buffer)
-        .unwrap()
-        // .adjust_contrast(-25.)
-        .to_rgba8();
+    let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
 
     let image_dimensions = image_texture.dimensions();
     let image_data = image_texture.into_raw();
@@ -120,10 +117,7 @@ fn create_texture_image(
         );
 
         let (image, memory) = utility::create_image(
-            Point2 {
-                x: image_dimensions.0,
-                y: image_dimensions.1,
-            },
+            image_dimensions,
             mip_levels,
             vk::SampleCountFlags::TYPE_1,
             vk::Format::R8G8B8A8_SRGB,

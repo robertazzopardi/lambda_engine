@@ -4,6 +4,234 @@ use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
+const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
+
+pub(crate) const CUBE_VERTICES: [[Vertex; 4]; 6] = [
+    [
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, 0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+    [
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 0.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, 0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(0., 1.),
+        },
+        Vertex {
+            pos: Vector3::new(-0.5, -0.5, -0.5),
+            colour: WHITE,
+            normal: VEC3_ZERO,
+            tex_coord: Vector2::new(1., 1.),
+        },
+    ],
+];
+
+pub(crate) const CUBE_INDICES: [u16; 36] = [
+    0, 1, 2, 2, 3, 0, // top
+    4, 5, 6, 6, 7, 4, // bottom
+    8, 9, 10, 8, 10, 11, // right
+    12, 13, 14, 12, 14, 15, // left
+    16, 17, 18, 16, 18, 19, // front
+    20, 21, 22, 20, 22, 23, // back
+];
+
+#[derive(Clone)]
+pub enum ModelTopology {
+    LineList,
+    LineListWithAdjacency,
+    LineStrip,
+    LineStripWithADjacency,
+    PatchList,
+    PointList,
+    TriangleFan,
+    TriangleList,
+    TriangleListWithAdjacency,
+    TriangleStrip,
+    TriangleStripWithAdjacency,
+}
+
+impl From<ModelTopology> for vk::PrimitiveTopology {
+    fn from(topology: ModelTopology) -> Self {
+        match topology {
+            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
+            ModelTopology::TriangleListWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
+            }
+            ModelTopology::TriangleStripWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
+            }
+            ModelTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
+            ModelTopology::LineListWithAdjacency => vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY,
+            ModelTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
+            ModelTopology::LineStripWithADjacency => {
+                vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY
+            }
+            ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
+            ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ModelCullMode {
+    Front,
+    Back,
+    FrontAndBack,
+    None,
+}
+
+impl From<ModelCullMode> for vk::CullModeFlags {
+    fn from(cull_mode: ModelCullMode) -> Self {
+        match cull_mode {
+            ModelCullMode::Front => vk::CullModeFlags::FRONT,
+            ModelCullMode::Back => vk::CullModeFlags::BACK,
+            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
+            ModelCullMode::None => vk::CullModeFlags::NONE,
+        }
+    }
+}
+
 fn copy_buffer(
     devices: &Devices,
     command_pool: vk::CommandPool,
@@ -53,9 +281,7 @@ where
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
     );
 
-    unsafe {
-        memory::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
-    }
+    memory::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
 
     let (buffer, buffer_memory) = texture::create_buffer(
         instance,

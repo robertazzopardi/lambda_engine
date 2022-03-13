@@ -7,25 +7,24 @@ pub(crate) fn find_memory_type(
     type_filter: u32,
     properties: vk::MemoryPropertyFlags,
 ) -> u32 {
-    unsafe {
-        let mem_properties = instance.get_physical_device_memory_properties(devices.physical);
+    let mem_properties =
+        unsafe { instance.get_physical_device_memory_properties(devices.physical) };
 
-        for i in 0..mem_properties.memory_type_count {
-            if ((1 << i) & type_filter) != 0
-                && mem_properties.memory_types[i as usize].property_flags & properties == properties
-            {
-                return i;
-            }
+    for i in 0..mem_properties.memory_type_count {
+        if ((1 << i) & type_filter) != 0
+            && mem_properties.memory_types[i as usize].property_flags & properties == properties
+        {
+            return i;
         }
-
-        panic!("Failed to find suitable memory type!")
     }
+
+    panic!("Failed to find suitable memory type!")
 }
 
 /// # Safety
 ///
 /// Expand on the safety of this function
-pub(crate) unsafe fn map_memory<T>(
+pub(crate) fn map_memory<T>(
     device: &Device,
     device_memory: vk::DeviceMemory,
     device_size: vk::DeviceSize,
@@ -33,10 +32,12 @@ pub(crate) unsafe fn map_memory<T>(
 ) where
     T: std::marker::Copy,
 {
-    let data = device
-        .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
-        .unwrap();
-    let mut vert_align = Align::new(data, std::mem::align_of::<T>() as u64, device_size);
-    vert_align.copy_from_slice(to_map);
-    device.unmap_memory(device_memory);
+    unsafe {
+        let data = device
+            .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
+            .unwrap();
+        let mut vert_align = Align::new(data, std::mem::align_of::<T>() as u64, device_size);
+        vert_align.copy_from_slice(to_map);
+        device.unmap_memory(device_memory);
+    }
 }

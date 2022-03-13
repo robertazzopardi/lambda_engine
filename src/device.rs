@@ -18,7 +18,7 @@ impl QueueFamilyIndices {
         }
     }
 
-    pub fn is_complete(&self) -> bool {
+    pub const fn is_complete(&self) -> bool {
         self.graphics_family.is_some() && self.present_family.is_some()
     }
 }

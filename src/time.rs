@@ -1,4 +1,5 @@
-use crate::{camera::Camera, Vulkan};
+use crate::{camera::Camera, uniform::UniformBufferObject};
+use ash::vk::Extent2D;
 use std::time::{Duration, Instant};
 
 fn calculate_fps(fps: f64) -> f64 {
@@ -30,9 +31,17 @@ impl Time {
         self.accumulator += frame_time;
     }
 
-    pub fn step(&mut self, vulkan: &mut Vulkan, camera: &mut Camera) {
+    pub fn step<F>(
+        &mut self,
+        update_state: F,
+        camera: &mut Camera,
+        ubo: &mut UniformBufferObject,
+        extent: Extent2D,
+    ) where
+        F: Fn(&mut UniformBufferObject, Extent2D, &mut Camera, f32),
+    {
         while self.accumulator >= self.delta {
-            vulkan.update_state(camera, self.delta.as_secs_f32());
+            update_state(ubo, extent, camera, self.delta.as_secs_f32());
             self.accumulator -= self.delta;
             self.elapsed += self.delta;
 

@@ -13,8 +13,8 @@ impl UniformBufferObject {
     pub fn new(camera: &mut Camera) -> Self {
         Self {
             model: Matrix4::identity(),
-            // view: Matrix4::identity(),
-            view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
+            view: Matrix4::identity(),
+            // view: Matrix4::look_at_rh(camera.pos, Point3::new(0., 0., 0.), Vector3::unit_z()),
             proj: Matrix4::identity(),
         }
     }

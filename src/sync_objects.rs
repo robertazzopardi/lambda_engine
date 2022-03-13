@@ -1,4 +1,3 @@
-use crate::swapchain::SwapChain;
 use ash::{vk, Device};
 
 pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 2;
@@ -11,7 +10,7 @@ pub(crate) struct SyncObjects {
 }
 
 impl SyncObjects {
-    pub fn new(device: &Device, _swapchain: &SwapChain) -> Self {
+    pub fn new(device: &Device) -> Self {
         let semaphore_create_info = vk::SemaphoreCreateInfo {
             s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
             ..Default::default()

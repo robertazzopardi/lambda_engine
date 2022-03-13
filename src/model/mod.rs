@@ -1,8 +1,5 @@
-mod utilities;
+pub mod utilities;
 
-use self::utilities::{
-    calculate_normals, calculate_sphere_indices, create_vertex_index_buffer, make_point,
-};
 use crate::{
     device::Devices,
     pipeline::GraphicsPipeline,
@@ -12,234 +9,44 @@ use crate::{
 use ash::{vk, Instance};
 use cgmath::{Vector2, Vector3, Zero};
 use std::{mem::size_of, ops::Mul};
+use self::utilities::{ModelTopology, ModelCullMode};
 
-// pub type Vertex = Vector4<Vector3<f32>>;
+pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 
-const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
-const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
+// #[derive(Debug, Clone, Copy)]
+// pub struct Generic<const S: usize, const B: usize> {
+//     vertices: [Vertex; S],
+//     indices: [u16; B],
+// }
 
-const CUBE_VERTICES: [[Vertex; 4]; 6] = [
-    [
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-];
+// impl<const S: usize, const B: usize> Generic<S, B> {
+//     pub fn new(vertices: &[Vertex; S], indices: &[u16; B]) -> Self {
+//         Self {
+//             vertices: *vertices,
+//             indices: *indices,
+//         }
+//     }
+// }
 
-const CUBE_INDICES: [u16; 36] = [
-    0, 1, 2, 2, 3, 0, // top
-    4, 5, 6, 6, 7, 4, // bottom
-    8, 9, 10, 8, 10, 11, // right
-    12, 13, 14, 12, 14, 15, // left
-    16, 17, 18, 16, 18, 19, // front
-    20, 21, 22, 20, 22, 23, // back
-];
-
-pub enum ModelTopology {
-    TriangleFan,
-    TriangleList,
-    TriangleListWithAdjacency,
-    TriangleStrip,
-    TriangleStripWithAdjacency,
+#[derive(Clone)]
+pub struct VerticesAndIndices {
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
 }
 
-impl From<ModelTopology> for vk::PrimitiveTopology {
-    fn from(topology: ModelTopology) -> Self {
-        match topology {
-            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
-            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
-            ModelTopology::TriangleListWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
-            }
-            ModelTopology::TriangleStripWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
-            }
-        }
+impl VerticesAndIndices {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Self {
+        Self { vertices, indices }
     }
 }
 
-pub enum ModelCullMode {
-    Front,
-    Back,
-    FrontAndBack,
-    None,
-}
-
-impl From<ModelCullMode> for vk::CullModeFlags {
-    fn from(cull_mode: ModelCullMode) -> Self {
-        match cull_mode {
-            ModelCullMode::Front => vk::CullModeFlags::FRONT,
-            ModelCullMode::Back => vk::CullModeFlags::BACK,
-            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
-            ModelCullMode::None => vk::CullModeFlags::NONE,
-        }
-    }
-}
-
-pub enum ModelType {
-    Sphere,
-    Cube,
-    Ring,
-}
-
+#[derive(Clone)]
 pub struct ModelProperties {
     pub texture: Vec<u8>,
-    pub model_type: ModelType,
     pub indexed: bool,
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
+    pub vertices_and_indices: VerticesAndIndices,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -269,13 +76,13 @@ impl Vertex {
 pub struct Model {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
-    indexed: bool,
     pub texture: Texture,
     pub graphics_pipeline: GraphicsPipeline,
     pub vertex_buffer: vk::Buffer,
     pub vertex_buffer_memory: vk::DeviceMemory,
     pub index_buffer: vk::Buffer,
     pub index_buffer_memory: vk::DeviceMemory,
+    pub properties: ModelProperties,
 }
 
 impl Model {
@@ -288,11 +95,7 @@ impl Model {
         render_pass: vk::RenderPass,
         property: ModelProperties,
     ) -> Self {
-        let (vertices, indices) = match property.model_type {
-            ModelType::Sphere => sphere(0.4, 40, 40),
-            ModelType::Cube => cube(),
-            ModelType::Ring => ring(0.6, 40),
-        };
+        let VerticesAndIndices { vertices, indices } = property.vertices_and_indices.clone();
 
         let texture = texture::Texture::new(
             instance,
@@ -302,7 +105,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (vertex_buffer, vertex_buffer_memory) = create_vertex_index_buffer(
+        let (vertex_buffer, vertex_buffer_memory) = utilities::create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
@@ -312,7 +115,7 @@ impl Model {
             command_buffer_count,
         );
 
-        let (index_buffer, index_buffer_memory) = create_vertex_index_buffer(
+        let (index_buffer, index_buffer_memory) = utilities::create_vertex_index_buffer(
             instance,
             devices,
             (size_of::<u16>() * indices.len()).try_into().unwrap(),
@@ -324,25 +127,24 @@ impl Model {
 
         let graphics_pipeline = GraphicsPipeline::new(
             instance,
-            Some(property.topology.into()),
-            Some(property.cull_mode.into()),
             devices,
             swapchain,
             render_pass,
             texture.image_view,
             texture.sampler,
+            property.clone(),
         );
 
         Self {
             vertices,
             indices,
-            indexed: property.indexed,
             texture,
             graphics_pipeline,
             vertex_buffer,
             vertex_buffer_memory,
             index_buffer,
             index_buffer_memory,
+            properties: property,
         }
     }
 
@@ -381,7 +183,7 @@ impl Model {
             .logical
             .cmd_draw(command_buffer, self.vertices.len() as u32, 1, 0, 0);
 
-        if self.indexed {
+        if self.properties.indexed {
             devices.logical.cmd_bind_index_buffer(
                 command_buffer,
                 self.index_buffer,
@@ -396,50 +198,52 @@ impl Model {
     }
 }
 
-pub fn ring(_radius: f32, sector_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+pub fn ring(inner_radius: f32, outer_radius: f32, sector_count: u32) -> VerticesAndIndices {
+    assert!(
+        inner_radius <= outer_radius,
+        "Ring inner radius mut be smaller or equal to its outer radius"
+    );
+
     let stack_count = 2;
 
     let mut angle = 0.;
     let angle_step = 180. / sector_count as f32;
     let length = 1.;
 
-    let outside_radius = 1.;
-    let inside_radius = 0.5;
-
     let mut vertices = Vec::new();
 
     for _ in 0..=sector_count {
-        vertices.push(make_point(
+        vertices.push(utilities::make_point(
             &mut angle,
-            outside_radius,
+            outer_radius,
             angle_step,
             length,
-            Vector2::new(0., 0.),
+            Vector2::zero(),
         ));
-        vertices.push(make_point(
+        vertices.push(utilities::make_point(
             &mut angle,
-            inside_radius,
+            inner_radius,
             angle_step,
             length,
             Vector2::new(1., 1.),
         ));
     }
 
-    (
+    VerticesAndIndices::new(
         vertices,
-        calculate_sphere_indices(sector_count, stack_count),
+        utilities::calculate_sphere_indices(sector_count, stack_count),
     )
 }
 
-pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>, Vec<u16>) {
+pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> VerticesAndIndices {
     let length = 1. / radius;
 
     let sector_step = 2. * std::f32::consts::PI / sector_count as f32;
     let stack_step = std::f32::consts::PI / stack_count as f32;
 
-    let mut pos = Vector3::<f32>::zero();
+    let mut pos = Vector3::zero();
 
-    let mut vertices = Vec::<Vertex>::new();
+    let mut vertices = Vec::new();
 
     for i in 0..=stack_count {
         let stack_angle = std::f32::consts::FRAC_PI_2 - i as f32 * stack_step;
@@ -463,19 +267,19 @@ pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> (Vec<Vertex>,
         }
     }
 
-    (
+    VerticesAndIndices::new(
         vertices,
-        calculate_sphere_indices(sector_count, stack_count),
+        utilities::calculate_sphere_indices(sector_count, stack_count),
     )
 }
 
-pub fn cube() -> (Vec<Vertex>, Vec<u16>) {
-    let cube = CUBE_VERTICES;
-    // for model in cube.iter_mut() {
-    //     Model::calculate_normals(model);
-    // }
+pub fn cube() -> VerticesAndIndices {
+    let cube = utilities::CUBE_VERTICES;
 
-    cube.map(|_| calculate_normals);
+    cube.map(|_| utilities::calculate_normals);
 
-    (cube.into_iter().flatten().collect(), CUBE_INDICES.to_vec())
+    VerticesAndIndices::new(
+        cube.into_iter().flatten().collect(),
+        utilities::CUBE_INDICES.to_vec(),
+    )
 }
