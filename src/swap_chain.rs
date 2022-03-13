@@ -24,7 +24,7 @@ impl SwapChain {
         window: &Window,
     ) -> SwapChain {
         let (capabilities, formats, present_modes) =
-            query_swapchain_support(devices, surface, surface_loader);
+            query_swap_chain_support(devices, surface, surface_loader);
 
         let surface_format = choose_swap_surface_format(&formats);
 
@@ -97,14 +97,14 @@ impl SwapChain {
 
 fn create_image_views(
     devices: &Devices,
-    swapchain_images: &[vk::Image],
+    swap_chain_images: &[vk::Image],
     surface_format: &vk::SurfaceFormatKHR,
     mip_levels: u32,
 ) -> Vec<vk::ImageView> {
-    let mut swapchain_imageviews = vec![];
+    let mut swap_chain_image_views = vec![];
 
-    for &image in swapchain_images.iter() {
-        let imageview_create_info = vk::ImageViewCreateInfo {
+    for &image in swap_chain_images.iter() {
+        let image_view_create_info = vk::ImageViewCreateInfo {
             s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
             image,
             view_type: vk::ImageViewType::TYPE_2D,
@@ -125,19 +125,19 @@ fn create_image_views(
             ..Default::default()
         };
 
-        let imageview = unsafe {
+        let image_view = unsafe {
             devices
                 .logical
-                .create_image_view(&imageview_create_info, None)
+                .create_image_view(&image_view_create_info, None)
                 .expect("Failed to create vk::Image View!")
         };
-        swapchain_imageviews.push(imageview);
+        swap_chain_image_views.push(image_view);
     }
 
-    swapchain_imageviews
+    swap_chain_image_views
 }
 
-pub fn query_swapchain_support(
+pub fn query_swap_chain_support(
     devices: &Devices,
     surface: vk::SurfaceKHR,
     surface_loader: &Surface,

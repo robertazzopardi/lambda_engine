@@ -11,7 +11,7 @@ pub mod model;
 mod pipeline;
 mod render;
 mod resource;
-mod swapchain;
+mod swap_chain;
 mod sync_objects;
 mod texture;
 pub mod time;
@@ -29,15 +29,16 @@ use device::Devices;
 use display::Display;
 use model::{Model, ModelProperties};
 use pipeline::GraphicsPipeline;
-use resource::{Resource, ResourceType};
+use resource::Resources;
 use std::ptr;
-use swapchain::SwapChain;
+use swap_chain::SwapChain;
 use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
 use time::Time;
 use uniform::UniformBufferObject;
+use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
-// struct Models<const S: usize> {
+// pub struct Models<const S: usize> {
 //     models: [Model; S],
 // }
 
@@ -46,82 +47,83 @@ pub struct SceneProperties {
 }
 
 pub struct Vulkan {
-    instance: Instance,
-    debugging: Option<Debug>,
-    surface: vk::SurfaceKHR,
-    devices: Devices,
-    swapchain: SwapChain,
-    surface_loader: Surface,
-    sync_objects: SyncObjects,
-    current_frame: usize,
-
-    models: Vec<Model>,
     command_buffers: Vec<vk::CommandBuffer>,
-
-    render_pass: vk::RenderPass,
-    color_resource: Resource,
-    depth_resource: Resource,
-    frame_buffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
-
-    ubo: UniformBufferObject,
-
+    current_frame: usize,
+    debugging: Option<Debug>,
+    devices: Devices,
+    frame_buffers: Vec<vk::Framebuffer>,
+    instance: Instance,
     is_frame_buffer_resized: bool,
+    models: Vec<Model>,
+    render_pass: vk::RenderPass,
+    resources: Resources,
+    surface: vk::SurfaceKHR,
+    surface_loader: Surface,
+    swap_chain: SwapChain,
+    sync_objects: SyncObjects,
+    ubo: UniformBufferObject,
 }
 
 impl Vulkan {
     pub fn new(window: &Window, camera: &mut Camera, scene_properties: SceneProperties) -> Self {
-        let (instance, entry) = utility::create_instance(window);
+        let entry_instance = EntryInstance::new(window);
 
-        let debugging = debug::setup_debug_messenger(&instance, &entry);
+        let debugging = entry_instance.debugger();
 
-        let surface = display::create_surface(&instance, &entry, window);
+        let surface = entry_instance.create_surface(window);
 
-        let surface_loader = Surface::new(&entry, &instance);
+        let surface_loader = Surface::new(&entry_instance.entry, &entry_instance.instance);
 
-        let devices = Devices::new(&instance, &surface, &surface_loader);
+        let devices = Devices::new(&entry_instance.instance, &surface, &surface_loader);
 
-        let swapchain = SwapChain::new(&instance, &devices, surface, &surface_loader, window);
+        let instance_devices = InstanceDevices::new(&entry_instance.instance, &devices);
 
-        let render_pass = render::create_render_pass(&instance, &devices, &swapchain);
-
-        let color_resource = Resource::new(&devices, &swapchain, &instance, ResourceType::Colour);
-        let depth_resource = Resource::new(&devices, &swapchain, &instance, ResourceType::Depth);
-
-        let frame_buffers = utility::create_frame_buffers(
-            &swapchain,
-            depth_resource.view,
-            render_pass,
-            &devices.logical,
-            color_resource.view,
+        let swap_chain = SwapChain::new(
+            &entry_instance.instance,
+            &devices,
+            surface,
+            &surface_loader,
+            window,
         );
 
-        let command_pool =
-            command::create_command_pool(&instance, &devices, &surface_loader, &surface);
+        let render_pass =
+            render::create_render_pass(&entry_instance.instance, &devices, &swap_chain);
+
+        let resources = Resources::new(&swap_chain, &instance_devices);
+
+        let frame_buffers =
+            utility::create_frame_buffers(&swap_chain, render_pass, &devices.logical, &resources);
+
+        let command_pool = command::create_command_pool(
+            &entry_instance.instance,
+            &devices,
+            &surface_loader,
+            &surface,
+        );
 
         let sync_objects = SyncObjects::new(&devices.logical);
 
-        let swapchain_len = swapchain.images.len() as u32;
+        let swap_chain_len = swap_chain.images.len() as u32;
 
         let models = scene_properties
             .models
             .into_iter()
             .map(|property| {
                 Model::new(
-                    &instance,
-                    &devices,
                     command_pool,
-                    swapchain_len,
-                    &swapchain,
+                    swap_chain_len,
+                    &swap_chain,
                     render_pass,
                     property,
+                    &instance_devices,
                 )
             })
             .collect::<Vec<Model>>();
 
         let command_buffers = command::create_command_buffers(
             command_pool,
-            &swapchain,
+            &swap_chain,
             &devices,
             render_pass,
             &frame_buffers,
@@ -129,11 +131,11 @@ impl Vulkan {
         );
 
         Self {
-            instance,
+            instance: entry_instance.instance,
             debugging,
             surface,
             devices,
-            swapchain,
+            swap_chain,
             command_buffers,
             sync_objects,
             surface_loader,
@@ -141,15 +143,14 @@ impl Vulkan {
             models,
             ubo: UniformBufferObject::new(camera),
             render_pass,
-            color_resource,
-            depth_resource,
+            resources,
             frame_buffers,
             command_pool,
             is_frame_buffer_resized: false,
         }
     }
 
-    fn recreate_swapchain(&mut self, window: &Window) {
+    fn recreate_swap_chain(&mut self, window: &Window) {
         let size = window.inner_size();
         let _w = size.width;
         let _h = size.height;
@@ -161,9 +162,9 @@ impl Vulkan {
                 .expect("Failed to wait for device idle!")
         };
 
-        self.cleanup_swapchain();
+        self.cleanup_swap_chain();
 
-        self.swapchain = SwapChain::new(
+        self.swap_chain = SwapChain::new(
             &self.instance,
             &self.devices,
             self.surface,
@@ -172,45 +173,35 @@ impl Vulkan {
         );
 
         self.render_pass =
-            render::create_render_pass(&self.instance, &self.devices, &self.swapchain);
-        self.color_resource = Resource::new(
-            &self.devices,
-            &self.swapchain,
-            &self.instance,
-            ResourceType::Colour,
-        );
-        self.depth_resource = Resource::new(
-            &self.devices,
-            &self.swapchain,
-            &self.instance,
-            ResourceType::Depth,
-        );
+            render::create_render_pass(&self.instance, &self.devices, &self.swap_chain);
+
+        let instance_devices = InstanceDevices::new(&self.instance, &self.devices);
+
+        self.resources = Resources::new(&self.swap_chain, &instance_devices);
 
         self.frame_buffers = utility::create_frame_buffers(
-            &self.swapchain,
-            self.depth_resource.view,
+            &self.swap_chain,
             self.render_pass,
             &self.devices.logical,
-            self.color_resource.view,
+            &self.resources,
         );
 
         self.sync_objects.images_in_flight = vec![vk::Fence::null(); 1];
 
         let _ = self.models.iter_mut().map(|mut model| {
             model.graphics_pipeline = GraphicsPipeline::new(
-                &self.instance,
-                &self.devices,
-                &self.swapchain,
+                &self.swap_chain,
                 self.render_pass,
                 model.texture.image_view,
                 model.texture.sampler,
                 model.properties.clone(),
+                &instance_devices,
             )
         });
 
         self.command_buffers = command::create_command_buffers(
             self.command_pool,
-            &self.swapchain,
+            &self.swap_chain,
             &self.devices,
             self.render_pass,
             &self.frame_buffers,
@@ -218,27 +209,27 @@ impl Vulkan {
         );
     }
 
-    fn cleanup_swapchain(&self) {
+    fn cleanup_swap_chain(&self) {
         unsafe {
             self.devices
                 .logical
-                .destroy_image_view(self.color_resource.view, None);
+                .destroy_image_view(self.resources.colour.view, None);
             self.devices
                 .logical
-                .destroy_image(self.color_resource.image, None);
+                .destroy_image(self.resources.colour.image, None);
             self.devices
                 .logical
-                .free_memory(self.color_resource.memory, None);
+                .free_memory(self.resources.colour.memory, None);
 
             self.devices
                 .logical
-                .destroy_image_view(self.depth_resource.view, None);
+                .destroy_image_view(self.resources.depth.view, None);
             self.devices
                 .logical
-                .destroy_image(self.depth_resource.image, None);
+                .destroy_image(self.resources.depth.image, None);
             self.devices
                 .logical
-                .free_memory(self.depth_resource.memory, None);
+                .free_memory(self.resources.depth.memory, None);
 
             for model in &self.models {
                 self.devices
@@ -259,7 +250,7 @@ impl Vulkan {
                 .free_command_buffers(self.command_pool, &self.command_buffers);
 
             for model in &self.models {
-                for i in 0..self.swapchain.images.len() {
+                for i in 0..self.swap_chain.images.len() {
                     self.devices.logical.destroy_buffer(
                         model.graphics_pipeline.descriptor_set.uniform_buffers[i],
                         None,
@@ -278,18 +269,18 @@ impl Vulkan {
                 .logical
                 .destroy_render_pass(self.render_pass, None);
 
-            self.swapchain
+            self.swap_chain
                 .loader
-                .destroy_swapchain(self.swapchain.swapchain, None);
+                .destroy_swapchain(self.swap_chain.swapchain, None);
 
-            for i in 0..self.swapchain.images.len() {
+            for i in 0..self.swap_chain.images.len() {
                 self.devices
                     .logical
                     .destroy_framebuffer(self.frame_buffers[i], None);
 
                 self.devices
                     .logical
-                    .destroy_image_view(self.swapchain.image_views[i], None);
+                    .destroy_image_view(self.swap_chain.image_views[i], None);
             }
         }
     }
@@ -327,8 +318,8 @@ impl Vulkan {
             .expect("Failed to wait for Fence!");
 
         let (image_index, _is_sub_optimal) = {
-            let result = self.swapchain.loader.acquire_next_image(
-                self.swapchain.swapchain,
+            let result = self.swap_chain.loader.acquire_next_image(
+                self.swap_chain.swapchain,
                 std::u64::MAX,
                 self.sync_objects.image_available_semaphores[self.current_frame],
                 vk::Fence::null(),
@@ -337,7 +328,7 @@ impl Vulkan {
                 Ok(image_index) => image_index,
                 Err(vk_result) => match vk_result {
                     vk::Result::ERROR_OUT_OF_DATE_KHR => {
-                        self.recreate_swapchain(window);
+                        self.recreate_swap_chain(window);
                         return;
                     }
                     _ => panic!("Failed to acquire Swap Chain vk::Image!"),
@@ -390,7 +381,7 @@ impl Vulkan {
             )
             .expect("Failed to execute queue submit.");
 
-        let swapchains = [self.swapchain.swapchain];
+        let swapchains = [self.swap_chain.swapchain];
 
         let present_info = vk::PresentInfoKHR {
             s_type: vk::StructureType::PRESENT_INFO_KHR,
@@ -404,7 +395,7 @@ impl Vulkan {
         };
 
         let result = self
-            .swapchain
+            .swap_chain
             .loader
             .queue_present(self.devices.present_queue, &present_info);
 
@@ -417,7 +408,7 @@ impl Vulkan {
         };
         if is_resized {
             self.is_frame_buffer_resized = false;
-            self.recreate_swapchain(window);
+            self.recreate_swap_chain(window);
         }
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -439,7 +430,7 @@ impl Drop for Vulkan {
         unsafe {
             self.devices.logical.device_wait_idle().unwrap();
 
-            self.cleanup_swapchain();
+            self.cleanup_swap_chain();
 
             for model in &self.models {
                 self.devices
@@ -468,17 +459,17 @@ impl Drop for Vulkan {
 
                 self.devices
                     .logical
-                    .destroy_buffer(model.vertex_buffer, None);
+                    .destroy_buffer(model.vertex_buffer.buffer, None);
                 self.devices
                     .logical
-                    .free_memory(model.vertex_buffer_memory, None);
+                    .free_memory(model.vertex_buffer.memory, None);
 
                 self.devices
                     .logical
-                    .destroy_buffer(model.index_buffer, None);
+                    .destroy_buffer(model.index_buffer.buffer, None);
                 self.devices
                     .logical
-                    .free_memory(model.index_buffer_memory, None);
+                    .free_memory(model.index_buffer.memory, None);
             }
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
@@ -538,7 +529,7 @@ pub fn run(
             update_state,
             &mut camera,
             &mut vulkan.ubo,
-            vulkan.swapchain.extent,
+            vulkan.swap_chain.extent,
         );
 
         unsafe { vulkan.render(&display.window, &mut camera) };

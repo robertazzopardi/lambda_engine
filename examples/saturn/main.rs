@@ -5,7 +5,7 @@ use lambda_engine::{
     display::Display,
     model::{
         self,
-        utilities::{ModelCullMode, ModelTopology},
+        utility::{ModelCullMode, ModelTopology},
         ModelProperties,
     },
     time::Time,

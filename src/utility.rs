@@ -1,48 +1,100 @@
-use crate::{debug, device::Devices, memory, swapchain::SwapChain};
+use crate::{
+    debug::{self, enable_validation_layers},
+    device::Devices,
+    memory,
+    resource::Resources,
+    swap_chain::SwapChain,
+    Debug,
+};
 use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
-pub(crate) fn create_instance(window: &Window) -> (Instance, Entry) {
-    if debug::enable_validation_layers() && !debug::check_validation_layer_support(window) {
-        panic!("Validation layers requested, but not available!")
+pub struct InstanceDevices<'a> {
+    pub instance: &'a Instance,
+    pub devices: &'a Devices,
+}
+
+impl<'a> InstanceDevices<'a> {
+    pub fn new(instance: &'a Instance, devices: &'a Devices) -> Self {
+        Self { instance, devices }
+    }
+}
+
+pub(crate) struct EntryInstance {
+    pub entry: Entry,
+    pub instance: Instance,
+}
+
+impl EntryInstance {
+    pub(crate) fn new(window: &Window) -> Self {
+        if debug::enable_validation_layers() && !debug::check_validation_layer_support(window) {
+            panic!("Validation layers requested, but not available!")
+        }
+
+        let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
+        let layers_names_raw: Vec<*const i8> = layer_names
+            .iter()
+            .map(|raw_name| raw_name.as_ptr())
+            .collect();
+
+        let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
+        let mut extension_names_raw = surface_extensions
+            .iter()
+            .map(|ext| ext.as_ptr())
+            .collect::<Vec<_>>();
+        extension_names_raw.push(DebugUtils::name().as_ptr());
+
+        let app_name = CString::new("Vulkan").unwrap();
+        let engine_name = CString::new("No Engine").unwrap();
+
+        let app_info = vk::ApplicationInfo::builder()
+            .application_name(&app_name)
+            .application_version(0)
+            .engine_name(&engine_name)
+            .engine_version(0)
+            .api_version(vk::make_api_version(0, 1, 0, 0));
+
+        let create_info = vk::InstanceCreateInfo::builder()
+            .application_info(&app_info)
+            .enabled_layer_names(&layers_names_raw)
+            .enabled_extension_names(&extension_names_raw);
+
+        unsafe {
+            let entry = Entry::load().unwrap();
+            let instance: Instance = entry
+                .create_instance(&create_info, None)
+                .expect("Instance creation error");
+
+            Self { instance, entry }
+        }
     }
 
-    let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
-    let layers_names_raw: Vec<*const i8> = layer_names
-        .iter()
-        .map(|raw_name| raw_name.as_ptr())
-        .collect();
+    pub fn create_surface(&self, window: &Window) -> vk::SurfaceKHR {
+        unsafe {
+            ash_window::create_surface(&self.entry, &self.instance, window, None)
+                .expect("Failed to create window surface!")
+        }
+    }
 
-    let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
-    let mut extension_names_raw = surface_extensions
-        .iter()
-        .map(|ext| ext.as_ptr())
-        .collect::<Vec<_>>();
-    extension_names_raw.push(DebugUtils::name().as_ptr());
+    pub fn debugger(&self) -> Option<Debug> {
+        if enable_validation_layers() {
+            let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+                .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::default())
+                .message_type(vk::DebugUtilsMessageTypeFlagsEXT::default())
+                .pfn_user_callback(Some(debug::vulkan_debug_callback));
 
-    let app_name = CString::new("Vulkan").unwrap();
-    let engine_name = CString::new("No Engine").unwrap();
-
-    let app_info = vk::ApplicationInfo::builder()
-        .application_name(&app_name)
-        .application_version(0)
-        .engine_name(&engine_name)
-        .engine_version(0)
-        .api_version(vk::make_api_version(0, 1, 0, 0));
-
-    let create_info = vk::InstanceCreateInfo::builder()
-        .application_info(&app_info)
-        .enabled_layer_names(&layers_names_raw)
-        .enabled_extension_names(&extension_names_raw);
-
-    unsafe {
-        let entry = Entry::load().unwrap();
-        let instance: Instance = entry
-            .create_instance(&create_info, None)
-            .expect("Instance creation error");
-
-        (instance, entry)
+            let debug_utils_loader = DebugUtils::new(&self.entry, &self.instance);
+            unsafe {
+                return Some(Debug {
+                    debug_messenger: debug_utils_loader
+                        .create_debug_utils_messenger(&create_info, None)
+                        .unwrap(),
+                    debug_utils: debug_utils_loader,
+                });
+            }
+        }
+        None
     }
 }
 
@@ -54,9 +106,10 @@ pub(crate) fn create_image(
     tiling: vk::ImageTiling,
     usage: vk::ImageUsageFlags,
     properties: vk::MemoryPropertyFlags,
-    devices: &Devices,
-    instance: &Instance,
+    instance_devices: &InstanceDevices,
 ) -> (vk::Image, vk::DeviceMemory) {
+    let InstanceDevices { devices, .. } = instance_devices;
+
     let image_info = vk::ImageCreateInfo {
         s_type: vk::StructureType::IMAGE_CREATE_INFO,
         image_type: vk::ImageType::TYPE_2D,
@@ -88,10 +141,9 @@ pub(crate) fn create_image(
             s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
             allocation_size: memory_requirements.size,
             memory_type_index: memory::find_memory_type(
-                instance,
-                devices,
                 memory_requirements.memory_type_bits,
                 properties,
+                instance_devices,
             ),
             ..Default::default()
         };
@@ -141,22 +193,25 @@ pub(crate) fn create_image_view(
 }
 
 pub(crate) fn create_frame_buffers(
-    swapchain: &SwapChain,
-    depth_image_view: vk::ImageView,
+    swap_chain: &SwapChain,
     render_pass: vk::RenderPass,
     device: &Device,
-    color_resource: vk::ImageView,
+    resources: &Resources,
 ) -> Vec<vk::Framebuffer> {
     let mut frame_buffers = Vec::new();
 
-    for i in 0..swapchain.images.len() {
-        let attachments = &[color_resource, depth_image_view, swapchain.image_views[i]];
+    for i in 0..swap_chain.images.len() {
+        let attachments = &[
+            resources.colour.view,
+            resources.depth.view,
+            swap_chain.image_views[i],
+        ];
 
         let frame_buffer_info = vk::FramebufferCreateInfo::builder()
             .render_pass(render_pass)
             .attachments(attachments)
-            .width(swapchain.extent.width)
-            .height(swapchain.extent.height)
+            .width(swap_chain.extent.width)
+            .height(swap_chain.extent.height)
             .layers(1);
 
         unsafe {

@@ -1,15 +1,16 @@
-pub mod utilities;
+pub mod utility;
 
+use self::utility::{ModelCullMode, ModelTopology};
 use crate::{
     device::Devices,
     pipeline::GraphicsPipeline,
-    swapchain::SwapChain,
+    swap_chain::SwapChain,
     texture::{self, Texture},
+    utility::InstanceDevices,
 };
-use ash::{vk, Instance};
+use ash::vk;
 use cgmath::{Vector2, Vector3, Zero};
 use std::{mem::size_of, ops::Mul};
-use self::utilities::{ModelTopology, ModelCullMode};
 
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 
@@ -73,77 +74,77 @@ impl Vertex {
     }
 }
 
+pub struct Buffer {
+    pub buffer: vk::Buffer,
+    pub memory: vk::DeviceMemory,
+}
+
+impl Buffer {
+    pub fn new(buffer: vk::Buffer, memory: vk::DeviceMemory) -> Self {
+        Self { buffer, memory }
+    }
+}
+
 pub struct Model {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u16>,
+    pub vertices_and_indices: VerticesAndIndices,
     pub texture: Texture,
     pub graphics_pipeline: GraphicsPipeline,
-    pub vertex_buffer: vk::Buffer,
-    pub vertex_buffer_memory: vk::DeviceMemory,
-    pub index_buffer: vk::Buffer,
-    pub index_buffer_memory: vk::DeviceMemory,
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
     pub properties: ModelProperties,
 }
 
 impl Model {
     pub fn new(
-        instance: &Instance,
-        devices: &Devices,
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
-        swapchain: &SwapChain,
+        swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
         property: ModelProperties,
+        instance_devices: &InstanceDevices,
     ) -> Self {
         let VerticesAndIndices { vertices, indices } = property.vertices_and_indices.clone();
 
         let texture = texture::Texture::new(
-            instance,
-            devices,
             &property.texture,
             command_pool,
             command_buffer_count,
+            instance_devices,
         );
 
-        let (vertex_buffer, vertex_buffer_memory) = utilities::create_vertex_index_buffer(
-            instance,
-            devices,
+        let vertex_buffer = utility::create_vertex_index_buffer(
             (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
             &vertices,
             vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
             command_pool,
             command_buffer_count,
+            instance_devices,
         );
 
-        let (index_buffer, index_buffer_memory) = utilities::create_vertex_index_buffer(
-            instance,
-            devices,
+        let index_buffer = utility::create_vertex_index_buffer(
             (size_of::<u16>() * indices.len()).try_into().unwrap(),
             &indices,
             vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
             command_pool,
             command_buffer_count,
+            instance_devices,
         );
 
         let graphics_pipeline = GraphicsPipeline::new(
-            instance,
-            devices,
-            swapchain,
+            swap_chain,
             render_pass,
             texture.image_view,
             texture.sampler,
             property.clone(),
+            instance_devices,
         );
 
         Self {
-            vertices,
-            indices,
+            vertices_and_indices: VerticesAndIndices::new(vertices, indices),
             texture,
             graphics_pipeline,
             vertex_buffer,
-            vertex_buffer_memory,
             index_buffer,
-            index_buffer_memory,
             properties: property,
         }
     }
@@ -173,27 +174,36 @@ impl Model {
             &[],
         );
 
-        let vertex_buffers = [self.vertex_buffer];
+        let vertex_buffers = [self.vertex_buffer.buffer];
 
         devices
             .logical
             .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
 
-        devices
-            .logical
-            .cmd_draw(command_buffer, self.vertices.len() as u32, 1, 0, 0);
+        devices.logical.cmd_draw(
+            command_buffer,
+            self.vertices_and_indices.vertices.len() as u32,
+            1,
+            0,
+            0,
+        );
 
         if self.properties.indexed {
             devices.logical.cmd_bind_index_buffer(
                 command_buffer,
-                self.index_buffer,
+                self.index_buffer.buffer,
                 0,
                 vk::IndexType::UINT16,
             );
 
-            devices
-                .logical
-                .cmd_draw_indexed(command_buffer, self.indices.len() as u32, 1, 0, 0, 0);
+            devices.logical.cmd_draw_indexed(
+                command_buffer,
+                self.vertices_and_indices.indices.len() as u32,
+                1,
+                0,
+                0,
+                0,
+            );
         }
     }
 }
@@ -213,14 +223,14 @@ pub fn ring(inner_radius: f32, outer_radius: f32, sector_count: u32) -> Vertices
     let mut vertices = Vec::new();
 
     for _ in 0..=sector_count {
-        vertices.push(utilities::make_point(
+        vertices.push(utility::make_point(
             &mut angle,
             outer_radius,
             angle_step,
             length,
             Vector2::zero(),
         ));
-        vertices.push(utilities::make_point(
+        vertices.push(utility::make_point(
             &mut angle,
             inner_radius,
             angle_step,
@@ -231,7 +241,7 @@ pub fn ring(inner_radius: f32, outer_radius: f32, sector_count: u32) -> Vertices
 
     VerticesAndIndices::new(
         vertices,
-        utilities::calculate_sphere_indices(sector_count, stack_count),
+        utility::calculate_sphere_indices(sector_count, stack_count),
     )
 }
 
@@ -269,17 +279,17 @@ pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> VerticesAndIn
 
     VerticesAndIndices::new(
         vertices,
-        utilities::calculate_sphere_indices(sector_count, stack_count),
+        utility::calculate_sphere_indices(sector_count, stack_count),
     )
 }
 
 pub fn cube() -> VerticesAndIndices {
-    let cube = utilities::CUBE_VERTICES;
+    let cube = utility::CUBE_VERTICES;
 
-    cube.map(|_| utilities::calculate_normals);
+    cube.map(|_| utility::calculate_normals);
 
     VerticesAndIndices::new(
         cube.into_iter().flatten().collect(),
-        utilities::CUBE_INDICES.to_vec(),
+        utility::CUBE_INDICES.to_vec(),
     )
 }

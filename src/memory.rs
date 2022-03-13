@@ -1,11 +1,10 @@
-use crate::device::Devices;
-use ash::{util::Align, vk, Device, Instance};
+use crate::utility::InstanceDevices;
+use ash::{util::Align, vk, Device};
 
 pub(crate) fn find_memory_type(
-    instance: &Instance,
-    devices: &Devices,
     type_filter: u32,
     properties: vk::MemoryPropertyFlags,
+    InstanceDevices { instance, devices }: &InstanceDevices,
 ) -> u32 {
     let mem_properties =
         unsafe { instance.get_physical_device_memory_properties(devices.physical) };

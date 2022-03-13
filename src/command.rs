@@ -1,4 +1,4 @@
-use crate::{device, model::Model, swapchain::SwapChain, Devices};
+use crate::{device, model::Model, swap_chain::SwapChain, Devices};
 use ash::{extensions::khr::Surface, vk, Instance};
 use std::ptr;
 
@@ -24,7 +24,7 @@ pub fn create_command_pool(
 
 pub fn create_command_buffers(
     command_pool: vk::CommandPool,
-    swapchain: &SwapChain,
+    swap_chain: &SwapChain,
     devices: &Devices,
     render_pass: vk::RenderPass,
     frame_buffers: &[vk::Framebuffer],
@@ -32,28 +32,28 @@ pub fn create_command_buffers(
 ) -> Vec<vk::CommandBuffer> {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
-        .command_buffer_count(swapchain.images.len() as u32)
+        .command_buffer_count(swap_chain.images.len() as u32)
         .level(vk::CommandBufferLevel::PRIMARY);
 
     let command_buffers = unsafe {
         devices
             .logical
             .allocate_command_buffers(&command_buffer_allocate_info)
-            .expect("Faild to allocate command renderbuffers")
+            .expect("Failed to allocate command render buffers")
     };
     let view_port = vk::Viewport::builder()
         .x(0.)
         .y(0.)
-        .width(swapchain.extent.width as f32)
-        .height(swapchain.extent.height as f32)
+        .width(swap_chain.extent.width as f32)
+        .height(swap_chain.extent.height as f32)
         .min_depth(0.)
         .max_depth(1.);
 
     let scissor = vk::Rect2D::builder()
         .offset(vk::Offset2D { x: 0, y: 0 })
         .extent(vk::Extent2D {
-            width: swapchain.extent.width,
-            height: swapchain.extent.height,
+            width: swap_chain.extent.width,
+            height: swap_chain.extent.height,
         });
 
     let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -75,7 +75,7 @@ pub fn create_command_buffers(
     let offsets = [0_u64];
 
     unsafe {
-        for i in 0..swapchain.images.len() {
+        for i in 0..swap_chain.images.len() {
             devices
                 .logical
                 .begin_command_buffer(command_buffers[i as usize], &begin_info)
@@ -88,7 +88,7 @@ pub fn create_command_buffers(
                 framebuffer: frame_buffers[i],
                 render_area: vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
-                    extent: swapchain.extent,
+                    extent: swap_chain.extent,
                 },
                 clear_value_count: clear_values.len() as u32,
                 p_clear_values: clear_values.as_ptr(),

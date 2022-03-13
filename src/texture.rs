@@ -1,5 +1,9 @@
-use crate::{command, memory, utility, Devices};
-use ash::{vk, Instance};
+use crate::{
+    command, memory,
+    utility::{self, InstanceDevices},
+    Devices,
+};
+use ash::vk;
 use cgmath::Point2;
 use std::cmp;
 
@@ -12,22 +16,20 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(
-        instance: &Instance,
-        devices: &Devices,
         image_buffer: &[u8],
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
+        instance_devices: &InstanceDevices,
     ) -> Self {
         let (image, memory, mip_levels) = create_texture_image(
-            instance,
-            devices,
             image_buffer,
             command_pool,
             command_buffer_count,
+            instance_devices,
         );
 
-        let image_view = create_texture_image_view(devices, image, mip_levels);
-        let sampler = create_texture_sampler(instance, devices, mip_levels);
+        let image_view = create_texture_image_view(instance_devices.devices, image, mip_levels);
+        let sampler = create_texture_sampler(mip_levels, instance_devices);
 
         Self {
             image,
@@ -52,7 +54,10 @@ fn create_texture_image_view(
     )
 }
 
-fn create_texture_sampler(instance: &Instance, devices: &Devices, mip_levels: u32) -> vk::Sampler {
+fn create_texture_sampler(
+    mip_levels: u32,
+    InstanceDevices { instance, devices }: &InstanceDevices,
+) -> vk::Sampler {
     unsafe {
         let properties = instance.get_physical_device_properties(devices.physical);
 
@@ -81,12 +86,13 @@ fn create_texture_sampler(instance: &Instance, devices: &Devices, mip_levels: u3
 }
 
 fn create_texture_image(
-    instance: &Instance,
-    devices: &Devices,
     image_buffer: &[u8],
     command_pool: vk::CommandPool,
     command_buffer_count: u32,
+    instance_devices: &InstanceDevices,
 ) -> (vk::Image, vk::DeviceMemory, u32) {
+    let InstanceDevices { devices, .. } = instance_devices;
+
     let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
 
     let image_dimensions = image_texture.dimensions();
@@ -101,11 +107,10 @@ fn create_texture_image(
         as vk::DeviceSize;
 
     let (staging_buffer, staging_buffer_memory) = create_buffer(
-        instance,
-        devices,
         size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        instance_devices,
     );
 
     unsafe {
@@ -126,8 +131,7 @@ fn create_texture_image(
                 | vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            devices,
-            instance,
+            instance_devices,
         );
 
         transition_image_layout(
@@ -156,9 +160,7 @@ fn create_texture_image(
         devices.logical.destroy_buffer(staging_buffer, None);
         devices.logical.free_memory(staging_buffer_memory, None);
 
-        generate_mipmaps(
-            instance,
-            devices,
+        generate_mip_maps(
             vk::Format::R8G8B8A8_SRGB,
             image,
             command_pool,
@@ -167,6 +169,7 @@ fn create_texture_image(
                 y: image_dimensions.1.try_into().unwrap(),
             },
             mip_levels,
+            instance_devices,
         );
 
         (image, memory, mip_levels)
@@ -174,12 +177,13 @@ fn create_texture_image(
 }
 
 pub(crate) fn create_buffer(
-    instance: &Instance,
-    devices: &Devices,
     size: u64,
     usage: vk::BufferUsageFlags,
     properties: vk::MemoryPropertyFlags,
+    instance_devices: &InstanceDevices,
 ) -> (vk::Buffer, vk::DeviceMemory) {
+    let InstanceDevices { devices, .. } = instance_devices;
+
     let image_buffer_info = vk::BufferCreateInfo::builder()
         .size(size)
         .usage(usage)
@@ -194,10 +198,9 @@ pub(crate) fn create_buffer(
         let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
 
         let memory_type_index = memory::find_memory_type(
-            instance,
-            devices,
             memory_requirements.memory_type_bits,
             properties,
+            instance_devices,
         );
 
         let image_buffer_allocate_info = vk::MemoryAllocateInfo::builder()
@@ -330,14 +333,13 @@ fn copy_buffer_to_image(
     );
 }
 
-fn generate_mipmaps(
-    instance: &Instance,
-    devices: &Devices,
+fn generate_mip_maps(
     format: vk::Format,
     image: vk::Image,
     command_pool: vk::CommandPool,
     mip_dimension: Point2<i32>,
     mip_levels: u32,
+    InstanceDevices { instance, devices }: &InstanceDevices,
 ) {
     let format_properties =
         unsafe { instance.get_physical_device_format_properties(devices.physical, format) };

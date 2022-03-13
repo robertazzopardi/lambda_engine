@@ -1,4 +1,4 @@
-use crate::{device::Devices, resource, swapchain::SwapChain};
+use crate::{device::Devices, resource, swap_chain::SwapChain};
 use ash::{vk, Instance};
 
 pub fn create_render_pass(

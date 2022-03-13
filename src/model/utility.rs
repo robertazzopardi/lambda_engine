@@ -1,6 +1,6 @@
-use super::{Vertex, WHITE};
-use crate::{command, device::Devices, memory, texture};
-use ash::{vk, Instance};
+use super::{Buffer, Vertex, WHITE};
+use crate::{command, device::Devices, memory, texture, utility::InstanceDevices};
+use ash::vk;
 use cgmath::{Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
@@ -262,33 +262,32 @@ fn copy_buffer(
 }
 
 pub(crate) fn create_vertex_index_buffer<T>(
-    instance: &Instance,
-    devices: &Devices,
     buffer_size: u64,
     data: &[T],
     usage_flags: vk::BufferUsageFlags,
     command_pool: vk::CommandPool,
     command_buffer_count: u32,
-) -> (vk::Buffer, vk::DeviceMemory)
+    instance_devices: &InstanceDevices,
+) -> Buffer
 where
     T: std::marker::Copy,
 {
+    let InstanceDevices { devices, .. } = instance_devices;
+
     let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
-        instance,
-        devices,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        instance_devices,
     );
 
     memory::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
 
     let (buffer, buffer_memory) = texture::create_buffer(
-        instance,
-        devices,
         buffer_size,
         usage_flags,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        instance_devices,
     );
 
     copy_buffer(
@@ -305,7 +304,7 @@ where
         devices.logical.free_memory(staging_buffer_memory, None);
     }
 
-    (buffer, buffer_memory)
+    Buffer::new(buffer, buffer_memory)
 }
 
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {

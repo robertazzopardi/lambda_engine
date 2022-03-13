@@ -1,11 +1,12 @@
 use crate::{
     model::{ModelProperties, Vertex},
-    swapchain::SwapChain,
+    swap_chain::SwapChain,
     texture,
     uniform::UniformBufferObject,
+    utility::InstanceDevices,
     Devices,
 };
-use ash::{vk, Instance};
+use ash::vk;
 use memoffset::offset_of;
 use std::{ffi::CString, mem};
 
@@ -27,34 +28,35 @@ pub struct GraphicsPipeline {
 
 impl GraphicsPipeline {
     pub fn new(
-        instance: &Instance,
-        devices: &Devices,
-        swapchain: &SwapChain,
+        swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
         texture_image_view: vk::ImageView,
         sampler: vk::Sampler,
         properties: ModelProperties,
+        instance_devices: &InstanceDevices,
     ) -> Self {
+        let InstanceDevices { devices, .. } = instance_devices;
+
         let descriptor_set_layout = create_descriptor_set_layout(devices);
 
         let (pipeline, layout) = create_pipeline_and_layout(
             devices,
-            swapchain,
+            swap_chain,
             &descriptor_set_layout,
             render_pass,
             properties.clone(),
         );
 
-        let descriptor_pool = create_descriptor_pool(devices, swapchain.images.len() as u32);
+        let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
 
         let (uniform_buffers, uniform_buffers_memory) =
-            create_uniform_buffers(instance, devices, swapchain.images.len() as u32);
+            create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
 
         let descriptor_sets = create_descriptor_sets(
             devices,
             descriptor_set_layout,
             descriptor_pool,
-            swapchain.images.len() as u32,
+            swap_chain.images.len() as u32,
             texture_image_view,
             sampler,
             &uniform_buffers,
@@ -129,20 +131,18 @@ fn create_descriptor_pool(devices: &Devices, swapchain_image_count: u32) -> vk::
 }
 
 fn create_uniform_buffers(
-    instance: &Instance,
-    devices: &Devices,
-    swapchain_image_count: u32,
+    swap_chain_image_count: u32,
+    instance_devices: &InstanceDevices,
 ) -> (Vec<vk::Buffer>, Vec<vk::DeviceMemory>) {
     let mut uniform_buffers = Vec::new();
     let mut uniform_buffer_memory = Vec::new();
 
-    for _i in 0..swapchain_image_count {
+    for _i in 0..swap_chain_image_count {
         let (buffer, memory) = texture::create_buffer(
-            instance,
-            devices,
             mem::size_of::<UniformBufferObject>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            instance_devices,
         );
         uniform_buffers.push(buffer);
         uniform_buffer_memory.push(memory);

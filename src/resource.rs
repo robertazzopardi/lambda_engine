@@ -1,4 +1,7 @@
-use crate::{utility, Devices, SwapChain};
+use crate::{
+    utility::{self, InstanceDevices},
+    SwapChain,
+};
 use ash::{vk, Instance};
 
 pub enum ResourceType {
@@ -6,22 +9,37 @@ pub enum ResourceType {
     Depth,
 }
 
-pub struct Resource {
+pub(crate) struct Resources {
+    pub colour: Resource,
+    pub depth: Resource,
+}
+
+impl Resources {
+    pub fn new(swap_chain: &SwapChain, instance_devices: &InstanceDevices) -> Self {
+        let depth = Resource::new(swap_chain, ResourceType::Depth, instance_devices);
+        let colour = Resource::new(swap_chain, ResourceType::Colour, instance_devices);
+
+        Self { depth, colour }
+    }
+}
+
+pub(crate) struct Resource {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
     pub view: vk::ImageView,
 }
 
 impl Resource {
-    pub fn new(
-        devices: &Devices,
-        swapchain: &SwapChain,
-        instance: &Instance,
+    fn new(
+        swap_chain: &SwapChain,
         image_type: ResourceType,
+        instance_devices: &InstanceDevices,
     ) -> Self {
+        let InstanceDevices { instance, devices } = instance_devices;
+
         let (format, usage_flags, aspect_flags) = match image_type {
             ResourceType::Colour => (
-                swapchain.image_format,
+                swap_chain.image_format,
                 vk::ImageUsageFlags::COLOR_ATTACHMENT,
                 vk::ImageAspectFlags::COLOR,
             ),
@@ -33,15 +51,14 @@ impl Resource {
         };
 
         let (image, memory) = utility::create_image(
-            (swapchain.extent.width, swapchain.extent.height),
+            (swap_chain.extent.width, swap_chain.extent.height),
             1,
             devices.msaa_samples,
             format,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | usage_flags,
             vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
-            devices,
-            instance,
+            instance_devices,
         );
 
         let view = utility::create_image_view(image, format, aspect_flags, 1, devices);

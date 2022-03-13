@@ -1,4 +1,4 @@
-use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
+use ash::{extensions::ext::DebugUtils, vk};
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;
 
@@ -7,11 +7,11 @@ pub(crate) struct Debug {
     pub debug_utils: DebugUtils,
 }
 
-pub(crate) fn enable_validation_layers() -> bool {
+pub(crate) const fn enable_validation_layers() -> bool {
     cfg!(debug_assertions)
 }
 
-pub(crate) fn check_validation_layer_support(_window_handle: &Window) -> bool {
+pub(crate) const fn check_validation_layer_support(_window_handle: &Window) -> bool {
     // let mut _layer_count: u32;
 
     true
@@ -51,24 +51,4 @@ pub(crate) unsafe extern "system" fn vulkan_debug_callback(
     );
 
     vk::FALSE
-}
-
-pub(crate) fn setup_debug_messenger(instance: &Instance, entry: &Entry) -> Option<Debug> {
-    if enable_validation_layers() {
-        let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::default())
-            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::default())
-            .pfn_user_callback(Some(vulkan_debug_callback));
-
-        let debug_utils_loader = DebugUtils::new(entry, instance);
-        unsafe {
-            return Some(Debug {
-                debug_messenger: debug_utils_loader
-                    .create_debug_utils_messenger(&create_info, None)
-                    .unwrap(),
-                debug_utils: debug_utils_loader,
-            });
-        }
-    }
-    None
 }
