@@ -24,6 +24,7 @@ use ash::{
     Instance,
 };
 use camera::Camera;
+use command::VkCommander;
 use debug::Debug;
 use device::Devices;
 use display::Display;
@@ -38,17 +39,12 @@ use uniform::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
-// pub struct Models<const S: usize> {
-//     models: [Model; S],
-// }
-
-pub struct SceneProperties {
-    pub models: Vec<ModelProperties>,
+pub struct VkArray<const S: usize> {
+    pub objects: [ModelProperties; S],
 }
 
 pub struct Vulkan {
-    command_buffers: Vec<vk::CommandBuffer>,
-    command_pool: vk::CommandPool,
+    commander: VkCommander,
     current_frame: usize,
     debugging: Option<Debug>,
     devices: Devices,
@@ -66,7 +62,7 @@ pub struct Vulkan {
 }
 
 impl Vulkan {
-    pub fn new(window: &Window, camera: &mut Camera, scene_properties: SceneProperties) -> Self {
+    pub fn new<const S: usize>(window: &Window, camera: &mut Camera, models: VkArray<S>) -> Self {
         let entry_instance = EntryInstance::new(window);
 
         let debugging = entry_instance.debugger();
@@ -87,27 +83,22 @@ impl Vulkan {
             window,
         );
 
-        let render_pass =
-            render::create_render_pass(&entry_instance.instance, &devices, &swap_chain);
+        let render_pass = render::create_render_pass(&instance_devices, &swap_chain);
 
         let resources = Resources::new(&swap_chain, &instance_devices);
 
         let frame_buffers =
             utility::create_frame_buffers(&swap_chain, render_pass, &devices.logical, &resources);
 
-        let command_pool = command::create_command_pool(
-            &entry_instance.instance,
-            &devices,
-            &surface_loader,
-            &surface,
-        );
+        let command_pool =
+            command::create_command_pool(&instance_devices, &surface_loader, &surface);
 
         let sync_objects = SyncObjects::new(&devices.logical);
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
-        let models = scene_properties
-            .models
+        let models = models
+            .objects
             .into_iter()
             .map(|property| {
                 Model::new(
@@ -130,30 +121,31 @@ impl Vulkan {
             &models,
         );
 
+        let commander = VkCommander::new(command_buffers, command_pool);
+
         Self {
-            instance: entry_instance.instance,
-            debugging,
-            surface,
-            devices,
-            swap_chain,
-            command_buffers,
-            sync_objects,
-            surface_loader,
+            commander,
             current_frame: 0,
+            debugging,
+            devices,
+            frame_buffers,
+            instance: entry_instance.instance,
+            is_frame_buffer_resized: false,
             models,
-            ubo: UniformBufferObject::new(camera),
             render_pass,
             resources,
-            frame_buffers,
-            command_pool,
-            is_frame_buffer_resized: false,
+            surface,
+            surface_loader,
+            swap_chain,
+            sync_objects,
+            ubo: UniformBufferObject::new(camera),
         }
     }
 
     fn recreate_swap_chain(&mut self, window: &Window) {
-        let size = window.inner_size();
-        let _w = size.width;
-        let _h = size.height;
+        // let size = window.inner_size();
+        // let _w = size.width;
+        // let _h = size.height;
 
         unsafe {
             self.devices
@@ -172,10 +164,9 @@ impl Vulkan {
             window,
         );
 
-        self.render_pass =
-            render::create_render_pass(&self.instance, &self.devices, &self.swap_chain);
-
         let instance_devices = InstanceDevices::new(&self.instance, &self.devices);
+
+        self.render_pass = render::create_render_pass(&instance_devices, &self.swap_chain);
 
         self.resources = Resources::new(&self.swap_chain, &instance_devices);
 
@@ -199,8 +190,8 @@ impl Vulkan {
             )
         });
 
-        self.command_buffers = command::create_command_buffers(
-            self.command_pool,
+        self.commander.buffers = command::create_command_buffers(
+            self.commander.pool,
             &self.swap_chain,
             &self.devices,
             self.render_pass,
@@ -230,6 +221,9 @@ impl Vulkan {
             self.devices
                 .logical
                 .free_memory(self.resources.depth.memory, None);
+            self.devices
+                .logical
+                .free_command_buffers(self.commander.pool, &self.commander.buffers);
 
             for model in &self.models {
                 self.devices
@@ -243,13 +237,7 @@ impl Vulkan {
                     model.graphics_pipeline.descriptor_set.descriptor_pool,
                     None,
                 );
-            }
 
-            self.devices
-                .logical
-                .free_command_buffers(self.command_pool, &self.command_buffers);
-
-            for model in &self.models {
                 for i in 0..self.swap_chain.images.len() {
                     self.devices.logical.destroy_buffer(
                         model.graphics_pipeline.descriptor_set.uniform_buffers[i],
@@ -362,7 +350,7 @@ impl Vulkan {
             p_wait_semaphores: wait_semaphores.as_ptr(),
             p_wait_dst_stage_mask: wait_stages.as_ptr(),
             command_buffer_count: 1,
-            p_command_buffers: &self.command_buffers[image_index as usize],
+            p_command_buffers: &self.commander.buffers[image_index as usize],
             signal_semaphore_count: signal_semaphores.len() as u32,
             p_signal_semaphores: signal_semaphores.as_ptr(),
         }];
@@ -381,15 +369,13 @@ impl Vulkan {
             )
             .expect("Failed to execute queue submit.");
 
-        let swapchains = [self.swap_chain.swapchain];
-
         let present_info = vk::PresentInfoKHR {
             s_type: vk::StructureType::PRESENT_INFO_KHR,
             p_next: ptr::null(),
             wait_semaphore_count: 1,
             p_wait_semaphores: signal_semaphores.as_ptr(),
             swapchain_count: 1,
-            p_swapchains: swapchains.as_ptr(),
+            p_swapchains: &self.swap_chain.swapchain,
             p_image_indices: &image_index,
             p_results: ptr::null_mut(),
         };
@@ -406,6 +392,7 @@ impl Vulkan {
                 _ => panic!("Failed to execute queue present."),
             },
         };
+
         if is_resized {
             self.is_frame_buffer_resized = false;
             self.recreate_swap_chain(window);
@@ -413,16 +400,6 @@ impl Vulkan {
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
-}
-
-pub(crate) fn update_state(
-    ubo: &mut UniformBufferObject,
-    extent: Extent2D,
-    camera: &mut Camera,
-    dt: f32,
-) {
-    camera.rotate(dt);
-    ubo.update(extent, camera);
 }
 
 impl Drop for Vulkan {
@@ -433,13 +410,6 @@ impl Drop for Vulkan {
             self.cleanup_swap_chain();
 
             for model in &self.models {
-                self.devices
-                    .logical
-                    .destroy_pipeline(model.graphics_pipeline.pipeline, None);
-                self.devices
-                    .logical
-                    .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
-
                 self.devices
                     .logical
                     .destroy_sampler(model.texture.sampler, None);
@@ -459,17 +429,17 @@ impl Drop for Vulkan {
 
                 self.devices
                     .logical
-                    .destroy_buffer(model.vertex_buffer.buffer, None);
+                    .destroy_buffer(model.buffers.vertex.buffer, None);
                 self.devices
                     .logical
-                    .free_memory(model.vertex_buffer.memory, None);
+                    .free_memory(model.buffers.vertex.memory, None);
 
                 self.devices
                     .logical
-                    .destroy_buffer(model.index_buffer.buffer, None);
+                    .destroy_buffer(model.buffers.index.buffer, None);
                 self.devices
                     .logical
-                    .free_memory(model.index_buffer.memory, None);
+                    .free_memory(model.buffers.index.memory, None);
             }
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
@@ -486,7 +456,7 @@ impl Drop for Vulkan {
 
             self.devices
                 .logical
-                .destroy_command_pool(self.command_pool, None);
+                .destroy_command_pool(self.commander.pool, None);
 
             println!("here");
 
@@ -505,6 +475,11 @@ impl Drop for Vulkan {
             self.instance.destroy_instance(None);
         }
     }
+}
+
+fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Camera, dt: f32) {
+    camera.rotate(dt);
+    ubo.update(extent, camera);
 }
 
 pub fn run(

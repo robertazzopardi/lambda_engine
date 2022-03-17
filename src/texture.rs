@@ -1,13 +1,13 @@
 use crate::{
     command, memory,
-    utility::{self, InstanceDevices},
+    utility::{self, ImageInfo, InstanceDevices},
     Devices,
 };
 use ash::vk;
 use cgmath::Point2;
 use std::cmp;
 
-pub struct Texture {
+pub(crate) struct Texture {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
     pub image_view: vk::ImageView,
@@ -18,15 +18,10 @@ impl Texture {
     pub fn new(
         image_buffer: &[u8],
         command_pool: vk::CommandPool,
-        command_buffer_count: u32,
         instance_devices: &InstanceDevices,
     ) -> Self {
-        let (image, memory, mip_levels) = create_texture_image(
-            image_buffer,
-            command_pool,
-            command_buffer_count,
-            instance_devices,
-        );
+        let (image, memory, mip_levels) =
+            create_texture_image(image_buffer, command_pool, instance_devices);
 
         let image_view = create_texture_image_view(instance_devices.devices, image, mip_levels);
         let sampler = create_texture_sampler(mip_levels, instance_devices);
@@ -88,7 +83,6 @@ fn create_texture_sampler(
 fn create_texture_image(
     image_buffer: &[u8],
     command_pool: vk::CommandPool,
-    command_buffer_count: u32,
     instance_devices: &InstanceDevices,
 ) -> (vk::Image, vk::DeviceMemory, u32) {
     let InstanceDevices { devices, .. } = instance_devices;
@@ -113,67 +107,65 @@ fn create_texture_image(
         instance_devices,
     );
 
+    memory::map_memory(
+        &devices.logical,
+        staging_buffer_memory,
+        size,
+        image_data.as_slice(),
+    );
+
+    let image_info = ImageInfo::new(
+        image_dimensions,
+        mip_levels,
+        vk::SampleCountFlags::TYPE_1,
+        vk::Format::R8G8B8A8_SRGB,
+        vk::ImageTiling::OPTIMAL,
+        vk::ImageUsageFlags::TRANSFER_SRC
+            | vk::ImageUsageFlags::TRANSFER_DST
+            | vk::ImageUsageFlags::SAMPLED,
+        vk::MemoryPropertyFlags::DEVICE_LOCAL,
+    );
+
+    let (image, memory) = utility::create_image(image_info, instance_devices);
+
+    transition_image_layout(
+        &devices.logical,
+        command_pool,
+        devices.graphics_queue,
+        image,
+        Point2 {
+            x: vk::ImageLayout::UNDEFINED,
+            y: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        },
+        mip_levels,
+    );
+
+    copy_buffer_to_image(
+        devices,
+        command_pool,
+        image_dimensions,
+        staging_buffer,
+        image,
+    );
+
     unsafe {
-        memory::map_memory(
-            &devices.logical,
-            staging_buffer_memory,
-            size,
-            image_data.as_slice(),
-        );
-
-        let (image, memory) = utility::create_image(
-            image_dimensions,
-            mip_levels,
-            vk::SampleCountFlags::TYPE_1,
-            vk::Format::R8G8B8A8_SRGB,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::TRANSFER_SRC
-                | vk::ImageUsageFlags::TRANSFER_DST
-                | vk::ImageUsageFlags::SAMPLED,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            instance_devices,
-        );
-
-        transition_image_layout(
-            &devices.logical,
-            command_pool,
-            devices.graphics_queue,
-            image,
-            vk::Format::R8G8B8A8_SRGB,
-            Point2 {
-                x: vk::ImageLayout::UNDEFINED,
-                y: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            },
-            mip_levels,
-        );
-
-        copy_buffer_to_image(
-            devices,
-            command_pool,
-            command_buffer_count,
-            image_dimensions.0,
-            image_dimensions.1,
-            staging_buffer,
-            image,
-        );
-
         devices.logical.destroy_buffer(staging_buffer, None);
         devices.logical.free_memory(staging_buffer_memory, None);
-
-        generate_mip_maps(
-            vk::Format::R8G8B8A8_SRGB,
-            image,
-            command_pool,
-            Point2 {
-                x: image_dimensions.0.try_into().unwrap(),
-                y: image_dimensions.1.try_into().unwrap(),
-            },
-            mip_levels,
-            instance_devices,
-        );
-
-        (image, memory, mip_levels)
     }
+
+    generate_mip_maps(
+        vk::Format::R8G8B8A8_SRGB,
+        image,
+        command_pool,
+        Point2 {
+            x: image_dimensions.0.try_into().unwrap(),
+            y: image_dimensions.1.try_into().unwrap(),
+        },
+        mip_levels,
+        instance_devices,
+    );
+
+    (image, memory, mip_levels)
 }
 
 pub(crate) fn create_buffer(
@@ -226,7 +218,6 @@ fn transition_image_layout(
     command_pool: vk::CommandPool,
     submit_queue: vk::Queue,
     image: vk::Image,
-    _format: vk::Format,
     Point2 { x, y }: Point2<vk::ImageLayout>,
     mip_levels: u32,
 ) {
@@ -284,30 +275,31 @@ fn transition_image_layout(
         );
     }
 
-    command::end_single_time_command(device, command_pool, submit_queue, command_buffer);
+    command::end_single_time_command(device, submit_queue, command_pool, command_buffer);
 }
 
 fn copy_buffer_to_image(
     devices: &Devices,
     command_pool: vk::CommandPool,
-    _command_buffer_count: u32,
-    width: u32,
-    height: u32,
+    image_dimensions: (u32, u32),
     src_buffer: vk::Buffer,
     dst_image: vk::Image,
 ) {
     let command_buffer = command::begin_single_time_command(&devices.logical, command_pool);
 
-    let image_subresource = vk::ImageSubresourceLayers::builder()
+    let image_sub_resource = vk::ImageSubresourceLayers::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .mip_level(0)
         .base_array_layer(0)
         .layer_count(1);
+
+    let (width, height) = image_dimensions;
+
     let region = vk::BufferImageCopy::builder()
         .buffer_offset(0)
         .buffer_row_length(0)
         .buffer_image_height(0)
-        .image_subresource(*image_subresource)
+        .image_subresource(*image_sub_resource)
         .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
         .image_extent(vk::Extent3D {
             width,
@@ -327,8 +319,8 @@ fn copy_buffer_to_image(
 
     command::end_single_time_command(
         &devices.logical,
-        command_pool,
         devices.graphics_queue,
+        command_pool,
         command_buffer,
     );
 }
@@ -373,6 +365,30 @@ fn generate_mip_maps(
         image_barrier.src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
         image_barrier.dst_access_mask = vk::AccessFlags::TRANSFER_READ;
 
+        let blits = [vk::ImageBlit {
+            src_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: i - 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            src_offsets: [vk::Offset3D::default(), vk::Offset3D { x, y, z: 1 }],
+            dst_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: i,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            dst_offsets: [
+                vk::Offset3D::default(),
+                vk::Offset3D {
+                    x: cmp::max(x / 2, 1),
+                    y: cmp::max(y / 2, 1),
+                    z: 1,
+                },
+            ],
+        }];
+
         unsafe {
             devices.logical.cmd_pipeline_barrier(
                 command_buffer,
@@ -383,36 +399,7 @@ fn generate_mip_maps(
                 &[],
                 &[*image_barrier],
             );
-        }
 
-        let blits = [vk::ImageBlit {
-            src_subresource: vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                mip_level: i - 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            src_offsets: [
-                vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D { x, y, z: 1 },
-            ],
-            dst_subresource: vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                mip_level: i,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            dst_offsets: [
-                vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D {
-                    x: cmp::max(x / 2, 1),
-                    y: cmp::max(y / 2, 1),
-                    z: 1,
-                },
-            ],
-        }];
-
-        unsafe {
             devices.logical.cmd_blit_image(
                 command_buffer,
                 image,
@@ -465,8 +452,8 @@ fn generate_mip_maps(
 
     command::end_single_time_command(
         &devices.logical,
-        command_pool,
         devices.graphics_queue,
+        command_pool,
         command_buffer,
     );
 }

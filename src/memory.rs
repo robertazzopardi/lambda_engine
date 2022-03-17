@@ -20,9 +20,6 @@ pub(crate) fn find_memory_type(
     panic!("Failed to find suitable memory type!")
 }
 
-/// # Safety
-///
-/// Expand on the safety of this function
 pub(crate) fn map_memory<T>(
     device: &Device,
     device_memory: vk::DeviceMemory,

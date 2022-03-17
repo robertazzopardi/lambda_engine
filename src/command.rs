@@ -1,13 +1,25 @@
-use crate::{device, model::Model, swap_chain::SwapChain, Devices};
-use ash::{extensions::khr::Surface, vk, Instance};
+use crate::{device, model::Model, swap_chain::SwapChain, utility::InstanceDevices, Devices};
+use ash::{extensions::khr::Surface, vk};
 use std::ptr;
 
-pub fn create_command_pool(
-    instance: &Instance,
-    devices: &Devices,
+pub(crate) struct VkCommander {
+    pub buffers: Vec<vk::CommandBuffer>,
+    pub pool: vk::CommandPool,
+}
+
+impl VkCommander {
+    pub fn new(buffers: Vec<vk::CommandBuffer>, pool: vk::CommandPool) -> Self {
+        Self { buffers, pool }
+    }
+}
+
+pub(crate) fn create_command_pool(
+    instance_devices: &InstanceDevices,
     surface_loader: &Surface,
     surface: &vk::SurfaceKHR,
 ) -> vk::CommandPool {
+    let InstanceDevices { devices, instance } = instance_devices;
+
     let queue_family_indices =
         device::find_queue_family(instance, devices.physical, surface_loader, surface);
 
@@ -22,13 +34,13 @@ pub fn create_command_pool(
     }
 }
 
-pub fn create_command_buffers(
+pub(crate) fn create_command_buffers(
     command_pool: vk::CommandPool,
     swap_chain: &SwapChain,
     devices: &Devices,
     render_pass: vk::RenderPass,
     frame_buffers: &[vk::Framebuffer],
-    shapes: &[Model],
+    models: &[Model],
 ) -> Vec<vk::CommandBuffer> {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
@@ -79,7 +91,7 @@ pub fn create_command_buffers(
             devices
                 .logical
                 .begin_command_buffer(command_buffers[i as usize], &begin_info)
-                .expect("Faild to begin recording command buffer!");
+                .expect("Failed to begin recording command buffer!");
 
             let render_pass_begin_info = vk::RenderPassBeginInfo {
                 s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
@@ -112,9 +124,9 @@ pub fn create_command_buffers(
                 std::slice::from_ref(&scissor),
             );
 
-            for (_j, model) in shapes.iter().enumerate() {
+            models.iter().for_each(|model| {
                 model.bind_index_and_vertex_buffers(devices, command_buffers[i], &offsets, i);
-            }
+            });
 
             devices
                 .logical
@@ -166,28 +178,28 @@ pub fn begin_single_time_command(
 
 pub fn end_single_time_command(
     device: &ash::Device,
-    command_pool: vk::CommandPool,
     submit_queue: vk::Queue,
-    command_buffer: vk::CommandBuffer,
+    pool: vk::CommandPool,
+    buffer: vk::CommandBuffer,
 ) {
     unsafe {
         device
-            .end_command_buffer(command_buffer)
+            .end_command_buffer(buffer)
             .expect("Failed to record Command Buffer at Ending!");
     }
 
-    let buffers_to_submit = [command_buffer];
+    let buffers_to_submit = [buffer];
 
     let submit_infos = [vk::SubmitInfo {
-        s_type: vk::StructureType::SUBMIT_INFO,
-        p_next: std::ptr::null(),
-        wait_semaphore_count: 0,
-        p_wait_semaphores: std::ptr::null(),
-        p_wait_dst_stage_mask: std::ptr::null(),
         command_buffer_count: 1,
         p_command_buffers: buffers_to_submit.as_ptr(),
-        signal_semaphore_count: 0,
+        p_next: std::ptr::null(),
         p_signal_semaphores: std::ptr::null(),
+        p_wait_dst_stage_mask: std::ptr::null(),
+        p_wait_semaphores: std::ptr::null(),
+        s_type: vk::StructureType::SUBMIT_INFO,
+        signal_semaphore_count: 0,
+        wait_semaphore_count: 0,
     }];
 
     unsafe {
@@ -197,6 +209,6 @@ pub fn end_single_time_command(
         device
             .queue_wait_idle(submit_queue)
             .expect("Failed to wait Queue idle!");
-        device.free_command_buffers(command_pool, &buffers_to_submit);
+        device.free_command_buffers(pool, &buffers_to_submit);
     }
 }

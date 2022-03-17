@@ -52,10 +52,14 @@ impl Devices {
             msaa_samples,
         }
     }
+
+    // pub fn build<'a>(instance: &'a Instance, devices: &'a Devices) -> InstanceDevices<'a> {
+    //     InstanceDevices { instance, devices }
+    // }
 }
 
 pub(crate) fn find_queue_family(
-    instance: &ash::Instance,
+    instance: &Instance,
     physical_device: vk::PhysicalDevice,
     surface_loader: &Surface,
     surface: &vk::SurfaceKHR,

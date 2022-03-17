@@ -14,21 +14,6 @@ use std::{mem::size_of, ops::Mul};
 
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 
-// #[derive(Debug, Clone, Copy)]
-// pub struct Generic<const S: usize, const B: usize> {
-//     vertices: [Vertex; S],
-//     indices: [u16; B],
-// }
-
-// impl<const S: usize, const B: usize> Generic<S, B> {
-//     pub fn new(vertices: &[Vertex; S], indices: &[u16; B]) -> Self {
-//         Self {
-//             vertices: *vertices,
-//             indices: *indices,
-//         }
-//     }
-// }
-
 #[derive(Clone)]
 pub struct VerticesAndIndices {
     vertices: Vec<Vertex>,
@@ -39,15 +24,6 @@ impl VerticesAndIndices {
     pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Self {
         Self { vertices, indices }
     }
-}
-
-#[derive(Clone)]
-pub struct ModelProperties {
-    pub texture: Vec<u8>,
-    pub indexed: bool,
-    pub topology: ModelTopology,
-    pub cull_mode: ModelCullMode,
-    pub vertices_and_indices: VerticesAndIndices,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -85,12 +61,31 @@ impl Buffer {
     }
 }
 
-pub struct Model {
+pub(crate) struct ModelBuffers {
+    pub vertex: Buffer,
+    pub index: Buffer,
+}
+
+impl ModelBuffers {
+    pub fn new(vertex: Buffer, index: Buffer) -> Self {
+        Self { vertex, index }
+    }
+}
+
+#[derive(Clone)]
+pub struct ModelProperties {
+    pub texture: Vec<u8>,
+    pub indexed: bool,
+    pub topology: ModelTopology,
+    pub cull_mode: ModelCullMode,
+    pub vertices_and_indices: VerticesAndIndices,
+}
+
+pub(crate) struct Model {
     pub vertices_and_indices: VerticesAndIndices,
     pub texture: Texture,
     pub graphics_pipeline: GraphicsPipeline,
-    pub vertex_buffer: Buffer,
-    pub index_buffer: Buffer,
+    pub buffers: ModelBuffers,
     pub properties: ModelProperties,
 }
 
@@ -108,7 +103,6 @@ impl Model {
         let texture = texture::Texture::new(
             &property.texture,
             command_pool,
-            command_buffer_count,
             instance_devices,
         );
 
@@ -143,8 +137,7 @@ impl Model {
             vertices_and_indices: VerticesAndIndices::new(vertices, indices),
             texture,
             graphics_pipeline,
-            vertex_buffer,
-            index_buffer,
+            buffers: ModelBuffers::new(vertex_buffer, index_buffer),
             properties: property,
         }
     }
@@ -174,7 +167,7 @@ impl Model {
             &[],
         );
 
-        let vertex_buffers = [self.vertex_buffer.buffer];
+        let vertex_buffers = [self.buffers.vertex.buffer];
 
         devices
             .logical
@@ -191,7 +184,7 @@ impl Model {
         if self.properties.indexed {
             devices.logical.cmd_bind_index_buffer(
                 command_buffer,
-                self.index_buffer.buffer,
+                self.buffers.index.buffer,
                 0,
                 vk::IndexType::UINT16,
             );

@@ -18,9 +18,7 @@ pub struct Descriptor {
     pub uniform_buffers_memory: Vec<vk::DeviceMemory>,
 }
 
-pub struct GraphicsPipeline {
-    pub topology: vk::PrimitiveTopology,
-    pub cull_mode: vk::CullModeFlags,
+pub(crate) struct GraphicsPipeline {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
     pub descriptor_set: Descriptor,
@@ -44,7 +42,7 @@ impl GraphicsPipeline {
             swap_chain,
             &descriptor_set_layout,
             render_pass,
-            properties.clone(),
+            properties,
         );
 
         let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
@@ -63,8 +61,6 @@ impl GraphicsPipeline {
         );
 
         Self {
-            topology: properties.topology.into(),
-            cull_mode: properties.cull_mode.into(),
             pipeline,
             layout,
             descriptor_set: Descriptor {

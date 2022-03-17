@@ -9,9 +9,7 @@ include = ["src/**/*", "README.md", "assets/2k_saturn.jpg", "assets/2k_saturn_ri
 [dependencies]
 ash = "0.36.0"
 ash-window = "0.9.1"
-cached = "0.34.0"
 cgmath = "0.18.0"
-derive_builder = "0.10.2"
 image = "0.24.1"
 memoffset = "0.6.5"
 winit = "0.26.1"

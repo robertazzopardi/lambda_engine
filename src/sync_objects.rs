@@ -2,32 +2,26 @@ use ash::{vk, Device};
 
 pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
+pub type ImageSemaphoreArray = [vk::Semaphore; MAX_FRAMES_IN_FLIGHT];
+pub type FenceArray = [vk::Fence; MAX_FRAMES_IN_FLIGHT];
+
 pub(crate) struct SyncObjects {
-    pub image_available_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
-    pub render_finished_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT],
-    pub in_flight_fences: [vk::Fence; MAX_FRAMES_IN_FLIGHT],
+    pub image_available_semaphores: ImageSemaphoreArray,
+    pub render_finished_semaphores: ImageSemaphoreArray,
+    pub in_flight_fences: FenceArray,
     pub images_in_flight: Vec<vk::Fence>,
 }
 
 impl SyncObjects {
     pub fn new(device: &Device) -> Self {
-        let semaphore_create_info = vk::SemaphoreCreateInfo {
-            s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
-            ..Default::default()
-        };
+        let semaphore_create_info = vk::SemaphoreCreateInfo::builder();
 
-        let fence_info = vk::FenceCreateInfo {
-            s_type: vk::StructureType::FENCE_CREATE_INFO,
-            flags: vk::FenceCreateFlags::SIGNALED,
-            ..Default::default()
-        };
+        let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
 
-        let mut image_available_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT] =
-            Default::default();
-        let mut render_finished_semaphores: [vk::Semaphore; MAX_FRAMES_IN_FLIGHT] =
-            Default::default();
-        let mut in_flight_fences: [vk::Fence; MAX_FRAMES_IN_FLIGHT] = Default::default();
-        let images_in_flight: Vec<vk::Fence> = [vk::Fence::null(); 3].to_vec();
+        let mut image_available_semaphores: ImageSemaphoreArray = Default::default();
+        let mut render_finished_semaphores: ImageSemaphoreArray = Default::default();
+        let mut in_flight_fences: FenceArray = Default::default();
+        let images_in_flight: Vec<vk::Fence> = vec![vk::Fence::null(); 3];
 
         unsafe {
             for i in 0..MAX_FRAMES_IN_FLIGHT {
@@ -39,13 +33,13 @@ impl SyncObjects {
                     .unwrap();
                 in_flight_fences[i] = device.create_fence(&fence_info, None).unwrap();
             }
+        }
 
-            Self {
-                image_available_semaphores,
-                render_finished_semaphores,
-                in_flight_fences,
-                images_in_flight,
-            }
+        Self {
+            image_available_semaphores,
+            render_finished_semaphores,
+            in_flight_fences,
+            images_in_flight,
         }
     }
 }

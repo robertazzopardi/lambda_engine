@@ -1,14 +1,15 @@
-use crate::{device::Devices, resource, swap_chain::SwapChain};
-use ash::{vk, Instance};
+use crate::{resource, swap_chain::SwapChain, utility::InstanceDevices};
+use ash::vk;
 
-pub fn create_render_pass(
-    instance: &Instance,
-    devices: &Devices,
-    swapchain: &SwapChain,
+pub(crate) fn create_render_pass(
+    instance_devices: &InstanceDevices,
+    swap_chain: &SwapChain,
 ) -> vk::RenderPass {
-    let renderpass_attachments = [
+    let InstanceDevices { devices, .. } = instance_devices;
+
+    let render_pass_attachments = [
         vk::AttachmentDescription {
-            format: swapchain.image_format,
+            format: swap_chain.image_format,
             samples: devices.msaa_samples,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::DONT_CARE,
@@ -19,7 +20,7 @@ pub fn create_render_pass(
             ..Default::default()
         },
         vk::AttachmentDescription {
-            format: resource::find_depth_format(instance, &devices.physical),
+            format: resource::find_depth_format(instance_devices),
             samples: devices.msaa_samples,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::DONT_CARE,
@@ -30,7 +31,7 @@ pub fn create_render_pass(
             ..Default::default()
         },
         vk::AttachmentDescription {
-            format: swapchain.image_format,
+            format: swap_chain.image_format,
             samples: vk::SampleCountFlags::TYPE_1,
             load_op: vk::AttachmentLoadOp::DONT_CARE,
             store_op: vk::AttachmentStoreOp::DONT_CARE,
@@ -55,7 +56,7 @@ pub fn create_render_pass(
         layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
     };
 
-    let subpasses = vk::SubpassDescription::builder()
+    let sub_passes = vk::SubpassDescription::builder()
         .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
         .color_attachments(std::slice::from_ref(&color_attachment_refs))
         .depth_stencil_attachment(&depth_attachment_ref)
@@ -78,15 +79,15 @@ pub fn create_render_pass(
                 | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
         );
 
-    let renderpass_create_info = vk::RenderPassCreateInfo::builder()
-        .attachments(&renderpass_attachments)
-        .subpasses(std::slice::from_ref(&subpasses))
+    let render_pass_create_info = vk::RenderPassCreateInfo::builder()
+        .attachments(&render_pass_attachments)
+        .subpasses(std::slice::from_ref(&sub_passes))
         .dependencies(std::slice::from_ref(&dependencies));
 
     unsafe {
         devices
             .logical
-            .create_render_pass(&renderpass_create_info, None)
+            .create_render_pass(&render_pass_create_info, None)
             .expect("Failed to create render pass!")
     }
 }

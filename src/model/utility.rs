@@ -255,8 +255,8 @@ fn copy_buffer(
 
     command::end_single_time_command(
         &devices.logical,
-        command_pool,
         devices.graphics_queue,
+        command_pool,
         command_buffer,
     );
 }

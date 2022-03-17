@@ -9,34 +9,34 @@ use lambda_engine::{
         ModelProperties,
     },
     time::Time,
-    SceneProperties, Vulkan,
+    VkArray, Vulkan,
 };
 
 fn main() {
     let display = Display::new(1280, 720);
 
-    let mut camera = Camera::new(3., 1., 2.);
+    let mut camera = Camera::new(1., 1., 1.);
 
-    let models = vec![
-        ModelProperties {
-            texture: include_bytes!("../../assets/2k_saturn.jpg").to_vec(),
-            indexed: true,
-            topology: ModelTopology::TriangleList,
-            cull_mode: ModelCullMode::Back,
-            vertices_and_indices: model::sphere(0.4, 20, 20),
-        },
-        ModelProperties {
-            texture: include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
-            indexed: false,
-            topology: ModelTopology::TriangleStrip,
-            cull_mode: ModelCullMode::None,
-            vertices_and_indices: model::ring(0.5, 1., 40),
-        },
-    ];
+    let models = VkArray {
+        objects: [
+            ModelProperties {
+                texture: include_bytes!("../../assets/2k_saturn.jpg").to_vec(),
+                indexed: true,
+                topology: ModelTopology::TriangleList,
+                cull_mode: ModelCullMode::Back,
+                vertices_and_indices: model::sphere(0.4, 20, 20),
+            },
+            ModelProperties {
+                texture: include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
+                indexed: false,
+                topology: ModelTopology::TriangleStrip,
+                cull_mode: ModelCullMode::None,
+                vertices_and_indices: model::ring(0.5, 1., 40),
+            },
+        ],
+    };
 
-    let scene_properties = SceneProperties { models };
-
-    let vulkan: Vulkan = Vulkan::new(&display.window, &mut camera, scene_properties);
+    let vulkan: Vulkan = Vulkan::new(&display.window, &mut camera, models);
 
     let mouse_pressed = false;
 

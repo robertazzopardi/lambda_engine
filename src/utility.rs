@@ -10,7 +10,39 @@ use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
-pub struct InstanceDevices<'a> {
+pub(crate) struct ImageInfo {
+    dimensions: (u32, u32),
+    mip_levels: u32,
+    samples: vk::SampleCountFlags,
+    format: vk::Format,
+    tiling: vk::ImageTiling,
+    usage: vk::ImageUsageFlags,
+    properties: vk::MemoryPropertyFlags,
+}
+
+impl ImageInfo {
+    pub fn new(
+        dimensions: (u32, u32),
+        mip_levels: u32,
+        samples: vk::SampleCountFlags,
+        format: vk::Format,
+        tiling: vk::ImageTiling,
+        usage: vk::ImageUsageFlags,
+        properties: vk::MemoryPropertyFlags,
+    ) -> Self {
+        Self {
+            dimensions,
+            mip_levels,
+            samples,
+            format,
+            tiling,
+            usage,
+            properties,
+        }
+    }
+}
+
+pub(crate) struct InstanceDevices<'a> {
     pub instance: &'a Instance,
     pub devices: &'a Devices,
 }
@@ -99,41 +131,32 @@ impl EntryInstance {
 }
 
 pub(crate) fn create_image(
-    dimensions: (u32, u32),
-    mip_levels: u32,
-    samples: vk::SampleCountFlags,
-    format: vk::Format,
-    tiling: vk::ImageTiling,
-    usage: vk::ImageUsageFlags,
-    properties: vk::MemoryPropertyFlags,
+    info: ImageInfo,
     instance_devices: &InstanceDevices,
 ) -> (vk::Image, vk::DeviceMemory) {
     let InstanceDevices { devices, .. } = instance_devices;
 
-    let image_info = vk::ImageCreateInfo {
-        s_type: vk::StructureType::IMAGE_CREATE_INFO,
-        image_type: vk::ImageType::TYPE_2D,
-        extent: vk::Extent3D {
-            width: dimensions.0,
-            height: dimensions.1,
+    let image_info = vk::ImageCreateInfo::builder()
+        .image_type(vk::ImageType::TYPE_2D)
+        .extent(vk::Extent3D {
+            width: info.dimensions.0,
+            height: info.dimensions.1,
             depth: 1,
-        },
-        mip_levels,
-        array_layers: 1,
-        format,
-        tiling,
-        initial_layout: vk::ImageLayout::UNDEFINED,
-        usage,
-        samples,
-        sharing_mode: vk::SharingMode::EXCLUSIVE,
-        ..Default::default()
-    };
+        })
+        .mip_levels(info.mip_levels)
+        .array_layers(1)
+        .format(info.format)
+        .tiling(info.tiling)
+        .initial_layout(vk::ImageLayout::UNDEFINED)
+        .usage(info.usage)
+        .samples(info.samples)
+        .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
     unsafe {
         let image = devices
             .logical
             .create_image(&image_info, None)
-            .expect("Faild to create image!");
+            .expect("Failed to create image!");
 
         let memory_requirements = devices.logical.get_image_memory_requirements(image);
 
@@ -142,7 +165,7 @@ pub(crate) fn create_image(
             allocation_size: memory_requirements.size,
             memory_type_index: memory::find_memory_type(
                 memory_requirements.memory_type_bits,
-                properties,
+                info.properties,
                 instance_devices,
             ),
             ..Default::default()
