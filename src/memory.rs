@@ -7,7 +7,7 @@ pub(crate) fn find_memory_type(
     InstanceDevices { instance, devices }: &InstanceDevices,
 ) -> u32 {
     let mem_properties =
-        unsafe { instance.get_physical_device_memory_properties(devices.physical) };
+        unsafe { instance.get_physical_device_memory_properties(devices.physical.device) };
 
     for i in 0..mem_properties.memory_type_count {
         if ((1 << i) & type_filter) != 0

@@ -10,7 +10,7 @@ pub(crate) fn create_render_pass(
     let render_pass_attachments = [
         vk::AttachmentDescription {
             format: swap_chain.image_format,
-            samples: devices.msaa_samples,
+            samples: devices.physical.samples,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::DONT_CARE,
             stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
@@ -21,7 +21,7 @@ pub(crate) fn create_render_pass(
         },
         vk::AttachmentDescription {
             format: resource::find_depth_format(instance_devices),
-            samples: devices.msaa_samples,
+            samples: devices.physical.samples,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::DONT_CARE,
             stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
@@ -87,6 +87,7 @@ pub(crate) fn create_render_pass(
     unsafe {
         devices
             .logical
+            .device
             .create_render_pass(&render_pass_create_info, None)
             .expect("Failed to create render pass!")
     }

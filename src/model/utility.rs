@@ -240,12 +240,12 @@ fn copy_buffer(
     src_buffer: vk::Buffer,
     dst_buffer: vk::Buffer,
 ) {
-    let command_buffer = command::begin_single_time_command(&devices.logical, command_pool);
+    let command_buffer = command::begin_single_time_command(&devices.logical.device, command_pool);
 
     let copy_region = vk::BufferCopy::builder().size(size);
 
     unsafe {
-        devices.logical.cmd_copy_buffer(
+        devices.logical.device.cmd_copy_buffer(
             command_buffer,
             src_buffer,
             dst_buffer,
@@ -254,8 +254,8 @@ fn copy_buffer(
     }
 
     command::end_single_time_command(
-        &devices.logical,
-        devices.graphics_queue,
+        &devices.logical.device,
+        devices.logical.graphics,
         command_pool,
         command_buffer,
     );
@@ -281,7 +281,12 @@ where
         instance_devices,
     );
 
-    memory::map_memory(&devices.logical, staging_buffer_memory, buffer_size, data);
+    memory::map_memory(
+        &devices.logical.device,
+        staging_buffer_memory,
+        buffer_size,
+        data,
+    );
 
     let (buffer, buffer_memory) = texture::create_buffer(
         buffer_size,
@@ -300,8 +305,11 @@ where
     );
 
     unsafe {
-        devices.logical.destroy_buffer(staging_buffer, None);
-        devices.logical.free_memory(staging_buffer_memory, None);
+        devices.logical.device.destroy_buffer(staging_buffer, None);
+        devices
+            .logical
+            .device
+            .free_memory(staging_buffer_memory, None);
     }
 
     Buffer::new(buffer, buffer_memory)

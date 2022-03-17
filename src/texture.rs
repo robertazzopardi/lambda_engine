@@ -1,6 +1,6 @@
 use crate::{
     command, memory,
-    utility::{self, ImageInfo, InstanceDevices},
+    utility::{self, Image, ImageInfo, InstanceDevices},
     Devices,
 };
 use ash::vk;
@@ -8,8 +8,7 @@ use cgmath::Point2;
 use std::cmp;
 
 pub(crate) struct Texture {
-    pub image: vk::Image,
-    pub memory: vk::DeviceMemory,
+    pub image: Image,
     pub image_view: vk::ImageView,
     pub sampler: vk::Sampler,
 }
@@ -20,31 +19,23 @@ impl Texture {
         command_pool: vk::CommandPool,
         instance_devices: &InstanceDevices,
     ) -> Self {
-        let (image, memory, mip_levels) =
-            create_texture_image(image_buffer, command_pool, instance_devices);
-
-        let image_view = create_texture_image_view(instance_devices.devices, image, mip_levels);
-        let sampler = create_texture_sampler(mip_levels, instance_devices);
+        let image = create_texture_image(image_buffer, command_pool, instance_devices);
+        let image_view = create_texture_image_view(instance_devices.devices, &image);
+        let sampler = create_texture_sampler(image.mip_levels, instance_devices);
 
         Self {
             image,
-            memory,
             image_view,
             sampler,
         }
     }
 }
 
-fn create_texture_image_view(
-    devices: &Devices,
-    image: vk::Image,
-    mip_levels: u32,
-) -> vk::ImageView {
+fn create_texture_image_view(devices: &Devices, image: &Image) -> vk::ImageView {
     utility::create_image_view(
         image,
         vk::Format::R8G8B8A8_SRGB,
         vk::ImageAspectFlags::COLOR,
-        mip_levels,
         devices,
     )
 }
@@ -54,7 +45,7 @@ fn create_texture_sampler(
     InstanceDevices { instance, devices }: &InstanceDevices,
 ) -> vk::Sampler {
     unsafe {
-        let properties = instance.get_physical_device_properties(devices.physical);
+        let properties = instance.get_physical_device_properties(devices.physical.device);
 
         let sampler_create_info = vk::SamplerCreateInfo::builder()
             .mag_filter(vk::Filter::LINEAR)
@@ -75,6 +66,7 @@ fn create_texture_sampler(
 
         devices
             .logical
+            .device
             .create_sampler(&sampler_create_info, None)
             .expect("Failed to create Sampler!")
     }
@@ -84,7 +76,7 @@ fn create_texture_image(
     image_buffer: &[u8],
     command_pool: vk::CommandPool,
     instance_devices: &InstanceDevices,
-) -> (vk::Image, vk::DeviceMemory, u32) {
+) -> Image {
     let InstanceDevices { devices, .. } = instance_devices;
 
     let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
@@ -108,7 +100,7 @@ fn create_texture_image(
     );
 
     memory::map_memory(
-        &devices.logical,
+        &devices.logical.device,
         staging_buffer_memory,
         size,
         image_data.as_slice(),
@@ -126,13 +118,13 @@ fn create_texture_image(
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
     );
 
-    let (image, memory) = utility::create_image(image_info, instance_devices);
+    let image = utility::create_image(image_info, instance_devices);
 
     transition_image_layout(
-        &devices.logical,
+        &devices.logical.device,
         command_pool,
-        devices.graphics_queue,
-        image,
+        devices.logical.graphics,
+        image.image,
         Point2 {
             x: vk::ImageLayout::UNDEFINED,
             y: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
@@ -145,17 +137,20 @@ fn create_texture_image(
         command_pool,
         image_dimensions,
         staging_buffer,
-        image,
+        image.image,
     );
 
     unsafe {
-        devices.logical.destroy_buffer(staging_buffer, None);
-        devices.logical.free_memory(staging_buffer_memory, None);
+        devices.logical.device.destroy_buffer(staging_buffer, None);
+        devices
+            .logical
+            .device
+            .free_memory(staging_buffer_memory, None);
     }
 
     generate_mip_maps(
         vk::Format::R8G8B8A8_SRGB,
-        image,
+        image.image,
         command_pool,
         Point2 {
             x: image_dimensions.0.try_into().unwrap(),
@@ -165,7 +160,7 @@ fn create_texture_image(
         instance_devices,
     );
 
-    (image, memory, mip_levels)
+    image.mip_levels(mip_levels)
 }
 
 pub(crate) fn create_buffer(
@@ -184,10 +179,14 @@ pub(crate) fn create_buffer(
     unsafe {
         let buffer = devices
             .logical
+            .device
             .create_buffer(&image_buffer_info, None)
             .expect("Failed to create buffer");
 
-        let memory_requirements = devices.logical.get_buffer_memory_requirements(buffer);
+        let memory_requirements = devices
+            .logical
+            .device
+            .get_buffer_memory_requirements(buffer);
 
         let memory_type_index = memory::find_memory_type(
             memory_requirements.memory_type_bits,
@@ -201,11 +200,13 @@ pub(crate) fn create_buffer(
 
         let buffer_memory = devices
             .logical
+            .device
             .allocate_memory(&image_buffer_allocate_info, None)
             .expect("Failed to allocate buffer memory!");
 
         devices
             .logical
+            .device
             .bind_buffer_memory(buffer, buffer_memory, 0)
             .expect("Could not bind command buffer memory");
 
@@ -244,6 +245,14 @@ fn transition_image_layout(
         panic!("Unsupported layout transition!")
     }
 
+    let subresource_range = vk::ImageSubresourceRange::builder()
+        .aspect_mask(vk::ImageAspectFlags::COLOR)
+        .base_mip_level(0)
+        .level_count(mip_levels)
+        .base_array_layer(0)
+        .layer_count(1)
+        .build();
+
     let image_barriers = [vk::ImageMemoryBarrier {
         s_type: vk::StructureType::IMAGE_MEMORY_BARRIER,
         p_next: std::ptr::null(),
@@ -254,13 +263,7 @@ fn transition_image_layout(
         src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
         dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
         image,
-        subresource_range: vk::ImageSubresourceRange {
-            aspect_mask: vk::ImageAspectFlags::COLOR,
-            base_mip_level: 0,
-            level_count: mip_levels,
-            base_array_layer: 0,
-            layer_count: 1,
-        },
+        subresource_range,
     }];
 
     unsafe {
@@ -285,7 +288,7 @@ fn copy_buffer_to_image(
     src_buffer: vk::Buffer,
     dst_image: vk::Image,
 ) {
-    let command_buffer = command::begin_single_time_command(&devices.logical, command_pool);
+    let command_buffer = command::begin_single_time_command(&devices.logical.device, command_pool);
 
     let image_sub_resource = vk::ImageSubresourceLayers::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -308,7 +311,7 @@ fn copy_buffer_to_image(
         });
 
     unsafe {
-        devices.logical.cmd_copy_buffer_to_image(
+        devices.logical.device.cmd_copy_buffer_to_image(
             command_buffer,
             src_buffer,
             dst_image,
@@ -318,8 +321,8 @@ fn copy_buffer_to_image(
     }
 
     command::end_single_time_command(
-        &devices.logical,
-        devices.graphics_queue,
+        &devices.logical.device,
+        devices.logical.graphics,
         command_pool,
         command_buffer,
     );
@@ -334,7 +337,7 @@ fn generate_mip_maps(
     InstanceDevices { instance, devices }: &InstanceDevices,
 ) {
     let format_properties =
-        unsafe { instance.get_physical_device_format_properties(devices.physical, format) };
+        unsafe { instance.get_physical_device_format_properties(devices.physical.device, format) };
     if format_properties.optimal_tiling_features
         & vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
         != vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
@@ -342,7 +345,7 @@ fn generate_mip_maps(
         panic!("Texture image format does not support linear bilitting!");
     }
 
-    let command_buffer = command::begin_single_time_command(&devices.logical, command_pool);
+    let command_buffer = command::begin_single_time_command(&devices.logical.device, command_pool);
 
     let mut image_barrier = vk::ImageMemoryBarrier::builder()
         .image(image)
@@ -390,7 +393,7 @@ fn generate_mip_maps(
         }];
 
         unsafe {
-            devices.logical.cmd_pipeline_barrier(
+            devices.logical.device.cmd_pipeline_barrier(
                 command_buffer,
                 vk::PipelineStageFlags::TRANSFER,
                 vk::PipelineStageFlags::TRANSFER,
@@ -400,7 +403,7 @@ fn generate_mip_maps(
                 &[*image_barrier],
             );
 
-            devices.logical.cmd_blit_image(
+            devices.logical.device.cmd_blit_image(
                 command_buffer,
                 image,
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
@@ -417,7 +420,7 @@ fn generate_mip_maps(
         image_barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
 
         unsafe {
-            devices.logical.cmd_pipeline_barrier(
+            devices.logical.device.cmd_pipeline_barrier(
                 command_buffer,
                 vk::PipelineStageFlags::TRANSFER,
                 vk::PipelineStageFlags::FRAGMENT_SHADER,
@@ -439,7 +442,7 @@ fn generate_mip_maps(
     image_barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
 
     unsafe {
-        devices.logical.cmd_pipeline_barrier(
+        devices.logical.device.cmd_pipeline_barrier(
             command_buffer,
             vk::PipelineStageFlags::TRANSFER,
             vk::PipelineStageFlags::FRAGMENT_SHADER,
@@ -451,8 +454,8 @@ fn generate_mip_maps(
     }
 
     command::end_single_time_command(
-        &devices.logical,
-        devices.graphics_queue,
+        &devices.logical.device,
+        devices.logical.graphics,
         command_pool,
         command_buffer,
     );

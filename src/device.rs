@@ -1,8 +1,43 @@
 use ash::{
     extensions::khr::{Surface, Swapchain},
-    vk::{self, SampleCountFlags},
-    Device, Instance,
+    vk, Device, Instance,
 };
+
+pub(crate) struct PhysicalDeviceProperties {
+    pub device: vk::PhysicalDevice,
+    pub queue_family_index: u32,
+    pub samples: vk::SampleCountFlags,
+}
+
+impl PhysicalDeviceProperties {
+    fn new(
+        device: vk::PhysicalDevice,
+        queue_family_index: u32,
+        samples: vk::SampleCountFlags,
+    ) -> Self {
+        Self {
+            device,
+            queue_family_index,
+            samples,
+        }
+    }
+}
+
+pub(crate) struct LogicalDeviceFeatures {
+    pub device: Device,
+    pub present: vk::Queue,
+    pub graphics: vk::Queue,
+}
+
+impl LogicalDeviceFeatures {
+    fn new(device: Device, present: vk::Queue, graphics: vk::Queue) -> Self {
+        Self {
+            device,
+            present,
+            graphics,
+        }
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct QueueFamilyIndices {
@@ -23,39 +58,27 @@ impl QueueFamilyIndices {
     }
 }
 
-pub struct Devices {
-    pub physical: vk::PhysicalDevice,
-    pub logical: Device,
-    pub present_queue: vk::Queue,
-    pub graphics_queue: vk::Queue,
-    pub msaa_samples: SampleCountFlags,
+pub(crate) struct Devices {
+    pub physical: PhysicalDeviceProperties,
+    pub logical: LogicalDeviceFeatures,
 }
 
 impl Devices {
     pub fn new(instance: &Instance, surface: &vk::SurfaceKHR, surface_loader: &Surface) -> Self {
-        let (physical, queue_family_index, msaa_samples) =
-            pick_physical_device(instance, surface, surface_loader);
+        let physical_device_properties = pick_physical_device(instance, surface, surface_loader);
 
-        let (logical, present_queue, graphics_queue) = create_logical_device(
+        let logical_device_logical = create_logical_device(
             instance,
-            physical,
-            queue_family_index,
+            &physical_device_properties,
             surface,
             surface_loader,
         );
 
         Self {
-            physical,
-            logical,
-            present_queue,
-            graphics_queue,
-            msaa_samples,
+            physical: physical_device_properties,
+            logical: logical_device_logical,
         }
     }
-
-    // pub fn build<'a>(instance: &'a Instance, devices: &'a Devices) -> InstanceDevices<'a> {
-    //     InstanceDevices { instance, devices }
-    // }
 }
 
 pub(crate) fn find_queue_family(
@@ -99,11 +122,16 @@ pub(crate) fn find_queue_family(
 
 fn create_logical_device(
     instance: &Instance,
-    physical_device: vk::PhysicalDevice,
-    queue_family_index: u32,
+    physical_device_properties: &PhysicalDeviceProperties,
     surface: &vk::SurfaceKHR,
     surface_loader: &Surface,
-) -> (Device, vk::Queue, vk::Queue) {
+) -> LogicalDeviceFeatures {
+    let PhysicalDeviceProperties {
+        device,
+        queue_family_index,
+        ..
+    } = physical_device_properties;
+
     let device_extension_names_raw = [Swapchain::name().as_ptr()];
 
     let features = vk::PhysicalDeviceFeatures::builder()
@@ -115,7 +143,7 @@ fn create_logical_device(
     let priorities = 1.0;
 
     let queue_info = vk::DeviceQueueCreateInfo::builder()
-        .queue_family_index(queue_family_index)
+        .queue_family_index(*queue_family_index)
         .queue_priorities(std::slice::from_ref(&priorities));
 
     let device_create_info = vk::DeviceCreateInfo::builder()
@@ -123,11 +151,11 @@ fn create_logical_device(
         .enabled_extension_names(&device_extension_names_raw)
         .enabled_features(&features);
 
-    let queue_family = find_queue_family(instance, physical_device, surface_loader, surface);
+    let queue_family = find_queue_family(instance, *device, surface_loader, surface);
 
     unsafe {
         let logical_device = instance
-            .create_device(physical_device, &device_create_info, None)
+            .create_device(*device, &device_create_info, None)
             .unwrap();
 
         let graphics_queue =
@@ -135,7 +163,7 @@ fn create_logical_device(
         let present_queue =
             logical_device.get_device_queue(queue_family.present_family.unwrap(), 0);
 
-        (logical_device, present_queue, graphics_queue)
+        LogicalDeviceFeatures::new(logical_device, present_queue, graphics_queue)
     }
 }
 
@@ -143,7 +171,7 @@ fn pick_physical_device(
     instance: &Instance,
     surface: &vk::SurfaceKHR,
     surface_loader: &Surface,
-) -> (vk::PhysicalDevice, u32, vk::SampleCountFlags) {
+) -> PhysicalDeviceProperties {
     unsafe {
         let devices = instance
             .enumerate_physical_devices()
@@ -151,9 +179,9 @@ fn pick_physical_device(
 
         let (physical_device, queue_family_index) = devices
             .iter()
-            .filter_map(|pdevice| {
+            .find_map(|p_device| {
                 instance
-                    .get_physical_device_queue_family_properties(*pdevice)
+                    .get_physical_device_queue_family_properties(*p_device)
                     .iter()
                     .enumerate()
                     .find_map(|(index, info)| {
@@ -161,24 +189,23 @@ fn pick_physical_device(
                             info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
                                 && surface_loader
                                     .get_physical_device_surface_support(
-                                        *pdevice,
+                                        *p_device,
                                         index as u32,
                                         *surface,
                                     )
                                     .unwrap();
                         if supports_graphic_and_surface {
-                            Some((*pdevice, index))
+                            Some((*p_device, index))
                         } else {
                             None
                         }
                     })
             })
-            .next()
             .expect("Couldn't find suitable device.");
 
         let samples = get_max_usable_sample_count(instance, physical_device);
 
-        (physical_device, queue_family_index as u32, samples)
+        PhysicalDeviceProperties::new(physical_device, queue_family_index as u32, samples)
     }
 }
 

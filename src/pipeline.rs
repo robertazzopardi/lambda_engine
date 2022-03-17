@@ -97,6 +97,7 @@ fn create_descriptor_set_layout(devices: &Devices) -> vk::DescriptorSetLayout {
     unsafe {
         devices
             .logical
+            .device
             .create_descriptor_set_layout(&layout_info, None)
             .expect("Failed to create descriptor set layout")
     }
@@ -121,6 +122,7 @@ fn create_descriptor_pool(devices: &Devices, swapchain_image_count: u32) -> vk::
     unsafe {
         devices
             .logical
+            .device
             .create_descriptor_pool(&pool_info, None)
             .expect("Failed to create descriptor pool!")
     }
@@ -153,6 +155,7 @@ fn create_shader_module(devices: &Devices, code: &[u32]) -> vk::ShaderModule {
     unsafe {
         devices
             .logical
+            .device
             .create_shader_module(&create_info, None)
             .expect("Failed to create shader module!")
     }
@@ -262,7 +265,7 @@ fn create_pipeline_and_layout(
         .depth_bias_enable(false);
 
     let multisampling = vk::PipelineMultisampleStateCreateInfo::builder()
-        .rasterization_samples(devices.msaa_samples)
+        .rasterization_samples(devices.physical.samples)
         .sample_shading_enable(true)
         .min_sample_shading(0.2)
         .alpha_to_coverage_enable(false)
@@ -321,6 +324,7 @@ fn create_pipeline_and_layout(
     unsafe {
         let layout = devices
             .logical
+            .device
             .create_pipeline_layout(&pipeline_layout_info, None)
             .expect("Failed to create pipeline layout!");
 
@@ -341,6 +345,7 @@ fn create_pipeline_and_layout(
 
         let pipeline = devices
             .logical
+            .device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
                 std::slice::from_ref(&pipeline_info),
@@ -350,9 +355,11 @@ fn create_pipeline_and_layout(
 
         devices
             .logical
+            .device
             .destroy_shader_module(vert_shader_module, None);
         devices
             .logical
+            .device
             .destroy_shader_module(frag_shader_module, None);
 
         (pipeline[0], layout)
@@ -386,6 +393,7 @@ fn create_descriptor_sets(
     unsafe {
         let descriptor_sets = devices
             .logical
+            .device
             .allocate_descriptor_sets(&alloc_info)
             .expect("Failed to allocate descriptor sets!");
 
@@ -417,6 +425,7 @@ fn create_descriptor_sets(
 
             devices
                 .logical
+                .device
                 .update_descriptor_sets(&descriptor_writes, &[]);
         }
 

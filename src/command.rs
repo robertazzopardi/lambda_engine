@@ -21,7 +21,7 @@ pub(crate) fn create_command_pool(
     let InstanceDevices { devices, instance } = instance_devices;
 
     let queue_family_indices =
-        device::find_queue_family(instance, devices.physical, surface_loader, surface);
+        device::find_queue_family(instance, devices.physical.device, surface_loader, surface);
 
     let pool_info = vk::CommandPoolCreateInfo::builder()
         .queue_family_index(queue_family_indices.graphics_family.unwrap());
@@ -29,6 +29,7 @@ pub(crate) fn create_command_pool(
     unsafe {
         devices
             .logical
+            .device
             .create_command_pool(&pool_info, None)
             .expect("Failed to create command pool!")
     }
@@ -50,6 +51,7 @@ pub(crate) fn create_command_buffers(
     let command_buffers = unsafe {
         devices
             .logical
+            .device
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("Failed to allocate command render buffers")
     };
@@ -90,6 +92,7 @@ pub(crate) fn create_command_buffers(
         for i in 0..swap_chain.images.len() {
             devices
                 .logical
+                .device
                 .begin_command_buffer(command_buffers[i as usize], &begin_info)
                 .expect("Failed to begin recording command buffer!");
 
@@ -106,19 +109,19 @@ pub(crate) fn create_command_buffers(
                 p_clear_values: clear_values.as_ptr(),
             };
 
-            devices.logical.cmd_begin_render_pass(
+            devices.logical.device.cmd_begin_render_pass(
                 command_buffers[i as usize],
                 &render_pass_begin_info,
                 vk::SubpassContents::INLINE,
             );
 
-            devices.logical.cmd_set_viewport(
+            devices.logical.device.cmd_set_viewport(
                 command_buffers[i as usize],
                 0,
                 std::slice::from_ref(&view_port),
             );
 
-            devices.logical.cmd_set_scissor(
+            devices.logical.device.cmd_set_scissor(
                 command_buffers[i as usize],
                 0,
                 std::slice::from_ref(&scissor),
@@ -130,10 +133,12 @@ pub(crate) fn create_command_buffers(
 
             devices
                 .logical
+                .device
                 .cmd_end_render_pass(command_buffers[i as usize]);
 
             devices
                 .logical
+                .device
                 .end_command_buffer(command_buffers[i as usize])
                 .expect("Failed to record command buffer!");
         }

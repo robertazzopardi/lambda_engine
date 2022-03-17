@@ -1,5 +1,5 @@
 use crate::{
-    utility::{self, ImageInfo, InstanceDevices},
+    utility::{self, Image, ImageInfo, InstanceDevices},
     SwapChain,
 };
 use ash::vk;
@@ -24,8 +24,7 @@ impl Resources {
 }
 
 pub(crate) struct Resource {
-    pub image: vk::Image,
-    pub memory: vk::DeviceMemory,
+    pub image: Image,
     pub view: vk::ImageView,
 }
 
@@ -53,22 +52,18 @@ impl Resource {
         let image_info = ImageInfo::new(
             (swap_chain.extent.width, swap_chain.extent.height),
             1,
-            devices.msaa_samples,
+            devices.physical.samples,
             format,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | usage_flags,
             vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
         );
 
-        let (image, memory) = utility::create_image(image_info, instance_devices);
+        let image = utility::create_image(image_info, instance_devices);
 
-        let view = utility::create_image_view(image, format, aspect_flags, 1, devices);
+        let view = utility::create_image_view(&image, format, aspect_flags, devices);
 
-        Self {
-            image,
-            memory,
-            view,
-        }
+        Self { image, view }
     }
 }
 
@@ -93,8 +88,9 @@ fn find_supported_format(
     features: vk::FormatFeatureFlags,
 ) -> vk::Format {
     for format in candidate_formats.iter() {
-        let format_properties =
-            unsafe { instance.get_physical_device_format_properties(devices.physical, *format) };
+        let format_properties = unsafe {
+            instance.get_physical_device_format_properties(devices.physical.device, *format)
+        };
 
         if (tiling == vk::ImageTiling::LINEAR
             && (format_properties.linear_tiling_features & features) == features)

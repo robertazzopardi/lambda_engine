@@ -75,25 +75,23 @@ impl Vulkan {
 
         let instance_devices = InstanceDevices::new(&entry_instance.instance, &devices);
 
-        let swap_chain = SwapChain::new(
-            &entry_instance.instance,
-            &devices,
-            surface,
-            &surface_loader,
-            window,
-        );
+        let swap_chain = SwapChain::new(&instance_devices, surface, &surface_loader, window);
 
         let render_pass = render::create_render_pass(&instance_devices, &swap_chain);
 
         let resources = Resources::new(&swap_chain, &instance_devices);
 
-        let frame_buffers =
-            utility::create_frame_buffers(&swap_chain, render_pass, &devices.logical, &resources);
+        let frame_buffers = utility::create_frame_buffers(
+            &swap_chain,
+            render_pass,
+            &devices.logical.device,
+            &resources,
+        );
 
         let command_pool =
             command::create_command_pool(&instance_devices, &surface_loader, &surface);
 
-        let sync_objects = SyncObjects::new(&devices.logical);
+        let sync_objects = SyncObjects::new(&devices.logical.device);
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
@@ -150,21 +148,21 @@ impl Vulkan {
         unsafe {
             self.devices
                 .logical
+                .device
                 .device_wait_idle()
                 .expect("Failed to wait for device idle!")
         };
 
         self.cleanup_swap_chain();
 
+        let instance_devices = InstanceDevices::new(&self.instance, &self.devices);
+
         self.swap_chain = SwapChain::new(
-            &self.instance,
-            &self.devices,
+            &instance_devices,
             self.surface,
             &self.surface_loader,
             window,
         );
-
-        let instance_devices = InstanceDevices::new(&self.instance, &self.devices);
 
         self.render_pass = render::create_render_pass(&instance_devices, &self.swap_chain);
 
@@ -173,7 +171,7 @@ impl Vulkan {
         self.frame_buffers = utility::create_frame_buffers(
             &self.swap_chain,
             self.render_pass,
-            &self.devices.logical,
+            &self.devices.logical.device,
             &self.resources,
         );
 
@@ -204,46 +202,55 @@ impl Vulkan {
         unsafe {
             self.devices
                 .logical
+                .device
                 .destroy_image_view(self.resources.colour.view, None);
             self.devices
                 .logical
-                .destroy_image(self.resources.colour.image, None);
+                .device
+                .destroy_image(self.resources.colour.image.image, None);
             self.devices
                 .logical
-                .free_memory(self.resources.colour.memory, None);
+                .device
+                .free_memory(self.resources.colour.image.memory, None);
 
             self.devices
                 .logical
+                .device
                 .destroy_image_view(self.resources.depth.view, None);
             self.devices
                 .logical
-                .destroy_image(self.resources.depth.image, None);
+                .device
+                .destroy_image(self.resources.depth.image.image, None);
             self.devices
                 .logical
-                .free_memory(self.resources.depth.memory, None);
+                .device
+                .free_memory(self.resources.depth.image.memory, None);
             self.devices
                 .logical
+                .device
                 .free_command_buffers(self.commander.pool, &self.commander.buffers);
 
             for model in &self.models {
                 self.devices
                     .logical
+                    .device
                     .destroy_pipeline(model.graphics_pipeline.pipeline, None);
                 self.devices
                     .logical
+                    .device
                     .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
 
-                self.devices.logical.destroy_descriptor_pool(
+                self.devices.logical.device.destroy_descriptor_pool(
                     model.graphics_pipeline.descriptor_set.descriptor_pool,
                     None,
                 );
 
                 for i in 0..self.swap_chain.images.len() {
-                    self.devices.logical.destroy_buffer(
+                    self.devices.logical.device.destroy_buffer(
                         model.graphics_pipeline.descriptor_set.uniform_buffers[i],
                         None,
                     );
-                    self.devices.logical.free_memory(
+                    self.devices.logical.device.free_memory(
                         model
                             .graphics_pipeline
                             .descriptor_set
@@ -255,19 +262,22 @@ impl Vulkan {
 
             self.devices
                 .logical
+                .device
                 .destroy_render_pass(self.render_pass, None);
 
             self.swap_chain
                 .loader
-                .destroy_swapchain(self.swap_chain.swapchain, None);
+                .destroy_swapchain(self.swap_chain.swap_chain, None);
 
             for i in 0..self.swap_chain.images.len() {
                 self.devices
                     .logical
+                    .device
                     .destroy_framebuffer(self.frame_buffers[i], None);
 
                 self.devices
                     .logical
+                    .device
                     .destroy_image_view(self.swap_chain.image_views[i], None);
             }
         }
@@ -285,7 +295,7 @@ impl Vulkan {
 
         for model in self.models.iter() {
             memory::map_memory(
-                &self.devices.logical,
+                &self.devices.logical.device,
                 model
                     .graphics_pipeline
                     .descriptor_set
@@ -302,12 +312,13 @@ impl Vulkan {
     unsafe fn render(&mut self, window: &Window, camera: &mut Camera) {
         self.devices
             .logical
+            .device
             .wait_for_fences(&self.sync_objects.in_flight_fences, true, std::u64::MAX)
             .expect("Failed to wait for Fence!");
 
         let (image_index, _is_sub_optimal) = {
             let result = self.swap_chain.loader.acquire_next_image(
-                self.swap_chain.swapchain,
+                self.swap_chain.swap_chain,
                 std::u64::MAX,
                 self.sync_objects.image_available_semaphores[self.current_frame],
                 vk::Fence::null(),
@@ -329,6 +340,7 @@ impl Vulkan {
         if self.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
             self.devices
                 .logical
+                .device
                 .wait_for_fences(
                     &[self.sync_objects.images_in_flight[image_index as usize]],
                     true,
@@ -357,13 +369,15 @@ impl Vulkan {
 
         self.devices
             .logical
+            .device
             .reset_fences(&[self.sync_objects.in_flight_fences[self.current_frame]])
             .expect("Failed to reset Fence!");
 
         self.devices
             .logical
+            .device
             .queue_submit(
-                self.devices.present_queue,
+                self.devices.logical.present,
                 &submit_infos,
                 self.sync_objects.in_flight_fences[self.current_frame],
             )
@@ -375,7 +389,7 @@ impl Vulkan {
             wait_semaphore_count: 1,
             p_wait_semaphores: signal_semaphores.as_ptr(),
             swapchain_count: 1,
-            p_swapchains: &self.swap_chain.swapchain,
+            p_swapchains: &self.swap_chain.swap_chain,
             p_image_indices: &image_index,
             p_results: ptr::null_mut(),
         };
@@ -383,7 +397,7 @@ impl Vulkan {
         let result = self
             .swap_chain
             .loader
-            .queue_present(self.devices.present_queue, &present_info);
+            .queue_present(self.devices.logical.present, &present_info);
 
         let is_resized = match result {
             Ok(_) => self.is_frame_buffer_resized,
@@ -405,62 +419,76 @@ impl Vulkan {
 impl Drop for Vulkan {
     fn drop(&mut self) {
         unsafe {
-            self.devices.logical.device_wait_idle().unwrap();
+            self.devices.logical.device.device_wait_idle().unwrap();
 
             self.cleanup_swap_chain();
 
             for model in &self.models {
                 self.devices
                     .logical
+                    .device
                     .destroy_sampler(model.texture.sampler, None);
                 self.devices
                     .logical
+                    .device
                     .destroy_image_view(model.texture.image_view, None);
 
                 self.devices
                     .logical
-                    .destroy_image(model.texture.image, None);
-                self.devices.logical.free_memory(model.texture.memory, None);
+                    .device
+                    .destroy_image(model.texture.image.image, None);
+                self.devices
+                    .logical
+                    .device
+                    .free_memory(model.texture.image.memory, None);
 
-                self.devices.logical.destroy_descriptor_set_layout(
+                self.devices.logical.device.destroy_descriptor_set_layout(
                     model.graphics_pipeline.descriptor_set.descriptor_set_layout,
                     None,
                 );
 
                 self.devices
                     .logical
+                    .device
                     .destroy_buffer(model.buffers.vertex.buffer, None);
                 self.devices
                     .logical
+                    .device
                     .free_memory(model.buffers.vertex.memory, None);
 
                 self.devices
                     .logical
+                    .device
                     .destroy_buffer(model.buffers.index.buffer, None);
                 self.devices
                     .logical
+                    .device
                     .free_memory(model.buffers.index.memory, None);
             }
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
                 self.devices
                     .logical
+                    .device
                     .destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
                 self.devices
                     .logical
+                    .device
                     .destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
                 self.devices
                     .logical
+                    .device
                     .destroy_fence(self.sync_objects.in_flight_fences[i], None);
             }
 
             self.devices
                 .logical
+                .device
                 .destroy_command_pool(self.commander.pool, None);
 
             println!("here");
 
-            self.devices.logical.destroy_device(None);
+            self.devices.logical.device.destroy_device(None);
 
             if debug::enable_validation_layers() {
                 if let Some(debugger) = &self.debugging {

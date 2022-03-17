@@ -100,11 +100,7 @@ impl Model {
     ) -> Self {
         let VerticesAndIndices { vertices, indices } = property.vertices_and_indices.clone();
 
-        let texture = texture::Texture::new(
-            &property.texture,
-            command_pool,
-            instance_devices,
-        );
+        let texture = texture::Texture::new(&property.texture, command_pool, instance_devices);
 
         let vertex_buffer = utility::create_vertex_index_buffer(
             (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
@@ -152,13 +148,13 @@ impl Model {
         offsets: &[vk::DeviceSize],
         index: usize,
     ) {
-        devices.logical.cmd_bind_pipeline(
+        devices.logical.device.cmd_bind_pipeline(
             command_buffer,
             vk::PipelineBindPoint::GRAPHICS,
             self.graphics_pipeline.pipeline,
         );
 
-        devices.logical.cmd_bind_descriptor_sets(
+        devices.logical.device.cmd_bind_descriptor_sets(
             command_buffer,
             vk::PipelineBindPoint::GRAPHICS,
             self.graphics_pipeline.layout,
@@ -171,9 +167,10 @@ impl Model {
 
         devices
             .logical
+            .device
             .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
 
-        devices.logical.cmd_draw(
+        devices.logical.device.cmd_draw(
             command_buffer,
             self.vertices_and_indices.vertices.len() as u32,
             1,
@@ -182,14 +179,14 @@ impl Model {
         );
 
         if self.properties.indexed {
-            devices.logical.cmd_bind_index_buffer(
+            devices.logical.device.cmd_bind_index_buffer(
                 command_buffer,
                 self.buffers.index.buffer,
                 0,
                 vk::IndexType::UINT16,
             );
 
-            devices.logical.cmd_draw_indexed(
+            devices.logical.device.cmd_draw_indexed(
                 command_buffer,
                 self.vertices_and_indices.indices.len() as u32,
                 1,

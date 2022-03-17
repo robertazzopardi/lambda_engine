@@ -10,6 +10,27 @@ use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
+pub(crate) struct Image {
+    pub image: vk::Image,
+    pub memory: vk::DeviceMemory,
+    pub mip_levels: u32,
+}
+
+impl Image {
+    pub fn new(image: vk::Image, memory: vk::DeviceMemory) -> Self {
+        Self {
+            image,
+            memory,
+            mip_levels: 1,
+        }
+    }
+
+    pub fn mip_levels(mut self, mip_levels: u32) -> Self {
+        self.mip_levels = mip_levels;
+        self
+    }
+}
+
 pub(crate) struct ImageInfo {
     dimensions: (u32, u32),
     mip_levels: u32,
@@ -116,13 +137,13 @@ impl EntryInstance {
                 .message_type(vk::DebugUtilsMessageTypeFlagsEXT::default())
                 .pfn_user_callback(Some(debug::vulkan_debug_callback));
 
-            let debug_utils_loader = DebugUtils::new(&self.entry, &self.instance);
+            let debug_utils = DebugUtils::new(&self.entry, &self.instance);
             unsafe {
                 return Some(Debug {
-                    debug_messenger: debug_utils_loader
+                    debug_messenger: debug_utils
                         .create_debug_utils_messenger(&create_info, None)
                         .unwrap(),
-                    debug_utils: debug_utils_loader,
+                    debug_utils,
                 });
             }
         }
@@ -130,10 +151,7 @@ impl EntryInstance {
     }
 }
 
-pub(crate) fn create_image(
-    info: ImageInfo,
-    instance_devices: &InstanceDevices,
-) -> (vk::Image, vk::DeviceMemory) {
+pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) -> Image {
     let InstanceDevices { devices, .. } = instance_devices;
 
     let image_info = vk::ImageCreateInfo::builder()
@@ -155,10 +173,11 @@ pub(crate) fn create_image(
     unsafe {
         let image = devices
             .logical
+            .device
             .create_image(&image_info, None)
             .expect("Failed to create image!");
 
-        let memory_requirements = devices.logical.get_image_memory_requirements(image);
+        let memory_requirements = devices.logical.device.get_image_memory_requirements(image);
 
         let alloc_info = vk::MemoryAllocateInfo {
             s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
@@ -173,43 +192,44 @@ pub(crate) fn create_image(
 
         let image_memory = devices
             .logical
+            .device
             .allocate_memory(&alloc_info, None)
             .expect("Failed to allocate image memory!");
 
         devices
             .logical
+            .device
             .bind_image_memory(image, image_memory, 0)
             .expect("Failed to bind image memory");
 
-        (image, image_memory)
+        Image::new(image, image_memory)
     }
 }
 
 pub(crate) fn create_image_view(
-    image: vk::Image,
+    image: &Image,
     format: vk::Format,
     aspect_mask: vk::ImageAspectFlags,
-    level_count: u32,
     devices: &Devices,
 ) -> vk::ImageView {
-    let image_view_info = vk::ImageViewCreateInfo {
-        s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
-        image,
-        view_type: vk::ImageViewType::TYPE_2D,
-        format,
-        subresource_range: vk::ImageSubresourceRange {
-            aspect_mask,
-            base_mip_level: 0,
-            level_count,
-            base_array_layer: 0,
-            layer_count: 1,
-        },
-        ..Default::default()
-    };
+    let sub_resource_range = vk::ImageSubresourceRange::builder()
+        .aspect_mask(aspect_mask)
+        .base_mip_level(0)
+        .level_count(image.mip_levels)
+        .base_array_layer(0)
+        .layer_count(1)
+        .build();
+
+    let image_view_info = vk::ImageViewCreateInfo::builder()
+        .image(image.image)
+        .view_type(vk::ImageViewType::TYPE_2D)
+        .format(format)
+        .subresource_range(sub_resource_range);
 
     unsafe {
         devices
             .logical
+            .device
             .create_image_view(&image_view_info, None)
             .expect("Failed to create textured image view!")
     }

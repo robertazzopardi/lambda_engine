@@ -1,14 +1,36 @@
-use crate::device::{self, Devices};
+use crate::{
+    device::{self, Devices},
+    utility::InstanceDevices,
+};
 use ash::{
     extensions::khr::{Surface, Swapchain},
     vk::{self, PresentModeKHR, SurfaceCapabilitiesKHR, SurfaceFormatKHR},
-    Instance,
 };
 use winit::window::Window;
 
-pub struct SwapChain {
+pub(crate) struct SwapChainSupport {
+    capabilities: SurfaceCapabilitiesKHR,
+    surface_formats: Vec<SurfaceFormatKHR>,
+    present_modes: Vec<PresentModeKHR>,
+}
+
+impl SwapChainSupport {
+    fn new(
+        capabilities: vk::SurfaceCapabilitiesKHR,
+        surface_formats: Vec<SurfaceFormatKHR>,
+        present_modes: Vec<vk::PresentModeKHR>,
+    ) -> Self {
+        Self {
+            capabilities,
+            surface_formats,
+            present_modes,
+        }
+    }
+}
+
+pub(crate) struct SwapChain {
     pub loader: Swapchain,
-    pub swapchain: vk::SwapchainKHR,
+    pub swap_chain: vk::SwapchainKHR,
     pub images: Vec<vk::Image>,
     pub image_format: vk::Format,
     pub extent: vk::Extent2D,
@@ -17,16 +39,18 @@ pub struct SwapChain {
 
 impl SwapChain {
     pub fn new(
-        instance: &Instance,
-        devices: &Devices,
+        InstanceDevices { instance, devices }: &InstanceDevices,
         surface: vk::SurfaceKHR,
         surface_loader: &Surface,
         window: &Window,
     ) -> SwapChain {
-        let (capabilities, formats, present_modes) =
-            query_swap_chain_support(devices, surface, surface_loader);
+        let SwapChainSupport {
+            capabilities,
+            surface_formats,
+            present_modes,
+        } = query_swap_chain_support(devices, surface, surface_loader);
 
-        let surface_format = choose_swap_surface_format(&formats);
+        let surface_format = choose_swap_surface_format(&surface_formats);
 
         let present_mode = choose_present_mode(present_modes);
 
@@ -54,7 +78,7 @@ impl SwapChain {
             .old_swapchain(vk::SwapchainKHR::null());
 
         let queue_family_indices =
-            device::find_queue_family(instance, devices.physical, surface_loader, &surface);
+            device::find_queue_family(instance, devices.physical.device, surface_loader, &surface);
 
         if queue_family_indices.graphics_family != queue_family_indices.present_family {
             create_info.image_sharing_mode = vk::SharingMode::CONCURRENT;
@@ -70,7 +94,7 @@ impl SwapChain {
             create_info.image_sharing_mode = vk::SharingMode::EXCLUSIVE;
         }
 
-        let swapchain = Swapchain::new(instance, &devices.logical);
+        let swapchain = Swapchain::new(instance, &devices.logical.device);
 
         unsafe {
             let swapchain_khr = swapchain
@@ -85,7 +109,7 @@ impl SwapChain {
 
             SwapChain {
                 loader: swapchain,
-                swapchain: swapchain_khr,
+                swap_chain: swapchain_khr,
                 images: swapchain_images,
                 image_format: surface_format.format,
                 extent,
@@ -103,68 +127,67 @@ fn create_image_views(
 ) -> Vec<vk::ImageView> {
     let mut swap_chain_image_views = vec![];
 
+    let components = vk::ComponentMapping::builder()
+        .r(vk::ComponentSwizzle::IDENTITY)
+        .g(vk::ComponentSwizzle::IDENTITY)
+        .b(vk::ComponentSwizzle::IDENTITY)
+        .a(vk::ComponentSwizzle::IDENTITY)
+        .build();
+
+    let subresource_range = vk::ImageSubresourceRange::builder()
+        .aspect_mask(vk::ImageAspectFlags::COLOR)
+        .base_mip_level(0)
+        .level_count(mip_levels)
+        .base_array_layer(0)
+        .layer_count(1)
+        .build();
+
     for &image in swap_chain_images.iter() {
-        let image_view_create_info = vk::ImageViewCreateInfo {
-            s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
-            image,
-            view_type: vk::ImageViewType::TYPE_2D,
-            format: surface_format.format,
-            components: vk::ComponentMapping {
-                r: vk::ComponentSwizzle::IDENTITY,
-                g: vk::ComponentSwizzle::IDENTITY,
-                b: vk::ComponentSwizzle::IDENTITY,
-                a: vk::ComponentSwizzle::IDENTITY,
-            },
-            subresource_range: vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: mip_levels,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            ..Default::default()
-        };
+        let image_view_create_info = vk::ImageViewCreateInfo::builder()
+            .image(image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(surface_format.format)
+            .components(components)
+            .subresource_range(subresource_range);
 
         let image_view = unsafe {
             devices
                 .logical
+                .device
                 .create_image_view(&image_view_create_info, None)
                 .expect("Failed to create vk::Image View!")
         };
+
         swap_chain_image_views.push(image_view);
     }
 
     swap_chain_image_views
 }
 
-pub fn query_swap_chain_support(
+pub(crate) fn query_swap_chain_support(
     devices: &Devices,
     surface: vk::SurfaceKHR,
     surface_loader: &Surface,
-) -> (
-    SurfaceCapabilitiesKHR,
-    Vec<SurfaceFormatKHR>,
-    Vec<PresentModeKHR>,
-) {
+) -> SwapChainSupport {
     let capabilities = unsafe {
         surface_loader
-            .get_physical_device_surface_capabilities(devices.physical, surface)
+            .get_physical_device_surface_capabilities(devices.physical.device, surface)
             .unwrap()
     };
 
     let formats = unsafe {
         surface_loader
-            .get_physical_device_surface_formats(devices.physical, surface)
+            .get_physical_device_surface_formats(devices.physical.device, surface)
             .expect("Could not get Physical Device Surface Formats")
     };
 
     let present_modes = unsafe {
         surface_loader
-            .get_physical_device_surface_present_modes(devices.physical, surface)
+            .get_physical_device_surface_present_modes(devices.physical.device, surface)
             .expect("Could not get Physical Device Present Modes")
     };
 
-    (capabilities, formats, present_modes)
+    SwapChainSupport::new(capabilities, formats, present_modes)
 }
 
 fn choose_swap_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::SurfaceFormatKHR {
