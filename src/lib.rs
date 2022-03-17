@@ -6,6 +6,7 @@ mod command;
 mod debug;
 mod device;
 pub mod display;
+mod frame_buffer;
 mod memory;
 pub mod model;
 mod pipeline;
@@ -81,7 +82,7 @@ impl Vulkan {
 
         let resources = Resources::new(&swap_chain, &instance_devices);
 
-        let frame_buffers = utility::create_frame_buffers(
+        let frame_buffers = frame_buffer::create_frame_buffers(
             &swap_chain,
             render_pass,
             &devices.logical.device,
@@ -168,7 +169,7 @@ impl Vulkan {
 
         self.resources = Resources::new(&self.swap_chain, &instance_devices);
 
-        self.frame_buffers = utility::create_frame_buffers(
+        self.frame_buffers = frame_buffer::create_frame_buffers(
             &self.swap_chain,
             self.render_pass,
             &self.devices.logical.device,

@@ -56,21 +56,21 @@ impl SwapChain {
 
         let extent = choose_swap_extent(capabilities, window);
 
-        let mut swapchain_image_count = capabilities.min_image_count + 1;
+        let mut swap_chain_image_count = capabilities.min_image_count + 1;
 
-        if capabilities.max_image_count > 0 && swapchain_image_count > capabilities.max_image_count
+        if capabilities.max_image_count > 0 && swap_chain_image_count > capabilities.max_image_count
         {
-            swapchain_image_count = capabilities.max_image_count;
+            swap_chain_image_count = capabilities.max_image_count;
         }
 
         let mut create_info = vk::SwapchainCreateInfoKHR::builder()
             .surface(surface)
-            .min_image_count(swapchain_image_count)
+            .min_image_count(swap_chain_image_count)
             .image_format(surface_format.format)
             .image_color_space(surface_format.color_space)
             .image_extent(extent)
             .image_array_layers(1)
-            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            .image_usage(vk::ImageUsageFlags::TRANSIENT_ATTACHMENT)
             .pre_transform(capabilities.current_transform)
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
