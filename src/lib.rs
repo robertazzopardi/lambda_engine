@@ -234,11 +234,11 @@ impl Vulkan {
                 self.devices
                     .logical
                     .device
-                    .destroy_pipeline(model.graphics_pipeline.pipeline, None);
+                    .destroy_pipeline(model.graphics_pipeline.features.pipeline, None);
                 self.devices
                     .logical
                     .device
-                    .destroy_pipeline_layout(model.graphics_pipeline.layout, None);
+                    .destroy_pipeline_layout(model.graphics_pipeline.features.layout, None);
 
                 self.devices.logical.device.destroy_descriptor_pool(
                     model.graphics_pipeline.descriptor_set.descriptor_pool,
@@ -247,14 +247,11 @@ impl Vulkan {
 
                 for i in 0..self.swap_chain.images.len() {
                     self.devices.logical.device.destroy_buffer(
-                        model.graphics_pipeline.descriptor_set.uniform_buffers[i],
+                        model.graphics_pipeline.descriptor_set.uniform_buffers[i].buffer,
                         None,
                     );
                     self.devices.logical.device.free_memory(
-                        model
-                            .graphics_pipeline
-                            .descriptor_set
-                            .uniform_buffers_memory[i],
+                        model.graphics_pipeline.descriptor_set.uniform_buffers[i].memory,
                         None,
                     );
                 }
@@ -296,10 +293,7 @@ impl Vulkan {
         for model in self.models.iter() {
             memory::map_memory(
                 &self.devices.logical.device,
-                model
-                    .graphics_pipeline
-                    .descriptor_set
-                    .uniform_buffers_memory[current_image],
+                model.graphics_pipeline.descriptor_set.uniform_buffers[current_image].memory,
                 buffer_size,
                 &ubos,
             );

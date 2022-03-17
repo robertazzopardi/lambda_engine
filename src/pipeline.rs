@@ -1,5 +1,5 @@
 use crate::{
-    model::{ModelProperties, Vertex},
+    model::{Buffer, ModelProperties, Vertex},
     swap_chain::SwapChain,
     texture,
     uniform::UniformBufferObject,
@@ -14,13 +14,22 @@ pub struct Descriptor {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub descriptor_pool: vk::DescriptorPool,
     pub descriptor_set_layout: vk::DescriptorSetLayout,
-    pub uniform_buffers: Vec<vk::Buffer>,
-    pub uniform_buffers_memory: Vec<vk::DeviceMemory>,
+    pub uniform_buffers: Vec<Buffer>,
+}
+
+pub(crate) struct GraphicsPipelineFeatures {
+    pub pipeline: vk::Pipeline,
+    pub layout: vk::PipelineLayout,
+}
+
+impl GraphicsPipelineFeatures {
+    fn new(pipeline: vk::Pipeline, layout: vk::PipelineLayout) -> Self {
+        Self { pipeline, layout }
+    }
 }
 
 pub(crate) struct GraphicsPipeline {
-    pub pipeline: vk::Pipeline,
-    pub layout: vk::PipelineLayout,
+    pub features: GraphicsPipelineFeatures,
     pub descriptor_set: Descriptor,
 }
 
@@ -37,7 +46,7 @@ impl GraphicsPipeline {
 
         let descriptor_set_layout = create_descriptor_set_layout(devices);
 
-        let (pipeline, layout) = create_pipeline_and_layout(
+        let features = create_pipeline_and_layout(
             devices,
             swap_chain,
             &descriptor_set_layout,
@@ -47,7 +56,7 @@ impl GraphicsPipeline {
 
         let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
 
-        let (uniform_buffers, uniform_buffers_memory) =
+        let uniform_buffers =
             create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
 
         let descriptor_sets = create_descriptor_sets(
@@ -60,16 +69,16 @@ impl GraphicsPipeline {
             &uniform_buffers,
         );
 
+        let descriptor_set = Descriptor {
+            descriptor_sets,
+            descriptor_pool,
+            descriptor_set_layout,
+            uniform_buffers,
+        };
+
         Self {
-            pipeline,
-            layout,
-            descriptor_set: Descriptor {
-                descriptor_sets,
-                descriptor_pool,
-                descriptor_set_layout,
-                uniform_buffers,
-                uniform_buffers_memory,
-            },
+            features,
+            descriptor_set,
         }
     }
 }
@@ -131,9 +140,9 @@ fn create_descriptor_pool(devices: &Devices, swapchain_image_count: u32) -> vk::
 fn create_uniform_buffers(
     swap_chain_image_count: u32,
     instance_devices: &InstanceDevices,
-) -> (Vec<vk::Buffer>, Vec<vk::DeviceMemory>) {
-    let mut uniform_buffers = Vec::new();
-    let mut uniform_buffer_memory = Vec::new();
+    // ) -> (Vec<vk::Buffer>, Vec<vk::DeviceMemory>) {
+) -> Vec<Buffer> {
+    let mut buffers = Vec::new();
 
     for _i in 0..swap_chain_image_count {
         let (buffer, memory) = texture::create_buffer(
@@ -142,11 +151,12 @@ fn create_uniform_buffers(
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             instance_devices,
         );
-        uniform_buffers.push(buffer);
-        uniform_buffer_memory.push(memory);
+        // uniform_buffers.push(buffer);
+        // uniform_buffer_memory.push(memory);
+        buffers.push(Buffer::new(buffer, memory))
     }
 
-    (uniform_buffers, uniform_buffer_memory)
+    buffers
 }
 
 fn create_shader_module(devices: &Devices, code: &[u32]) -> vk::ShaderModule {
@@ -163,11 +173,11 @@ fn create_shader_module(devices: &Devices, code: &[u32]) -> vk::ShaderModule {
 
 fn create_pipeline_and_layout(
     devices: &Devices,
-    swapchain: &SwapChain,
+    swap_chain: &SwapChain,
     descriptor_set_layout: &vk::DescriptorSetLayout,
     render_pass: vk::RenderPass,
     properties: ModelProperties,
-) -> (vk::Pipeline, vk::PipelineLayout) {
+) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 
     let mut vertex_file =
@@ -240,14 +250,14 @@ fn create_pipeline_and_layout(
     let view_port = vk::Viewport::builder()
         .x(0.)
         .y(0.)
-        .width(swapchain.extent.width as f32)
-        .height(swapchain.extent.height as f32)
+        .width(swap_chain.extent.width as f32)
+        .height(swap_chain.extent.height as f32)
         .min_depth(0.)
         .max_depth(1.);
 
     let scissor = vk::Rect2D::builder()
         .offset(vk::Offset2D { x: 0, y: 0 })
-        .extent(swapchain.extent);
+        .extent(swap_chain.extent);
 
     let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
         .viewports(std::slice::from_ref(&view_port))
@@ -362,7 +372,7 @@ fn create_pipeline_and_layout(
             .device
             .destroy_shader_module(frag_shader_module, None);
 
-        (pipeline[0], layout)
+        GraphicsPipelineFeatures::new(pipeline[0], layout)
     }
 }
 
@@ -373,7 +383,7 @@ fn create_descriptor_sets(
     swapchain_image_count: u32,
     texture_image_view: vk::ImageView,
     sampler: vk::Sampler,
-    uniform_buffers: &[vk::Buffer],
+    uniform_buffers: &[Buffer],
 ) -> Vec<vk::DescriptorSet> {
     let layouts = vec![descriptor_layout; swapchain_image_count as usize];
 
@@ -399,7 +409,7 @@ fn create_descriptor_sets(
 
         for i in 0..swapchain_image_count as usize {
             let buffer_info = vk::DescriptorBufferInfo {
-                buffer: uniform_buffers[i],
+                buffer: uniform_buffers[i].buffer,
                 offset: 0,
                 range: mem::size_of::<UniformBufferObject>() as u64,
             };

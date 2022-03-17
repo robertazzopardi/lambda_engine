@@ -1,3 +1,5 @@
+use std::ffi::CString;
+
 use ash::{
     extensions::khr::{Surface, Swapchain},
     vk, Device, Instance,
@@ -46,13 +48,6 @@ pub(crate) struct QueueFamilyIndices {
 }
 
 impl QueueFamilyIndices {
-    pub fn new() -> QueueFamilyIndices {
-        QueueFamilyIndices {
-            graphics_family: None,
-            present_family: None,
-        }
-    }
-
     pub const fn is_complete(&self) -> bool {
         self.graphics_family.is_some() && self.present_family.is_some()
     }
@@ -90,7 +85,7 @@ pub(crate) fn find_queue_family(
     let queue_families =
         unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
 
-    let mut queue_family_indices = QueueFamilyIndices::new();
+    let mut queue_family_indices = QueueFamilyIndices::default();
 
     for (index, queue_family) in queue_families.iter().enumerate() {
         if queue_family.queue_count > 0
@@ -132,7 +127,11 @@ fn create_logical_device(
         ..
     } = physical_device_properties;
 
-    let device_extension_names_raw = [Swapchain::name().as_ptr()];
+    let portability_subset_extension = CString::new("VK_KHR_portability_subset").unwrap();
+    let device_extension_names_raw = [
+        Swapchain::name().as_ptr(),
+        portability_subset_extension.as_ptr(),
+    ];
 
     let features = vk::PhysicalDeviceFeatures::builder()
         .sampler_anisotropy(true)

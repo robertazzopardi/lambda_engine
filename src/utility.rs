@@ -106,7 +106,7 @@ impl EntryInstance {
             .application_version(0)
             .engine_name(&engine_name)
             .engine_version(0)
-            .api_version(vk::make_api_version(0, 1, 0, 0));
+            .api_version(vk::API_VERSION_1_1);
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
@@ -133,8 +133,17 @@ impl EntryInstance {
     pub fn debugger(&self) -> Option<Debug> {
         if enable_validation_layers() {
             let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::default())
-                .message_type(vk::DebugUtilsMessageTypeFlagsEXT::default())
+                .message_severity(
+                    vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                        | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+                        | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                        | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
+                )
+                .message_type(
+                    vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                        | vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                        | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+                )
                 .pfn_user_callback(Some(debug::vulkan_debug_callback));
 
             let debug_utils = DebugUtils::new(&self.entry, &self.instance);

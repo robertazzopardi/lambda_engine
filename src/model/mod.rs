@@ -151,13 +151,13 @@ impl Model {
         devices.logical.device.cmd_bind_pipeline(
             command_buffer,
             vk::PipelineBindPoint::GRAPHICS,
-            self.graphics_pipeline.pipeline,
+            self.graphics_pipeline.features.pipeline,
         );
 
         devices.logical.device.cmd_bind_descriptor_sets(
             command_buffer,
             vk::PipelineBindPoint::GRAPHICS,
-            self.graphics_pipeline.layout,
+            self.graphics_pipeline.features.layout,
             0,
             std::slice::from_ref(&self.graphics_pipeline.descriptor_set.descriptor_sets[index]),
             &[],
