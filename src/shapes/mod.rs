@@ -1,18 +1,45 @@
+pub mod l2d;
+pub mod l3d;
 pub mod utility;
 
 use self::utility::{ModelCullMode, ModelTopology};
 use crate::{
     device::Devices,
     pipeline::GraphicsPipeline,
+    space::Orientation,
     swap_chain::SwapChain,
     texture::{self, Texture},
     utility::InstanceDevices,
 };
 use ash::vk;
-use cgmath::{Vector2, Vector3, Zero};
+use cgmath::{Point3, Vector2, Vector3, Zero};
 use std::{mem::size_of, ops::Mul};
 
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
+
+pub trait Object {
+    fn translate(&mut self) {}
+    fn rotate(&mut self) {}
+    fn scale(&mut self) {}
+
+    fn vertices_and_indices() -> VerticesAndIndices;
+
+    fn builder(position: Point3<f32>, orientation: Orientation) -> Self;
+    fn destroy() {}
+
+    // fn build(
+    //     self,
+    //     command_pool: vk::CommandPool,
+    //     command_buffer_count: u32,
+    //     swap_chain: &SwapChain,
+    //     render_pass: vk::RenderPass,
+    //     instance_devices: &InstanceDevices,
+    // ) -> Self;
+    fn texture_buffer(self, texture_buffer: Vec<u8>) -> Self;
+    fn indexed(self) -> Self;
+    fn topology(self, topology: ModelTopology) -> Self;
+    fn cull_mode(self, cull_mode: ModelCullMode) -> Self;
+}
 
 #[derive(Clone, new)]
 pub struct VerticesAndIndices {
@@ -50,7 +77,6 @@ pub struct ModelProperties {
 }
 
 pub(crate) struct Model {
-    pub vertices_and_indices: VerticesAndIndices,
     pub texture: Texture,
     pub graphics_pipeline: GraphicsPipeline,
     pub buffers: ModelBuffers,
@@ -98,7 +124,6 @@ impl Model {
         );
 
         Self {
-            vertices_and_indices: VerticesAndIndices::new(vertices, indices),
             texture,
             graphics_pipeline,
             buffers: ModelBuffers::new(vertex_buffer, index_buffer),
@@ -140,7 +165,7 @@ impl Model {
 
         devices.logical.device.cmd_draw(
             command_buffer,
-            self.vertices_and_indices.vertices.len() as u32,
+            self.properties.vertices_and_indices.vertices.len() as u32,
             1,
             0,
             0,
@@ -156,7 +181,7 @@ impl Model {
 
             devices.logical.device.cmd_draw_indexed(
                 command_buffer,
-                self.vertices_and_indices.indices.len() as u32,
+                self.properties.vertices_and_indices.indices.len() as u32,
                 1,
                 0,
                 0,
@@ -171,8 +196,6 @@ pub fn ring(inner_radius: f32, outer_radius: f32, sector_count: u32) -> Vertices
         inner_radius <= outer_radius,
         "Ring inner radius mut be smaller or equal to its outer radius"
     );
-
-    let stack_count = 2;
 
     let mut angle = 0.;
     let angle_step = 180. / sector_count as f32;
@@ -197,10 +220,7 @@ pub fn ring(inner_radius: f32, outer_radius: f32, sector_count: u32) -> Vertices
         ));
     }
 
-    VerticesAndIndices::new(
-        vertices,
-        utility::calculate_sphere_indices(sector_count, stack_count),
-    )
+    VerticesAndIndices::new(vertices, utility::spherical_indices(sector_count, 2))
 }
 
 pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> VerticesAndIndices {
@@ -237,17 +257,6 @@ pub fn sphere(radius: f32, sector_count: u32, stack_count: u32) -> VerticesAndIn
 
     VerticesAndIndices::new(
         vertices,
-        utility::calculate_sphere_indices(sector_count, stack_count),
-    )
-}
-
-pub fn cube() -> VerticesAndIndices {
-    let cube = utility::CUBE_VERTICES;
-
-    cube.map(|_| utility::calculate_normals);
-
-    VerticesAndIndices::new(
-        cube.into_iter().flatten().collect(),
-        utility::CUBE_INDICES.to_vec(),
+        utility::spherical_indices(sector_count, stack_count),
     )
 }

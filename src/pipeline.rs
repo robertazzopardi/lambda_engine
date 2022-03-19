@@ -1,5 +1,5 @@
 use crate::{
-    model::{Buffer, ModelProperties, Vertex},
+    shapes::{Buffer, ModelProperties, Object, Vertex},
     swap_chain::SwapChain,
     texture,
     uniform::UniformBufferObject,
@@ -35,6 +35,7 @@ impl GraphicsPipeline {
         texture_image_view: vk::ImageView,
         sampler: vk::Sampler,
         properties: ModelProperties,
+        // properties: &impl Object,
         instance_devices: &InstanceDevices,
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
@@ -107,21 +108,21 @@ fn create_descriptor_set_layout(devices: &Devices) -> vk::DescriptorSetLayout {
     }
 }
 
-fn create_descriptor_pool(devices: &Devices, swapchain_image_count: u32) -> vk::DescriptorPool {
+fn create_descriptor_pool(devices: &Devices, swap_chain_image_count: u32) -> vk::DescriptorPool {
     let pool_sizes = &[
         vk::DescriptorPoolSize {
             ty: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: swapchain_image_count,
+            descriptor_count: swap_chain_image_count,
         },
         vk::DescriptorPoolSize {
             ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: swapchain_image_count,
+            descriptor_count: swap_chain_image_count,
         },
     ];
 
     let pool_info = vk::DescriptorPoolCreateInfo::builder()
         .pool_sizes(pool_sizes)
-        .max_sets(swapchain_image_count);
+        .max_sets(swap_chain_image_count);
 
     unsafe {
         devices
@@ -135,7 +136,6 @@ fn create_descriptor_pool(devices: &Devices, swapchain_image_count: u32) -> vk::
 fn create_uniform_buffers(
     swap_chain_image_count: u32,
     instance_devices: &InstanceDevices,
-    // ) -> (Vec<vk::Buffer>, Vec<vk::DeviceMemory>) {
 ) -> Vec<Buffer> {
     let mut buffers = Vec::new();
 
@@ -146,16 +146,17 @@ fn create_uniform_buffers(
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             instance_devices,
         );
-        // uniform_buffers.push(buffer);
-        // uniform_buffer_memory.push(memory);
         buffers.push(Buffer::new(buffer, memory))
     }
 
     buffers
 }
 
-fn create_shader_module(devices: &Devices, code: &[u32]) -> vk::ShaderModule {
-    let create_info = vk::ShaderModuleCreateInfo::builder().code(code);
+fn create_shader_module(devices: &Devices, path: &str) -> vk::ShaderModule {
+    let mut file = std::fs::File::open(path).unwrap();
+    let spv = ash::util::read_spv(&mut file).unwrap();
+
+    let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv);
 
     unsafe {
         devices
@@ -175,17 +176,15 @@ fn create_pipeline_and_layout(
 ) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 
-    let mut vertex_file =
-        std::fs::File::open("/Users/rob/_CODE/C/vulkan-tmp/src/shaders/light_texture/vert.spv")
-            .unwrap();
-    let vertex_spv = ash::util::read_spv(&mut vertex_file).unwrap();
-    let vert_shader_module = create_shader_module(devices, &vertex_spv);
+    let vert_shader_module = create_shader_module(
+        devices,
+        "/Users/rob/_CODE/C/vulkan-tmp/src/shaders/light_texture/vert.spv",
+    );
 
-    let mut frag_file =
-        std::fs::File::open("/Users/rob/_CODE/C/vulkan-tmp/src/shaders/light_texture/frag.spv")
-            .unwrap();
-    let frag_spv = ash::util::read_spv(&mut frag_file).unwrap();
-    let frag_shader_module = create_shader_module(devices, &frag_spv);
+    let frag_shader_module = create_shader_module(
+        devices,
+        "/Users/rob/_CODE/C/vulkan-tmp/src/shaders/light_texture/frag.spv",
+    );
 
     let shader_stages = [
         vk::PipelineShaderStageCreateInfo {
@@ -269,7 +268,7 @@ fn create_pipeline_and_layout(
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 
-    let multisampling = vk::PipelineMultisampleStateCreateInfo::builder()
+    let multi_sampling = vk::PipelineMultisampleStateCreateInfo::builder()
         .rasterization_samples(devices.physical.samples)
         .sample_shading_enable(true)
         .min_sample_shading(0.2)
@@ -339,7 +338,7 @@ fn create_pipeline_and_layout(
             .input_assembly_state(&input_assembly)
             .viewport_state(&view_port_state)
             .rasterization_state(&rasterizer)
-            .multisample_state(&multisampling)
+            .multisample_state(&multi_sampling)
             .dynamic_state(&dynamic_state_create_info)
             .color_blend_state(&color_blending)
             .layout(layout)
@@ -375,16 +374,16 @@ fn create_descriptor_sets(
     devices: &Devices,
     descriptor_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
-    swapchain_image_count: u32,
+    swap_chain_image_count: u32,
     texture_image_view: vk::ImageView,
     sampler: vk::Sampler,
     uniform_buffers: &[Buffer],
 ) -> Vec<vk::DescriptorSet> {
-    let layouts = vec![descriptor_layout; swapchain_image_count as usize];
+    let layouts = vec![descriptor_layout; swap_chain_image_count as usize];
 
     let alloc_info = vk::DescriptorSetAllocateInfo {
         descriptor_pool,
-        descriptor_set_count: swapchain_image_count,
+        descriptor_set_count: swap_chain_image_count,
         p_set_layouts: layouts.as_slice().as_ptr(),
         ..Default::default()
     };
@@ -402,7 +401,7 @@ fn create_descriptor_sets(
             .allocate_descriptor_sets(&alloc_info)
             .expect("Failed to allocate descriptor sets!");
 
-        for i in 0..swapchain_image_count as usize {
+        for i in 0..swap_chain_image_count as usize {
             let buffer_info = vk::DescriptorBufferInfo {
                 buffer: uniform_buffers[i].buffer,
                 offset: 0,

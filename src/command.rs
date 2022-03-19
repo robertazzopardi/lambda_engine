@@ -1,4 +1,4 @@
-use crate::{device, model::Model, swap_chain::SwapChain, utility::InstanceDevices, Devices};
+use crate::{device, shapes::Model, swap_chain::SwapChain, utility::InstanceDevices, Devices};
 use ash::{extensions::khr::Surface, vk};
 use std::ptr;
 

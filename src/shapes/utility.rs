@@ -4,176 +4,6 @@ use ash::vk;
 use cgmath::{Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
-const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
-
-pub(crate) const CUBE_VERTICES: [[Vertex; 4]; 6] = [
-    [
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, 0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-    [
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, 0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Vector3::new(-0.5, -0.5, -0.5),
-            colour: WHITE,
-            normal: VEC3_ZERO,
-            tex_coord: Vector2::new(1., 1.),
-        },
-    ],
-];
-
-pub(crate) const CUBE_INDICES: [u16; 36] = [
-    0, 1, 2, 2, 3, 0, // top
-    4, 5, 6, 6, 7, 4, // bottom
-    8, 9, 10, 8, 10, 11, // right
-    12, 13, 14, 12, 14, 15, // left
-    16, 17, 18, 16, 18, 19, // front
-    20, 21, 22, 20, 22, 23, // back
-];
-
 #[derive(Clone)]
 pub enum ModelTopology {
     LineList,
@@ -187,6 +17,7 @@ pub enum ModelTopology {
     TriangleListWithAdjacency,
     TriangleStrip,
     TriangleStripWithAdjacency,
+    Default,
 }
 
 impl From<ModelTopology> for vk::PrimitiveTopology {
@@ -209,6 +40,7 @@ impl From<ModelTopology> for vk::PrimitiveTopology {
             }
             ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
             ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
+            ModelTopology::Default => vk::PrimitiveTopology::default(),
         }
     }
 }
@@ -345,7 +177,7 @@ pub(crate) fn make_point(
     Vertex::new(pos, WHITE, pos.mul(length), tex_coord)
 }
 
-pub(crate) fn calculate_sphere_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {
+pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {
     let mut k1: u16;
     let mut k2: u16;
 

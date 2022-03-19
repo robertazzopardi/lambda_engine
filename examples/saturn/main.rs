@@ -4,7 +4,7 @@ use lambda_engine::{
     camera::Camera,
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
-    model::{
+    shapes::{
         self,
         utility::{ModelCullMode, ModelTopology},
         ModelProperties,
@@ -25,14 +25,14 @@ fn main() {
                 indexed: true,
                 topology: ModelTopology::TriangleList,
                 cull_mode: ModelCullMode::Back,
-                vertices_and_indices: model::sphere(0.4, 20, 20),
+                vertices_and_indices: shapes::sphere(0.4, 20, 20),
             },
             ModelProperties {
                 texture: include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
                 indexed: false,
                 topology: ModelTopology::TriangleStrip,
                 cull_mode: ModelCullMode::None,
-                vertices_and_indices: model::ring(0.5, 1., 40),
+                vertices_and_indices: shapes::ring(0.5, 1., 40),
             },
         ],
     };
