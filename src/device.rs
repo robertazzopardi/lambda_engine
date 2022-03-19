@@ -5,40 +5,18 @@ use ash::{
     vk, Device, Instance,
 };
 
+#[derive(new)]
 pub(crate) struct PhysicalDeviceProperties {
     pub device: vk::PhysicalDevice,
     pub queue_family_index: u32,
     pub samples: vk::SampleCountFlags,
 }
 
-impl PhysicalDeviceProperties {
-    fn new(
-        device: vk::PhysicalDevice,
-        queue_family_index: u32,
-        samples: vk::SampleCountFlags,
-    ) -> Self {
-        Self {
-            device,
-            queue_family_index,
-            samples,
-        }
-    }
-}
-
+#[derive(new)]
 pub(crate) struct LogicalDeviceFeatures {
     pub device: Device,
     pub present: vk::Queue,
     pub graphics: vk::Queue,
-}
-
-impl LogicalDeviceFeatures {
-    fn new(device: Device, present: vk::Queue, graphics: vk::Queue) -> Self {
-        Self {
-            device,
-            present,
-            graphics,
-        }
-    }
 }
 
 #[derive(Default)]

@@ -1,8 +1,4 @@
-use crate::{
-    debug::{self, enable_validation_layers},
-    device::Devices,
-    memory, Debug,
-};
+use crate::{debug, device::Devices, memory};
 use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
@@ -28,6 +24,7 @@ impl Image {
     }
 }
 
+#[derive(new)]
 pub(crate) struct ImageInfo {
     dimensions: (u32, u32),
     mip_levels: u32,
@@ -38,37 +35,10 @@ pub(crate) struct ImageInfo {
     properties: vk::MemoryPropertyFlags,
 }
 
-impl ImageInfo {
-    pub fn new(
-        dimensions: (u32, u32),
-        mip_levels: u32,
-        samples: vk::SampleCountFlags,
-        format: vk::Format,
-        tiling: vk::ImageTiling,
-        usage: vk::ImageUsageFlags,
-        properties: vk::MemoryPropertyFlags,
-    ) -> Self {
-        Self {
-            dimensions,
-            mip_levels,
-            samples,
-            format,
-            tiling,
-            usage,
-            properties,
-        }
-    }
-}
-
+#[derive(new)]
 pub(crate) struct InstanceDevices<'a> {
     pub instance: &'a Instance,
     pub devices: &'a Devices,
-}
-
-impl<'a> InstanceDevices<'a> {
-    pub fn new(instance: &'a Instance, devices: &'a Devices) -> Self {
-        Self { instance, devices }
-    }
 }
 
 pub(crate) struct EntryInstance {
@@ -118,42 +88,6 @@ impl EntryInstance {
 
             Self { instance, entry }
         }
-    }
-
-    pub fn create_surface(&self, window: &Window) -> vk::SurfaceKHR {
-        unsafe {
-            ash_window::create_surface(&self.entry, &self.instance, window, None)
-                .expect("Failed to create window surface!")
-        }
-    }
-
-    pub fn debugger(&self) -> Option<Debug> {
-        if enable_validation_layers() {
-            let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                .message_severity(
-                    vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                        | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
-                        | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
-                        | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
-                )
-                .message_type(
-                    vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                        | vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                        | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-                )
-                .pfn_user_callback(Some(debug::vulkan_debug_callback));
-
-            let debug_utils = DebugUtils::new(&self.entry, &self.instance);
-            unsafe {
-                return Some(Debug {
-                    debug_messenger: debug_utils
-                        .create_debug_utils_messenger(&create_info, None)
-                        .unwrap(),
-                    debug_utils,
-                });
-            }
-        }
-        None
     }
 }
 

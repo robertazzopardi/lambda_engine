@@ -2,15 +2,10 @@ use crate::{device, model::Model, swap_chain::SwapChain, utility::InstanceDevice
 use ash::{extensions::khr::Surface, vk};
 use std::ptr;
 
+#[derive(new)]
 pub(crate) struct VkCommander {
     pub buffers: Vec<vk::CommandBuffer>,
     pub pool: vk::CommandPool,
-}
-
-impl VkCommander {
-    pub fn new(buffers: Vec<vk::CommandBuffer>, pool: vk::CommandPool) -> Self {
-        Self { buffers, pool }
-    }
 }
 
 pub(crate) fn create_command_pool(

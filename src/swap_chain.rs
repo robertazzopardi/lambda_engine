@@ -8,32 +8,19 @@ use ash::{
 };
 use winit::window::Window;
 
+#[derive(new)]
 pub(crate) struct SwapChainSupport {
     capabilities: SurfaceCapabilitiesKHR,
     surface_formats: Vec<SurfaceFormatKHR>,
     present_modes: Vec<PresentModeKHR>,
 }
 
-impl SwapChainSupport {
-    fn new(
-        capabilities: vk::SurfaceCapabilitiesKHR,
-        surface_formats: Vec<SurfaceFormatKHR>,
-        present_modes: Vec<vk::PresentModeKHR>,
-    ) -> Self {
-        Self {
-            capabilities,
-            surface_formats,
-            present_modes,
-        }
-    }
-}
-
 pub(crate) struct SwapChain {
     pub loader: Swapchain,
     pub swap_chain: vk::SwapchainKHR,
-    pub images: Vec<vk::Image>,
     pub image_format: vk::Format,
     pub extent: vk::Extent2D,
+    pub images: Vec<vk::Image>,
     pub image_views: Vec<vk::ImageView>,
 }
 
@@ -94,23 +81,23 @@ impl SwapChain {
             create_info.image_sharing_mode = vk::SharingMode::EXCLUSIVE;
         }
 
-        let swapchain = Swapchain::new(instance, &devices.logical.device);
+        let swap_chain = Swapchain::new(instance, &devices.logical.device);
 
         unsafe {
-            let swapchain_khr = swapchain
+            let swap_chain_khr = swap_chain
                 .create_swapchain(&create_info, None)
                 .expect("Failed to create swapchain");
 
-            let swapchain_images = swapchain
-                .get_swapchain_images(swapchain_khr)
+            let swap_chain_images = swap_chain
+                .get_swapchain_images(swap_chain_khr)
                 .expect("Could not get swapchain images");
 
-            let image_views = create_image_views(devices, &swapchain_images, &surface_format, 1);
+            let image_views = create_image_views(devices, &swap_chain_images, &surface_format, 1);
 
             SwapChain {
-                loader: swapchain,
-                swap_chain: swapchain_khr,
-                images: swapchain_images,
+                loader: swap_chain,
+                swap_chain: swap_chain_khr,
+                images: swap_chain_images,
                 image_format: surface_format.format,
                 extent,
                 image_views,
@@ -134,7 +121,7 @@ fn create_image_views(
         .a(vk::ComponentSwizzle::IDENTITY)
         .build();
 
-    let subresource_range = vk::ImageSubresourceRange::builder()
+    let sub_resource_range = vk::ImageSubresourceRange::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .base_mip_level(0)
         .level_count(mip_levels)
@@ -148,7 +135,7 @@ fn create_image_views(
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(surface_format.format)
             .components(components)
-            .subresource_range(subresource_range);
+            .subresource_range(sub_resource_range);
 
         let image_view = unsafe {
             devices

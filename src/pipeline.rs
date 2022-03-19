@@ -17,15 +17,10 @@ pub struct Descriptor {
     pub uniform_buffers: Vec<Buffer>,
 }
 
+#[derive(new)]
 pub(crate) struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
-}
-
-impl GraphicsPipelineFeatures {
-    fn new(pipeline: vk::Pipeline, layout: vk::PipelineLayout) -> Self {
-        Self { pipeline, layout }
-    }
 }
 
 pub(crate) struct GraphicsPipeline {

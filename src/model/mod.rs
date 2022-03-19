@@ -14,19 +14,13 @@ use std::{mem::size_of, ops::Mul};
 
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 
-#[derive(Clone)]
+#[derive(Clone, new)]
 pub struct VerticesAndIndices {
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
 }
 
-impl VerticesAndIndices {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Self {
-        Self { vertices, indices }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, new)]
 pub struct Vertex {
     pub pos: Vector3<f32>,
     pub colour: Vector3<f32>,
@@ -34,42 +28,16 @@ pub struct Vertex {
     pub tex_coord: Vector2<f32>,
 }
 
-impl Vertex {
-    pub fn new(
-        pos: Vector3<f32>,
-        colour: Vector3<f32>,
-        normal: Vector3<f32>,
-        tex_coord: Vector2<f32>,
-    ) -> Self {
-        Self {
-            pos,
-            colour,
-            normal,
-            tex_coord,
-        }
-    }
-}
-
+#[derive(new)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
 }
 
-impl Buffer {
-    pub fn new(buffer: vk::Buffer, memory: vk::DeviceMemory) -> Self {
-        Self { buffer, memory }
-    }
-}
-
+#[derive(new)]
 pub(crate) struct ModelBuffers {
     pub vertex: Buffer,
     pub index: Buffer,
-}
-
-impl ModelBuffers {
-    pub fn new(vertex: Buffer, index: Buffer) -> Self {
-        Self { vertex, index }
-    }
 }
 
 #[derive(Clone)]

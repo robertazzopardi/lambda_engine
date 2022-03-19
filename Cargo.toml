@@ -10,6 +10,7 @@ include = ["src/**/*", "README.md", "assets/2k_saturn.jpg", "assets/2k_saturn_ri
 ash = "0.36.0"
 ash-window = "0.9.1"
 cgmath = "0.18.0"
+derive-new = "0.5.9"
 image = "0.24.1"
 memoffset = "0.6.5"
 winit = "0.26.1"

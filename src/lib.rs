@@ -1,9 +1,11 @@
 extern crate ash;
 extern crate winit;
+#[macro_use]
+extern crate derive_new;
 
 pub mod camera;
 mod command;
-mod debug;
+pub mod debug;
 mod device;
 pub mod display;
 mod frame_buffer;
@@ -26,7 +28,7 @@ use ash::{
 };
 use camera::Camera;
 use command::VkCommander;
-use debug::Debug;
+use debug::{Debug, DebugMessageProperties};
 use device::Devices;
 use display::Display;
 use model::{Model, ModelProperties};
@@ -47,7 +49,7 @@ pub struct VkArray<const S: usize> {
 pub struct Vulkan {
     commander: VkCommander,
     current_frame: usize,
-    debugging: Option<Debug>,
+    debugger: Option<Debug>,
     devices: Devices,
     frame_buffers: Vec<vk::Framebuffer>,
     instance: Instance,
@@ -63,12 +65,18 @@ pub struct Vulkan {
 }
 
 impl Vulkan {
-    pub fn new<const S: usize>(window: &Window, camera: &mut Camera, models: VkArray<S>) -> Self {
+    pub fn new<const S: usize>(
+        window: &Window,
+        camera: &mut Camera,
+        models: VkArray<S>,
+        debugging: Option<DebugMessageProperties>,
+    ) -> Self {
         let entry_instance = EntryInstance::new(window);
 
-        let debugging = entry_instance.debugger();
+        let debugger =
+            debugging.map(|debug_properties| debug::debugger(&entry_instance, debug_properties));
 
-        let surface = entry_instance.create_surface(window);
+        let surface = display::create_surface(&entry_instance, window);
 
         let surface_loader = Surface::new(&entry_instance.entry, &entry_instance.instance);
 
@@ -125,7 +133,7 @@ impl Vulkan {
         Self {
             commander,
             current_frame: 0,
-            debugging,
+            debugger,
             devices,
             frame_buffers,
             instance: entry_instance.instance,
@@ -486,10 +494,10 @@ impl Drop for Vulkan {
             self.devices.logical.device.destroy_device(None);
 
             if debug::enable_validation_layers() {
-                if let Some(debugger) = &self.debugging {
+                if let Some(debugger) = &self.debugger {
                     debugger
-                        .debug_utils
-                        .destroy_debug_utils_messenger(debugger.debug_messenger, None);
+                        .utils
+                        .destroy_debug_utils_messenger(debugger.messenger, None);
                 }
             }
 

@@ -1,10 +1,11 @@
+use crate::utility::EntryInstance;
 use ash::{extensions::ext::DebugUtils, vk};
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;
 
 pub(crate) struct Debug {
-    pub debug_messenger: vk::DebugUtilsMessengerEXT,
-    pub debug_utils: DebugUtils,
+    pub messenger: vk::DebugUtilsMessengerEXT,
+    pub utils: DebugUtils,
 }
 
 pub(crate) const fn enable_validation_layers() -> bool {
@@ -20,7 +21,7 @@ pub(crate) const fn check_validation_layer_support(_window_handle: &Window) -> b
 /// # Safety
 ///
 /// Expand on the safety of this function
-pub(crate) unsafe extern "system" fn vulkan_debug_callback(
+unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
@@ -51,4 +52,106 @@ pub(crate) unsafe extern "system" fn vulkan_debug_callback(
     );
 
     vk::FALSE
+}
+
+/// ## VkDebugUtilsMessageSeverityFlagBitsEXT
+pub struct MessageLevel {
+    flags: vk::DebugUtilsMessageSeverityFlagsEXT,
+}
+
+impl MessageLevel {
+    /// ## MessageLevel Builder
+    ///
+    /// Info message severity enabled by default
+    pub fn builder() -> Self {
+        Self {
+            flags: vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+        }
+    }
+
+    /// Enables error messages
+    pub fn error(mut self) -> Self {
+        self.flags |= vk::DebugUtilsMessageSeverityFlagsEXT::ERROR;
+        self
+    }
+
+    /// Enables verbose messages
+    pub fn verbose(mut self) -> Self {
+        self.flags |= vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE;
+        self
+    }
+
+    /// Enables warning messages
+    pub fn warning(mut self) -> Self {
+        self.flags |= vk::DebugUtilsMessageSeverityFlagsEXT::WARNING;
+        self
+    }
+}
+
+/// ## VkDebugUtilsMessageTypeFlagBitsEXT
+pub struct MessageType {
+    flags: vk::DebugUtilsMessageTypeFlagsEXT,
+}
+
+impl MessageType {
+    /// ## MessageType Builder
+    ///
+    /// General type message enabled by default
+    pub fn builder() -> Self {
+        Self {
+            flags: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL,
+        }
+    }
+
+    /// Enables validation type messages
+    pub fn validation(mut self) -> Self {
+        self.flags |= vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION;
+        self
+    }
+
+    /// Enables performance type messages
+    pub fn performance(mut self) -> Self {
+        self.flags |= vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE;
+        self
+    }
+}
+
+pub struct DebugMessageProperties {
+    pub message_level: MessageLevel,
+    pub message_type: MessageType,
+}
+
+impl Default for DebugMessageProperties {
+    fn default() -> Self {
+        Self {
+            message_level: MessageLevel::builder(),
+            message_type: MessageType::builder(),
+        }
+    }
+}
+
+pub(crate) fn debugger(
+    EntryInstance { entry, instance }: &EntryInstance,
+    DebugMessageProperties {
+        message_level,
+        message_type,
+    }: DebugMessageProperties,
+) -> Debug {
+    // if enable_validation_layers() {
+    let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+        .message_severity(message_level.flags)
+        .message_type(message_type.flags)
+        .pfn_user_callback(Some(vulkan_debug_callback));
+
+    let utils = DebugUtils::new(entry, instance);
+
+    let messenger = unsafe {
+        utils
+            .create_debug_utils_messenger(&create_info, None)
+            .unwrap()
+    };
+
+    Debug { messenger, utils }
+    // }
+    // None
 }
