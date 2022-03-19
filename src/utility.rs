@@ -3,21 +3,15 @@ use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
+#[derive(new)]
 pub(crate) struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
+    #[new(value = "1")]
     pub mip_levels: u32,
 }
 
 impl Image {
-    pub fn new(image: vk::Image, memory: vk::DeviceMemory) -> Self {
-        Self {
-            image,
-            memory,
-            mip_levels: 1,
-        }
-    }
-
     pub fn mip_levels(mut self, mip_levels: u32) -> Self {
         self.mip_levels = mip_levels;
         self

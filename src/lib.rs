@@ -20,6 +20,7 @@ mod texture;
 pub mod time;
 mod uniform;
 mod utility;
+pub mod space;
 
 use ash::{
     extensions::khr::Surface,
