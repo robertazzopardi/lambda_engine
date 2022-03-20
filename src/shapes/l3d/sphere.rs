@@ -23,7 +23,7 @@ pub struct SphereProperties {
 
 impl From<SphereProperties> for ShapeProperties {
     fn from(obj: SphereProperties) -> Self {
-        obj.into()
+        ShapeProperties::Sphere(obj)
     }
 }
 

@@ -23,7 +23,7 @@ pub struct RingProperties {
 
 impl From<RingProperties> for ShapeProperties {
     fn from(obj: RingProperties) -> Self {
-        obj.into()
+        ShapeProperties::Ring(obj)
     }
 }
 

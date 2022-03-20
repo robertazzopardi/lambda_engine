@@ -190,7 +190,7 @@ pub struct CubeProperties {
 
 impl From<CubeProperties> for ShapeProperties {
     fn from(obj: CubeProperties) -> Self {
-        obj.into()
+        ShapeProperties::Cube(obj)
     }
 }
 
