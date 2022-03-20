@@ -8,7 +8,12 @@ use self::{
     utility::{ModelCullMode, ModelTopology},
 };
 use crate::{
-    device::Devices, pipeline::GraphicsPipeline, swap_chain::SwapChain, texture::Texture,
+    device::{Devices, LogicalDeviceFeatures},
+    memory,
+    pipeline::GraphicsPipeline,
+    swap_chain::SwapChain,
+    texture::Texture,
+    uniform::UniformBufferObject,
     utility::InstanceDevices,
 };
 use ash::vk;
@@ -26,16 +31,18 @@ pub enum ShapeProperties {
 }
 
 pub trait Object {
-    fn translate(&mut self) {}
-    fn rotate(&mut self) {}
-    fn scale(&mut self) {}
-
+    // TODO move
     fn object_topology(&self) -> &ModelTopology;
     fn object_cull_mode(&self) -> &ModelCullMode;
+
     fn object_graphics_pipeline(&self) -> &GraphicsPipeline;
     fn object_buffers(&self) -> &ModelBuffers;
     fn object_texture(&self) -> &Texture;
     fn object_vertices_and_indices(&self) -> &VerticesAndIndices;
+
+    fn translate(&mut self) {}
+    fn rotate(&mut self) {}
+    fn scale(&mut self) {}
 
     fn vertices_and_indices(&mut self);
 
@@ -140,6 +147,104 @@ pub trait Object {
     }
 
     fn is_indexed(&self) -> bool;
+
+    fn map_memory(
+        &self,
+        logical: &LogicalDeviceFeatures,
+        current_image: usize,
+        buffer_size: u64,
+        ubos: &[UniformBufferObject; 1],
+    ) {
+        memory::map_memory(
+            &logical.device,
+            self.object_graphics_pipeline()
+                .descriptor_set
+                .uniform_buffers[current_image]
+                .memory,
+            buffer_size,
+            ubos,
+        );
+    }
+
+    /// # Safety
+    ///
+    ///
+    unsafe fn recreate_drop(&self, logical: &LogicalDeviceFeatures, swap_chain: &SwapChain) {
+        logical
+            .device
+            .destroy_pipeline(self.object_graphics_pipeline().features.pipeline, None);
+        logical
+            .device
+            .destroy_pipeline_layout(self.object_graphics_pipeline().features.layout, None);
+
+        logical.device.destroy_descriptor_pool(
+            self.object_graphics_pipeline()
+                .descriptor_set
+                .descriptor_pool,
+            None,
+        );
+
+        for i in 0..swap_chain.images.len() {
+            logical.device.destroy_buffer(
+                self.object_graphics_pipeline()
+                    .descriptor_set
+                    .uniform_buffers[i]
+                    .buffer,
+                None,
+            );
+            logical.device.free_memory(
+                self.object_graphics_pipeline()
+                    .descriptor_set
+                    .uniform_buffers[i]
+                    .memory,
+                None,
+            );
+        }
+    }
+
+    /// # Safety
+    ///
+    ///
+    unsafe fn destroy(&self, logical: &LogicalDeviceFeatures) {
+        logical
+            .device
+            .destroy_sampler(self.object_texture().sampler, None);
+
+        logical
+            .device
+            .destroy_image_view(self.object_texture().image_view, None);
+
+        logical
+            .device
+            .destroy_image(self.object_texture().image.image, None);
+
+        logical
+            .device
+            .free_memory(self.object_texture().image.memory, None);
+
+        logical.device.destroy_descriptor_set_layout(
+            self.object_graphics_pipeline()
+                .descriptor_set
+                .descriptor_set_layout,
+            None,
+        );
+
+        logical
+            .device
+            .destroy_buffer(self.object_buffers().vertex.buffer, None);
+
+        logical
+            .device
+            .free_memory(self.object_buffers().vertex.memory, None);
+
+        logical
+            .device
+            .destroy_buffer(self.object_buffers().index.buffer, None);
+
+        logical
+            .device
+            .free_memory(self.object_buffers().index.memory, None);
+    }
 }
 
 pub trait ObjectBuilder: Object + Sized {

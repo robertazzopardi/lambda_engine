@@ -13,7 +13,7 @@ use lambda_engine::{
         utility::{ModelCullMode, ModelTopology},
         Object, ObjectBuilder,
     },
-    space::Orientation,
+    space::{self, Orientation},
     time::Time,
     Vulkan,
 };
@@ -23,41 +23,24 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    let cube = Cube::builder(
-        CubeProperties::new(cgmath::Point3::new(0., 0., 0.), Orientation::new(), 5.).into(),
-    )
-    .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
-    .topology(ModelTopology::TriangleList)
-    .cull_mode(ModelCullMode::Back);
+    let cube = Cube::builder(CubeProperties::new(space::ORIGIN, Orientation::new(), 5.).into())
+        .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
+        .topology(ModelTopology::TriangleList)
+        .cull_mode(ModelCullMode::Back);
 
     let sphere = Sphere::builder(
-        SphereProperties::new(
-            cgmath::Point3::new(0., 0., 0.),
-            Orientation::new(),
-            0.4,
-            20,
-            20,
-        )
-        .into(),
+        SphereProperties::new(space::ORIGIN, Orientation::new(), 0.4, 20, 20).into(),
     )
     .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
     .topology(ModelTopology::TriangleList)
     .cull_mode(ModelCullMode::Back);
 
-    let ring = Ring::builder(
-        RingProperties::new(
-            cgmath::Point3::new(0., 0., 0.),
-            Orientation::new(),
-            0.5,
-            1.,
-            40,
-        )
-        .into(),
-    )
-    .texture_buffer(include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec())
-    .indexed(false)
-    .topology(ModelTopology::TriangleStrip)
-    .cull_mode(ModelCullMode::None);
+    let ring =
+        Ring::builder(RingProperties::new(space::ORIGIN, Orientation::new(), 0.5, 1., 40).into())
+            .texture_buffer(include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec())
+            .indexed(false)
+            .topology(ModelTopology::TriangleStrip)
+            .cull_mode(ModelCullMode::None);
 
     let objects: Vec<Box<dyn Object>> = vec![sphere, ring];
 

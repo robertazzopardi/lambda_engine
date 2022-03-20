@@ -67,24 +67,6 @@ impl Object for Ring {
         self.vertices_and_indices.as_ref().unwrap()
     }
 
-    fn builder(properties: ShapeProperties) -> Self {
-        Self {
-            properties: properties.into_ring().unwrap(),
-            vertices_and_indices: None,
-            texture_buffer: None,
-            topology: ModelTopology::Default,
-            indexed: true,
-            cull_mode: ModelCullMode::None,
-            texture: None,
-            graphics_pipeline: None,
-            buffers: None,
-        }
-    }
-
-    fn is_indexed(&self) -> bool {
-        self.indexed
-    }
-
     fn vertices_and_indices(&mut self) {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,
@@ -147,6 +129,24 @@ impl Object for Ring {
             self,
             instance_devices,
         ));
+    }
+
+    fn builder(properties: ShapeProperties) -> Self {
+        Self {
+            properties: properties.into_ring().unwrap(),
+            vertices_and_indices: None,
+            texture_buffer: None,
+            topology: ModelTopology::Default,
+            indexed: true,
+            cull_mode: ModelCullMode::None,
+            texture: None,
+            graphics_pipeline: None,
+            buffers: None,
+        }
+    }
+
+    fn is_indexed(&self) -> bool {
+        self.indexed
     }
 }
 

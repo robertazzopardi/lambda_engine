@@ -1,6 +1,6 @@
 extern crate ash;
-extern crate winit;
 extern crate derive_builder;
+extern crate winit;
 #[macro_use]
 extern crate derive_new;
 
@@ -226,43 +226,9 @@ impl Vulkan {
                 .device
                 .free_command_buffers(self.commander.pool, &self.commander.buffers);
 
-            self.models.iter().for_each(|model| {
-                self.devices
-                    .logical
-                    .device
-                    .destroy_pipeline(model.object_graphics_pipeline().features.pipeline, None);
-                self.devices.logical.device.destroy_pipeline_layout(
-                    model.object_graphics_pipeline().features.layout,
-                    None,
-                );
-
-                self.devices.logical.device.destroy_descriptor_pool(
-                    model
-                        .object_graphics_pipeline()
-                        .descriptor_set
-                        .descriptor_pool,
-                    None,
-                );
-
-                for i in 0..self.swap_chain.images.len() {
-                    self.devices.logical.device.destroy_buffer(
-                        model
-                            .object_graphics_pipeline()
-                            .descriptor_set
-                            .uniform_buffers[i]
-                            .buffer,
-                        None,
-                    );
-                    self.devices.logical.device.free_memory(
-                        model
-                            .object_graphics_pipeline()
-                            .descriptor_set
-                            .uniform_buffers[i]
-                            .memory,
-                        None,
-                    );
-                }
-            });
+            self.models
+                .iter()
+                .for_each(|object| object.recreate_drop(&self.devices.logical, &self.swap_chain));
 
             self.devices
                 .logical
@@ -298,16 +264,7 @@ impl Vulkan {
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
         self.models.iter().for_each(|model| {
-            memory::map_memory(
-                &self.devices.logical.device,
-                model
-                    .object_graphics_pipeline()
-                    .descriptor_set
-                    .uniform_buffers[current_image]
-                    .memory,
-                buffer_size,
-                &ubos,
-            );
+            model.map_memory(&self.devices.logical, current_image, buffer_size, &ubos);
         });
     }
 
@@ -429,49 +386,7 @@ impl Drop for Vulkan {
             self.cleanup_swap_chain();
 
             self.models.iter().for_each(|model| {
-                self.devices
-                    .logical
-                    .device
-                    .destroy_sampler(model.object_texture().sampler, None);
-                self.devices
-                    .logical
-                    .device
-                    .destroy_image_view(model.object_texture().image_view, None);
-
-                self.devices
-                    .logical
-                    .device
-                    .destroy_image(model.object_texture().image.image, None);
-                self.devices
-                    .logical
-                    .device
-                    .free_memory(model.object_texture().image.memory, None);
-
-                self.devices.logical.device.destroy_descriptor_set_layout(
-                    model
-                        .object_graphics_pipeline()
-                        .descriptor_set
-                        .descriptor_set_layout,
-                    None,
-                );
-
-                self.devices
-                    .logical
-                    .device
-                    .destroy_buffer(model.object_buffers().vertex.buffer, None);
-                self.devices
-                    .logical
-                    .device
-                    .free_memory(model.object_buffers().vertex.memory, None);
-
-                self.devices
-                    .logical
-                    .device
-                    .destroy_buffer(model.object_buffers().index.buffer, None);
-                self.devices
-                    .logical
-                    .device
-                    .free_memory(model.object_buffers().index.memory, None);
+                model.destroy(&self.devices.logical);
             });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {

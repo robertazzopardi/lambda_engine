@@ -1,6 +1,5 @@
 use crate::utility::EntryInstance;
 use ash::{extensions::ext::DebugUtils, vk};
-use derive_builder::Builder;
 use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;

@@ -234,24 +234,6 @@ impl Object for Cube {
         self.vertices_and_indices.as_ref().unwrap()
     }
 
-    fn builder(properties: ShapeProperties) -> Self {
-        Self {
-            properties: properties.into_cube().unwrap(),
-            texture_buffer: None,
-            indexed: true,
-            topology: ModelTopology::Default,
-            cull_mode: ModelCullMode::None,
-            vertices_and_indices: None,
-            texture: None,
-            graphics_pipeline: None,
-            buffers: None,
-        }
-    }
-
-    fn is_indexed(&self) -> bool {
-        self.indexed
-    }
-
     fn vertices_and_indices(&mut self) {
         let cube = CUBE_VERTICES;
 
@@ -289,6 +271,24 @@ impl Object for Cube {
             self,
             instance_devices,
         ));
+    }
+
+    fn builder(properties: ShapeProperties) -> Self {
+        Self {
+            properties: properties.into_cube().unwrap(),
+            texture_buffer: None,
+            indexed: true,
+            topology: ModelTopology::Default,
+            cull_mode: ModelCullMode::None,
+            vertices_and_indices: None,
+            texture: None,
+            graphics_pipeline: None,
+            buffers: None,
+        }
+    }
+
+    fn is_indexed(&self) -> bool {
+        self.indexed
     }
 }
 

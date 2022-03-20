@@ -1,4 +1,6 @@
-use cgmath::Rad;
+use cgmath::{Point3, Rad};
+
+pub const ORIGIN: Point3<f32> = Point3::new(0., 0., 0.);
 
 #[derive(new, Clone, Copy, Debug, PartialEq)]
 pub struct Orientation {

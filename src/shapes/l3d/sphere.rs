@@ -67,24 +67,6 @@ impl Object for Sphere {
         self.vertices_and_indices.as_ref().unwrap()
     }
 
-    fn builder(properties: ShapeProperties) -> Self {
-        Self {
-            properties: properties.into_sphere().unwrap(),
-            vertices_and_indices: None,
-            texture_buffer: None,
-            topology: ModelTopology::Default,
-            indexed: true,
-            cull_mode: ModelCullMode::None,
-            texture: None,
-            graphics_pipeline: None,
-            buffers: None,
-        }
-    }
-
-    fn is_indexed(&self) -> bool {
-        self.indexed
-    }
-
     fn vertices_and_indices(&mut self) {
         let length = 1. / self.properties.radius;
 
@@ -150,6 +132,24 @@ impl Object for Sphere {
             self,
             instance_devices,
         ));
+    }
+
+    fn builder(properties: ShapeProperties) -> Self {
+        Self {
+            properties: properties.into_sphere().unwrap(),
+            vertices_and_indices: None,
+            texture_buffer: None,
+            topology: ModelTopology::Default,
+            indexed: true,
+            cull_mode: ModelCullMode::None,
+            texture: None,
+            graphics_pipeline: None,
+            buffers: None,
+        }
+    }
+
+    fn is_indexed(&self) -> bool {
+        self.indexed
     }
 }
 
