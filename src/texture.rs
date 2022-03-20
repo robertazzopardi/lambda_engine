@@ -7,7 +7,7 @@ use ash::vk;
 use cgmath::Point2;
 use std::cmp;
 
-pub(crate) struct Texture {
+pub struct Texture {
     pub image: Image,
     pub image_view: vk::ImageView,
     pub sampler: vk::Sampler,

@@ -1,11 +1,10 @@
+use crate::space;
 use cgmath::{InnerSpace, Matrix4, Point3, Rad, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseScrollDelta, VirtualKeyCode},
 };
-
-use crate::space;
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 

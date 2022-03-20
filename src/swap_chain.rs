@@ -15,7 +15,7 @@ pub(crate) struct SwapChainSupport {
     present_modes: Vec<PresentModeKHR>,
 }
 
-pub(crate) struct SwapChain {
+pub struct SwapChain {
     pub loader: Swapchain,
     pub swap_chain: vk::SwapchainKHR,
     pub image_format: vk::Format,

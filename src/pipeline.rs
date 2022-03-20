@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{Buffer, ModelProperties, Object, Vertex},
+    shapes::{Buffer, Object, Vertex},
     swap_chain::SwapChain,
     texture,
     uniform::UniformBufferObject,
@@ -18,12 +18,12 @@ pub struct Descriptor {
 }
 
 #[derive(new)]
-pub(crate) struct GraphicsPipelineFeatures {
+pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
 }
 
-pub(crate) struct GraphicsPipeline {
+pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptor_set: Descriptor,
 }
@@ -34,8 +34,8 @@ impl GraphicsPipeline {
         render_pass: vk::RenderPass,
         texture_image_view: vk::ImageView,
         sampler: vk::Sampler,
-        properties: ModelProperties,
-        // properties: &impl Object,
+        // properties: ModelProperties,
+        properties: &impl Object,
         instance_devices: &InstanceDevices,
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
@@ -172,7 +172,8 @@ fn create_pipeline_and_layout(
     swap_chain: &SwapChain,
     descriptor_set_layout: &vk::DescriptorSetLayout,
     render_pass: vk::RenderPass,
-    properties: ModelProperties,
+    // properties: ModelProperties,
+    properties: &impl Object,
 ) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 
@@ -238,7 +239,7 @@ fn create_pipeline_and_layout(
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(properties.topology.into())
+        .topology(properties.object_topology().into())
         .primitive_restart_enable(false);
 
     let view_port = vk::Viewport::builder()
@@ -264,7 +265,7 @@ fn create_pipeline_and_layout(
         // .polygon_mode(vk::PolygonMode::LINE)
         // .polygon_mode(vk::PolygonMode::POINT)
         .line_width(1.)
-        .cull_mode(properties.cull_mode.into())
+        .cull_mode(properties.object_cull_mode().into())
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 

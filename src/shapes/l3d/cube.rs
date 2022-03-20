@@ -4,7 +4,7 @@ use crate::{
     pipeline::GraphicsPipeline,
     shapes::{
         utility::{self, ModelCullMode, ModelTopology},
-        ModelBuffers, Object, Vertex, VerticesAndIndices, WHITE,
+        ModelBuffers, Object, ObjectBuilder, Vertex, VerticesAndIndices, WHITE,
     },
     space::{self, Orientation},
     texture::{self, Texture},
@@ -243,53 +243,93 @@ impl Object for Cube {
         self
     }
 
-    // fn build(
-    //     mut self,
-    //     command_pool: ash::vk::CommandPool,
-    //     command_buffer_count: u32,
-    //     swap_chain: &crate::swap_chain::SwapChain,
-    //     render_pass: ash::vk::RenderPass,
-    //     instance_devices: &crate::utility::InstanceDevices,
-    // ) -> Self {
-    //     let VerticesAndIndices { vertices, indices } = self.vertices_and_indices.clone();
+    fn object_topology(&self) -> &ModelTopology {
+        &self.topology
+    }
 
-    //     if let Some(buffer) = &self.texture_buffer {
-    //         self.texture = Some(texture::Texture::new(
-    //             buffer,
-    //             command_pool,
-    //             instance_devices,
-    //         ));
-    //     }
+    fn object_cull_mode(&self) -> &ModelCullMode {
+        &self.cull_mode
+    }
 
-    //     let vertex_buffer = utility::create_vertex_index_buffer(
-    //         (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
-    //         &vertices,
-    //         vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
-    //         command_pool,
-    //         command_buffer_count,
-    //         instance_devices,
-    //     );
+    fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
+        &self.vertices_and_indices
+    }
 
-    //     let index_buffer = utility::create_vertex_index_buffer(
-    //         (size_of::<u16>() * indices.len()).try_into().unwrap(),
-    //         &indices,
-    //         vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
-    //         command_pool,
-    //         command_buffer_count,
-    //         instance_devices,
-    //     );
+    fn is_indexed(&self) -> bool {
+        self.indexed
+    }
+}
 
-    //     self.buffers = Some(ModelBuffers::new(vertex_buffer, index_buffer));
+impl ObjectBuilder for Cube {
+    fn build(
+        mut self,
+        command_pool: ash::vk::CommandPool,
+        command_buffer_count: u32,
+        swap_chain: &crate::swap_chain::SwapChain,
+        render_pass: ash::vk::RenderPass,
+        instance_devices: &crate::utility::InstanceDevices,
+    ) -> Self {
+        let VerticesAndIndices { vertices, indices } = self.vertices_and_indices.clone();
 
-    //     // self.graphics_pipeline = Some(GraphicsPipeline::new(
-    //     //     swap_chain,
-    //     //     render_pass,
-    //     //     self.texture.unwrap().image_view,
-    //     //     self.texture.unwrap().sampler,
-    //     //     &self,
-    //     //     instance_devices,
-    //     // ));
+        if let Some(buffer) = &self.texture_buffer {
+            self.texture = Some(texture::Texture::new(
+                buffer,
+                command_pool,
+                instance_devices,
+            ));
+        }
 
-    //     self
-    // }
+        let vertex_buffer = utility::create_vertex_index_buffer(
+            (size_of::<Vertex>() * vertices.len()).try_into().unwrap(),
+            &vertices,
+            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
+            command_pool,
+            command_buffer_count,
+            instance_devices,
+        );
+
+        let index_buffer = utility::create_vertex_index_buffer(
+            (size_of::<u16>() * indices.len()).try_into().unwrap(),
+            &indices,
+            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
+            command_pool,
+            command_buffer_count,
+            instance_devices,
+        );
+
+        self.buffers = Some(ModelBuffers::new(vertex_buffer, index_buffer));
+
+        self.graphics_pipeline(swap_chain, render_pass, instance_devices);
+
+        self
+    }
+
+    fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
+        self.graphics_pipeline.as_ref().unwrap()
+    }
+
+    fn object_buffers(&self) -> &ModelBuffers {
+        self.buffers.as_ref().unwrap()
+    }
+
+    fn object_texture(&self) -> &Texture {
+        self.texture.as_ref().unwrap()
+    }
+
+    fn graphics_pipeline(
+        &mut self,
+        swap_chain: &crate::swap_chain::SwapChain,
+        render_pass: ash::vk::RenderPass,
+        instance_devices: &crate::utility::InstanceDevices,
+    ) {
+        // self.graphics_pipeline = Some(graphics_pipeline)
+        self.graphics_pipeline = Some(GraphicsPipeline::new(
+            swap_chain,
+            render_pass,
+            self.texture.as_ref().unwrap().image_view,
+            self.texture.as_ref().unwrap().sampler,
+            self,
+            instance_devices,
+        ));
+    }
 }

@@ -45,6 +45,31 @@ impl From<ModelTopology> for vk::PrimitiveTopology {
     }
 }
 
+impl From<&ModelTopology> for vk::PrimitiveTopology {
+    fn from(topology: &ModelTopology) -> Self {
+        match topology {
+            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
+            ModelTopology::TriangleListWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
+            }
+            ModelTopology::TriangleStripWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
+            }
+            ModelTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
+            ModelTopology::LineListWithAdjacency => vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY,
+            ModelTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
+            ModelTopology::LineStripWithADjacency => {
+                vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY
+            }
+            ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
+            ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
+            ModelTopology::Default => vk::PrimitiveTopology::default(),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum ModelCullMode {
     Front,
@@ -55,6 +80,17 @@ pub enum ModelCullMode {
 
 impl From<ModelCullMode> for vk::CullModeFlags {
     fn from(cull_mode: ModelCullMode) -> Self {
+        match cull_mode {
+            ModelCullMode::Front => vk::CullModeFlags::FRONT,
+            ModelCullMode::Back => vk::CullModeFlags::BACK,
+            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
+            ModelCullMode::None => vk::CullModeFlags::NONE,
+        }
+    }
+}
+
+impl From<&ModelCullMode> for vk::CullModeFlags {
+    fn from(cull_mode: &ModelCullMode) -> Self {
         match cull_mode {
             ModelCullMode::Front => vk::CullModeFlags::FRONT,
             ModelCullMode::Back => vk::CullModeFlags::BACK,

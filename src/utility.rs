@@ -4,7 +4,7 @@ use std::ffi::CString;
 use winit::window::Window;
 
 #[derive(new)]
-pub(crate) struct Image {
+pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
     #[new(value = "1")]
@@ -30,7 +30,7 @@ pub(crate) struct ImageInfo {
 }
 
 #[derive(new)]
-pub(crate) struct InstanceDevices<'a> {
+pub struct InstanceDevices<'a> {
     pub instance: &'a Instance,
     pub devices: &'a Devices,
 }
