@@ -1,7 +1,7 @@
 use crate::{
     shapes::{Buffer, Object, Vertex},
     swap_chain::SwapChain,
-    texture,
+    texture::{self, Texture},
     uniform::UniformBufferObject,
     utility::InstanceDevices,
     Devices,
@@ -10,6 +10,7 @@ use ash::vk;
 use memoffset::offset_of;
 use std::{ffi::CString, mem};
 
+#[derive(Clone)]
 pub struct Descriptor {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub descriptor_pool: vk::DescriptorPool,
@@ -17,12 +18,13 @@ pub struct Descriptor {
     pub uniform_buffers: Vec<Buffer>,
 }
 
-#[derive(new)]
+#[derive(new, Clone)]
 pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
 }
 
+#[derive(Clone)]
 pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptor_set: Descriptor,
@@ -32,9 +34,7 @@ impl GraphicsPipeline {
     pub fn new(
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
-        texture_image_view: vk::ImageView,
-        sampler: vk::Sampler,
-        // properties: ModelProperties,
+        texture: &Texture,
         properties: &impl Object,
         instance_devices: &InstanceDevices,
     ) -> Self {
@@ -60,8 +60,7 @@ impl GraphicsPipeline {
             descriptor_set_layout,
             descriptor_pool,
             swap_chain.images.len() as u32,
-            texture_image_view,
-            sampler,
+            texture,
             &uniform_buffers,
         );
 
@@ -140,13 +139,13 @@ fn create_uniform_buffers(
     let mut buffers = Vec::new();
 
     for _i in 0..swap_chain_image_count {
-        let (buffer, memory) = texture::create_buffer(
+        let buffer = texture::create_buffer(
             mem::size_of::<UniformBufferObject>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             instance_devices,
         );
-        buffers.push(Buffer::new(buffer, memory))
+        buffers.push(buffer)
     }
 
     buffers
@@ -376,8 +375,7 @@ fn create_descriptor_sets(
     descriptor_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
     swap_chain_image_count: u32,
-    texture_image_view: vk::ImageView,
-    sampler: vk::Sampler,
+    texture: &Texture,
     uniform_buffers: &[Buffer],
 ) -> Vec<vk::DescriptorSet> {
     let layouts = vec![descriptor_layout; swap_chain_image_count as usize];
@@ -390,8 +388,8 @@ fn create_descriptor_sets(
     };
 
     let image_info = vk::DescriptorImageInfo {
-        sampler,
-        image_view: texture_image_view,
+        sampler: texture.sampler,
+        image_view: texture.image_view,
         image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
 

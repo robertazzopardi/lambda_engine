@@ -1,6 +1,6 @@
 use cgmath::Rad;
 
-#[derive(new, Debug, PartialEq)]
+#[derive(new, Clone, Copy, Debug, PartialEq)]
 pub struct Orientation {
     #[new(value = "Rad(0.0)")]
     pub yaw: Rad<f32>,

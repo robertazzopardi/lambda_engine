@@ -5,13 +5,17 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        l3d::cube::Cube,
+        l2d::ring::{Ring, RingProperties},
+        l3d::{
+            cube::{Cube, CubeProperties},
+            sphere::{Sphere, SphereProperties},
+        },
         utility::{ModelCullMode, ModelTopology},
-        Object,
+        Object, ObjectBuilder,
     },
     space::Orientation,
     time::Time,
-    VkObjectArray, Vulkan,
+    Vulkan,
 };
 
 fn main() {
@@ -19,37 +23,50 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    let models = VkObjectArray {
-        objects: [
-            Cube::builder(cgmath::Point3 ::new(0., 0., 0.), Orientation::new())
-                .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
-                .topology(ModelTopology::TriangleList)
-                .cull_mode(ModelCullMode::Back)
-        ]
-    //     objects: [
-    // ModelProperties {
-    //     texture: include_bytes!("../../assets/2k_saturn.jpg").to_vec(),
-    //     indexed: true,
-    //     topology: ModelTopology::TriangleList,
-    //     cull_mode: ModelCullMode::Back,
-    //     vertices_and_indices: shapes::sphere(0.4, 20, 20),
-    // },
-    // ModelProperties {
-    //     texture: include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
-    //     indexed: false,
-    //     topology: ModelTopology::TriangleStrip,
-    //     cull_mode: ModelCullMode::None,
-    //     vertices_and_indices: shapes::ring(0.5, 1., 40),
-    // },
-    //     ],
-    };
+    let cube = Cube::builder(
+        CubeProperties::new(cgmath::Point3::new(0., 0., 0.), Orientation::new(), 5.).into(),
+    )
+    .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
+    .topology(ModelTopology::TriangleList)
+    .cull_mode(ModelCullMode::Back);
 
-    let debugging = Some(DebugMessageProperties {
-        message_level: MessageLevel::builder().error().verbose().warning(),
-        message_type: MessageType::builder().performance().validation(),
-    });
+    let sphere = Sphere::builder(
+        SphereProperties::new(
+            cgmath::Point3::new(0., 0., 0.),
+            Orientation::new(),
+            0.4,
+            20,
+            20,
+        )
+        .into(),
+    )
+    .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
+    .topology(ModelTopology::TriangleList)
+    .cull_mode(ModelCullMode::Back);
 
-    let vulkan = Vulkan::new(&display.window, &mut camera, models, debugging);
+    let ring = Ring::builder(
+        RingProperties::new(
+            cgmath::Point3::new(0., 0., 0.),
+            Orientation::new(),
+            0.5,
+            1.,
+            40,
+        )
+        .into(),
+    )
+    .texture_buffer(include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec())
+    .indexed(false)
+    .topology(ModelTopology::TriangleStrip)
+    .cull_mode(ModelCullMode::None);
+
+    let objects: Vec<Box<dyn Object>> = vec![sphere, ring];
+
+    let debugging = Some(DebugMessageProperties::new(
+        MessageLevel::builder().error().verbose().warning(),
+        MessageType::builder().performance().validation(),
+    ));
+
+    let vulkan = Vulkan::new(&display.window, &mut camera, objects, debugging);
 
     let mouse_pressed = false;
 

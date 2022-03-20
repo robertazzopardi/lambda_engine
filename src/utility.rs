@@ -3,7 +3,7 @@ use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
-#[derive(new)]
+#[derive(new, Clone, Copy)]
 pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,

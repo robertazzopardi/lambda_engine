@@ -1,5 +1,6 @@
 extern crate ash;
 extern crate winit;
+extern crate derive_builder;
 #[macro_use]
 extern crate derive_new;
 
@@ -33,7 +34,7 @@ use debug::{Debug, DebugMessageProperties};
 use device::Devices;
 use display::Display;
 use resource::Resources;
-use shapes::{Object, ObjectBuilder};
+use shapes::Object;
 use std::ptr;
 use swap_chain::SwapChain;
 use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
@@ -42,15 +43,7 @@ use uniform::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
-// pub struct VkArray<const S: usize> {
-//     pub objects: [ModelProperties; S],
-// }
-
-pub struct VkObjectArray<T: Object + ObjectBuilder, const S: usize> {
-    pub objects: [T; S],
-}
-
-pub struct Vulkan<T: Object + ObjectBuilder> {
+pub struct Vulkan {
     commander: VkCommander,
     current_frame: usize,
     debugger: Option<Debug>,
@@ -58,7 +51,7 @@ pub struct Vulkan<T: Object + ObjectBuilder> {
     frame_buffers: Vec<vk::Framebuffer>,
     instance: Instance,
     is_frame_buffer_resized: bool,
-    models: Vec<T>,
+    models: Vec<Box<dyn Object>>,
     render_pass: vk::RenderPass,
     resources: Resources,
     surface: vk::SurfaceKHR,
@@ -68,11 +61,11 @@ pub struct Vulkan<T: Object + ObjectBuilder> {
     ubo: UniformBufferObject,
 }
 
-impl<T: Object + ObjectBuilder> Vulkan<T> {
-    pub fn new<const S: usize>(
+impl Vulkan {
+    pub fn new(
         window: &Window,
         camera: &mut Camera,
-        objects: VkObjectArray<T, S>,
+        models: Vec<Box<dyn Object>>,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
         let entry_instance = EntryInstance::new(window);
@@ -108,27 +101,17 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
-        let models = objects
-            .objects
-            .into_iter()
-            .map(|property| {
-                // Model::new(
-                //     command_pool,
-                //     swap_chain_len,
-                //     &swap_chain,
-                //     render_pass,
-                //     property,
-                //     &instance_devices,
-                // )
-                property.build(
-                    command_pool,
-                    swap_chain_len,
-                    &swap_chain,
-                    render_pass,
-                    &instance_devices,
-                )
-            })
-            .collect::<Vec<T>>();
+        let mut models = models;
+
+        models.iter_mut().for_each(|property| {
+            property.build(
+                command_pool,
+                swap_chain_len,
+                &swap_chain,
+                render_pass,
+                &instance_devices,
+            )
+        });
 
         let command_buffers = command::create_command_buffers(
             command_pool,
@@ -199,14 +182,6 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
 
         let _ = self.models.iter_mut().map(|model| {
             model.graphics_pipeline(&self.swap_chain, self.render_pass, &instance_devices)
-            // model.graphics_pipeline(GraphicsPipeline::new(
-            //     &self.swap_chain,
-            //     self.render_pass,
-            //     model.object_texture().image_view,
-            //     model.object_texture().sampler,
-            //     model,
-            //     &instance_devices,
-            // ))
         });
 
         self.commander.buffers = command::create_command_buffers(
@@ -251,8 +226,7 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
                 .device
                 .free_command_buffers(self.commander.pool, &self.commander.buffers);
 
-            // for model in &self.models {
-            let _ = self.models.iter().for_each(|model| {
+            self.models.iter().for_each(|model| {
                 self.devices
                     .logical
                     .device
@@ -323,7 +297,7 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
 
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
-        for model in self.models.iter() {
+        self.models.iter().for_each(|model| {
             memory::map_memory(
                 &self.devices.logical.device,
                 model
@@ -334,7 +308,7 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
                 buffer_size,
                 &ubos,
             );
-        }
+        });
     }
 
     /// # Safety
@@ -382,7 +356,7 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
         self.sync_objects.images_in_flight[image_index as usize] =
             self.sync_objects.in_flight_fences[self.current_frame];
 
-        let wait_semaphores = [self.sync_objects.image_available_semaphores[self.current_frame]];
+        let wait_semaphores = &[self.sync_objects.image_available_semaphores[self.current_frame]];
         let signal_semaphores = [self.sync_objects.render_finished_semaphores[self.current_frame]];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
 
@@ -447,14 +421,14 @@ impl<T: Object + ObjectBuilder> Vulkan<T> {
     }
 }
 
-impl<T: Object + ObjectBuilder> Drop for Vulkan<T> {
+impl Drop for Vulkan {
     fn drop(&mut self) {
         unsafe {
             self.devices.logical.device.device_wait_idle().unwrap();
 
             self.cleanup_swap_chain();
 
-            for model in &self.models {
+            self.models.iter().for_each(|model| {
                 self.devices
                     .logical
                     .device
@@ -498,7 +472,7 @@ impl<T: Object + ObjectBuilder> Drop for Vulkan<T> {
                     .logical
                     .device
                     .free_memory(model.object_buffers().index.memory, None);
-            }
+            });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
                 self.devices
@@ -544,8 +518,8 @@ fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Ca
     ubo.update(extent, camera);
 }
 
-pub fn run<T: 'static + Object + ObjectBuilder>(
-    mut vulkan: Vulkan<T>,
+pub fn run(
+    mut vulkan: Vulkan,
     display: Display,
     mut time: Time,
     mut camera: Camera,

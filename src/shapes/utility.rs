@@ -4,7 +4,7 @@ use ash::vk;
 use cgmath::{Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum ModelTopology {
     LineList,
     LineListWithAdjacency,
@@ -142,21 +142,16 @@ where
 {
     let InstanceDevices { devices, .. } = instance_devices;
 
-    let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
+    let staging = texture::create_buffer(
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         instance_devices,
     );
 
-    memory::map_memory(
-        &devices.logical.device,
-        staging_buffer_memory,
-        buffer_size,
-        data,
-    );
+    memory::map_memory(&devices.logical.device, staging.memory, buffer_size, data);
 
-    let (buffer, buffer_memory) = texture::create_buffer(
+    let buffer = texture::create_buffer(
         buffer_size,
         usage_flags,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
@@ -168,19 +163,16 @@ where
         command_pool,
         command_buffer_count,
         buffer_size,
-        staging_buffer,
-        buffer,
+        staging.buffer,
+        buffer.buffer,
     );
 
     unsafe {
-        devices.logical.device.destroy_buffer(staging_buffer, None);
-        devices
-            .logical
-            .device
-            .free_memory(staging_buffer_memory, None);
+        devices.logical.device.destroy_buffer(staging.buffer, None);
+        devices.logical.device.free_memory(staging.memory, None);
     }
 
-    Buffer::new(buffer, buffer_memory)
+    buffer
 }
 
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
