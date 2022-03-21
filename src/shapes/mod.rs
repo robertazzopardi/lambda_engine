@@ -7,15 +7,7 @@ use self::{
     l3d::{cube::CubeProperties, sphere::SphereProperties},
     utility::{ModelCullMode, ModelTopology},
 };
-use crate::{
-    device::{Devices, LogicalDeviceFeatures},
-    memory,
-    pipeline::GraphicsPipeline,
-    swap_chain::SwapChain,
-    texture::Texture,
-    uniform::UniformBufferObject,
-    utility::InstanceDevices,
-};
+use crate::{swap_chain::SwapChain, utility::InstanceDevices};
 use ash::vk;
 use cgmath::{Vector2, Vector3};
 use enum_as_inner::EnumAsInner;
@@ -30,16 +22,7 @@ pub enum ShapeProperties {
     Ring(RingProperties),
 }
 
-pub trait Object {
-    // TODO move
-    fn object_topology(&self) -> &ModelTopology;
-    fn object_cull_mode(&self) -> &ModelCullMode;
-
-    fn object_graphics_pipeline(&self) -> &GraphicsPipeline;
-    fn object_buffers(&self) -> &ModelBuffers;
-    fn object_texture(&self) -> &Texture;
-    fn object_vertices_and_indices(&self) -> &VerticesAndIndices;
-
+pub trait Object: private::Object {
     fn translate(&mut self) {}
     fn rotate(&mut self) {}
     fn scale(&mut self) {}
@@ -48,12 +31,6 @@ pub trait Object {
 
     fn buffers(&mut self, model_buffers: ModelBuffers);
     fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices);
-    fn graphics_pipeline(
-        &mut self,
-        swap_chain: &SwapChain,
-        render_pass: ash::vk::RenderPass,
-        instance_devices: &InstanceDevices,
-    );
 
     fn builder(properties: ShapeProperties) -> Self
     where
@@ -81,169 +58,204 @@ pub trait Object {
 
         self.graphics_pipeline(swap_chain, render_pass, instance_devices);
     }
+}
 
-    /// # Safety
-    ///
-    /// Expand on safety of this function
-    unsafe fn bind_index_and_vertex_buffers(
-        &self,
-        devices: &Devices,
-        command_buffer: vk::CommandBuffer,
-        offsets: &[vk::DeviceSize],
-        index: usize,
-    ) {
-        devices.logical.device.cmd_bind_pipeline(
-            command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            self.object_graphics_pipeline().features.pipeline,
+pub(crate) mod private {
+    use ash::vk;
+
+    use super::{
+        utility::{ModelCullMode, ModelTopology},
+        ModelBuffers, VerticesAndIndices,
+    };
+    use crate::{
+        device::{Devices, LogicalDeviceFeatures},
+        memory,
+        pipeline::GraphicsPipeline,
+        swap_chain::SwapChain,
+        texture::Texture,
+        uniform::UniformBufferObject,
+        utility::InstanceDevices,
+    };
+
+    pub trait Object {
+        fn object_topology(&self) -> &ModelTopology;
+        fn object_cull_mode(&self) -> &ModelCullMode;
+        fn object_graphics_pipeline(&self) -> &GraphicsPipeline;
+        fn object_buffers(&self) -> &ModelBuffers;
+        fn object_texture(&self) -> &Texture;
+        fn object_vertices_and_indices(&self) -> &VerticesAndIndices;
+
+        fn is_indexed(&self) -> bool;
+        fn graphics_pipeline(
+            &mut self,
+            swap_chain: &SwapChain,
+            render_pass: ash::vk::RenderPass,
+            instance_devices: &InstanceDevices,
         );
 
-        devices.logical.device.cmd_bind_descriptor_sets(
-            command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            self.object_graphics_pipeline().features.layout,
-            0,
-            std::slice::from_ref(
-                &self
-                    .object_graphics_pipeline()
+        /// # Safety
+        ///
+        ///
+        unsafe fn destroy(&self, logical: &LogicalDeviceFeatures) {
+            logical
+                .device
+                .destroy_sampler(self.object_texture().sampler, None);
+
+            logical
+                .device
+                .destroy_image_view(self.object_texture().image_view, None);
+
+            logical
+                .device
+                .destroy_image(self.object_texture().image.image, None);
+
+            logical
+                .device
+                .free_memory(self.object_texture().image.memory, None);
+
+            logical.device.destroy_descriptor_set_layout(
+                self.object_graphics_pipeline()
                     .descriptor_set
-                    .descriptor_sets[index],
-            ),
-            &[],
-        );
-
-        let vertex_buffers = [self.object_buffers().vertex.buffer];
-
-        devices
-            .logical
-            .device
-            .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
-
-        devices.logical.device.cmd_draw(
-            command_buffer,
-            self.object_vertices_and_indices().vertices.len() as u32,
-            1,
-            0,
-            0,
-        );
-
-        if self.is_indexed() {
-            devices.logical.device.cmd_bind_index_buffer(
-                command_buffer,
-                self.object_buffers().index.buffer,
-                0,
-                vk::IndexType::UINT16,
+                    .descriptor_set_layout,
+                None,
             );
 
-            devices.logical.device.cmd_draw_indexed(
+            logical
+                .device
+                .destroy_buffer(self.object_buffers().vertex.buffer, None);
+
+            logical
+                .device
+                .free_memory(self.object_buffers().vertex.memory, None);
+
+            logical
+                .device
+                .destroy_buffer(self.object_buffers().index.buffer, None);
+
+            logical
+                .device
+                .free_memory(self.object_buffers().index.memory, None);
+        }
+
+        /// # Safety
+        ///
+        /// Expand on safety of this function
+        unsafe fn bind_index_and_vertex_buffers(
+            &self,
+            devices: &Devices,
+            command_buffer: vk::CommandBuffer,
+            offsets: &[vk::DeviceSize],
+            index: usize,
+        ) {
+            devices.logical.device.cmd_bind_pipeline(
                 command_buffer,
-                self.object_vertices_and_indices().indices.len() as u32,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.object_graphics_pipeline().features.pipeline,
+            );
+
+            devices.logical.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.object_graphics_pipeline().features.layout,
+                0,
+                std::slice::from_ref(
+                    &self
+                        .object_graphics_pipeline()
+                        .descriptor_set
+                        .descriptor_sets[index],
+                ),
+                &[],
+            );
+
+            let vertex_buffers = [self.object_buffers().vertex.buffer];
+
+            devices.logical.device.cmd_bind_vertex_buffers(
+                command_buffer,
+                0,
+                &vertex_buffers,
+                offsets,
+            );
+
+            devices.logical.device.cmd_draw(
+                command_buffer,
+                self.object_vertices_and_indices().vertices.len() as u32,
                 1,
                 0,
                 0,
-                0,
             );
+
+            if self.is_indexed() {
+                devices.logical.device.cmd_bind_index_buffer(
+                    command_buffer,
+                    self.object_buffers().index.buffer,
+                    0,
+                    vk::IndexType::UINT16,
+                );
+
+                devices.logical.device.cmd_draw_indexed(
+                    command_buffer,
+                    self.object_vertices_and_indices().indices.len() as u32,
+                    1,
+                    0,
+                    0,
+                    0,
+                );
+            }
         }
-    }
 
-    fn is_indexed(&self) -> bool;
-
-    fn map_memory(
-        &self,
-        logical: &LogicalDeviceFeatures,
-        current_image: usize,
-        buffer_size: u64,
-        ubos: &[UniformBufferObject; 1],
-    ) {
-        memory::map_memory(
-            &logical.device,
-            self.object_graphics_pipeline()
-                .descriptor_set
-                .uniform_buffers[current_image]
-                .memory,
-            buffer_size,
-            ubos,
-        );
-    }
-
-    /// # Safety
-    ///
-    ///
-    unsafe fn recreate_drop(&self, logical: &LogicalDeviceFeatures, swap_chain: &SwapChain) {
-        logical
-            .device
-            .destroy_pipeline(self.object_graphics_pipeline().features.pipeline, None);
-        logical
-            .device
-            .destroy_pipeline_layout(self.object_graphics_pipeline().features.layout, None);
-
-        logical.device.destroy_descriptor_pool(
-            self.object_graphics_pipeline()
-                .descriptor_set
-                .descriptor_pool,
-            None,
-        );
-
-        for i in 0..swap_chain.images.len() {
-            logical.device.destroy_buffer(
+        fn map_memory(
+            &self,
+            logical: &LogicalDeviceFeatures,
+            current_image: usize,
+            buffer_size: u64,
+            ubos: &[UniformBufferObject; 1],
+        ) {
+            memory::map_memory(
+                &logical.device,
                 self.object_graphics_pipeline()
                     .descriptor_set
-                    .uniform_buffers[i]
-                    .buffer,
-                None,
-            );
-            logical.device.free_memory(
-                self.object_graphics_pipeline()
-                    .descriptor_set
-                    .uniform_buffers[i]
+                    .uniform_buffers[current_image]
                     .memory,
-                None,
+                buffer_size,
+                ubos,
             );
         }
-    }
 
-    /// # Safety
-    ///
-    ///
-    unsafe fn destroy(&self, logical: &LogicalDeviceFeatures) {
-        logical
-            .device
-            .destroy_sampler(self.object_texture().sampler, None);
+        /// # Safety
+        ///
+        ///
+        unsafe fn recreate_drop(&self, logical: &LogicalDeviceFeatures, swap_chain: &SwapChain) {
+            logical
+                .device
+                .destroy_pipeline(self.object_graphics_pipeline().features.pipeline, None);
+            logical
+                .device
+                .destroy_pipeline_layout(self.object_graphics_pipeline().features.layout, None);
 
-        logical
-            .device
-            .destroy_image_view(self.object_texture().image_view, None);
+            logical.device.destroy_descriptor_pool(
+                self.object_graphics_pipeline()
+                    .descriptor_set
+                    .descriptor_pool,
+                None,
+            );
 
-        logical
-            .device
-            .destroy_image(self.object_texture().image.image, None);
-
-        logical
-            .device
-            .free_memory(self.object_texture().image.memory, None);
-
-        logical.device.destroy_descriptor_set_layout(
-            self.object_graphics_pipeline()
-                .descriptor_set
-                .descriptor_set_layout,
-            None,
-        );
-
-        logical
-            .device
-            .destroy_buffer(self.object_buffers().vertex.buffer, None);
-
-        logical
-            .device
-            .free_memory(self.object_buffers().vertex.memory, None);
-
-        logical
-            .device
-            .destroy_buffer(self.object_buffers().index.buffer, None);
-
-        logical
-            .device
-            .free_memory(self.object_buffers().index.memory, None);
+            for i in 0..swap_chain.images.len() {
+                logical.device.destroy_buffer(
+                    self.object_graphics_pipeline()
+                        .descriptor_set
+                        .uniform_buffers[i]
+                        .buffer,
+                    None,
+                );
+                logical.device.free_memory(
+                    self.object_graphics_pipeline()
+                        .descriptor_set
+                        .uniform_buffers[i]
+                        .memory,
+                    None,
+                );
+            }
+        }
     }
 }
 

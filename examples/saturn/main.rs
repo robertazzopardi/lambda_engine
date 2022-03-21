@@ -23,7 +23,7 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    let cube = Cube::builder(CubeProperties::new(space::ORIGIN, Orientation::new(), 5.).into())
+    let cube = Cube::builder(CubeProperties::new(space::ORIGIN, Orientation::new(), 3.).into())
         .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
         .topology(ModelTopology::TriangleList)
         .cull_mode(ModelCullMode::Back);
@@ -42,7 +42,7 @@ fn main() {
             .topology(ModelTopology::TriangleStrip)
             .cull_mode(ModelCullMode::None);
 
-    let objects: Vec<Box<dyn Object>> = vec![sphere, ring];
+    let objects: Vec<Box<dyn Object>> = vec![cube];
 
     let debugging = Some(DebugMessageProperties::new(
         MessageLevel::builder().error().verbose().warning(),

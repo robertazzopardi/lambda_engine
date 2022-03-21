@@ -1,6 +1,7 @@
 use crate::{
     pipeline::GraphicsPipeline,
     shapes::{
+        private,
         utility::{self, ModelCullMode, ModelTopology},
         ModelBuffers, Object, ObjectBuilder, ShapeProperties, VerticesAndIndices,
     },
@@ -42,7 +43,7 @@ pub struct Ring {
     pub(crate) buffers: Option<ModelBuffers>,
 }
 
-impl Object for Ring {
+impl private::Object for Ring {
     fn object_topology(&self) -> &ModelTopology {
         &self.topology
     }
@@ -67,6 +68,27 @@ impl Object for Ring {
         self.vertices_and_indices.as_ref().unwrap()
     }
 
+    fn is_indexed(&self) -> bool {
+        self.indexed
+    }
+
+    fn graphics_pipeline(
+        &mut self,
+        swap_chain: &crate::swap_chain::SwapChain,
+        render_pass: ash::vk::RenderPass,
+        instance_devices: &crate::utility::InstanceDevices,
+    ) {
+        self.graphics_pipeline = Some(GraphicsPipeline::new(
+            swap_chain,
+            render_pass,
+            self.object_texture(),
+            self,
+            instance_devices,
+        ));
+    }
+}
+
+impl Object for Ring {
     fn vertices_and_indices(&mut self) {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,
@@ -116,21 +138,6 @@ impl Object for Ring {
         }
     }
 
-    fn graphics_pipeline(
-        &mut self,
-        swap_chain: &crate::swap_chain::SwapChain,
-        render_pass: ash::vk::RenderPass,
-        instance_devices: &crate::utility::InstanceDevices,
-    ) {
-        self.graphics_pipeline = Some(GraphicsPipeline::new(
-            swap_chain,
-            render_pass,
-            self.object_texture(),
-            self,
-            instance_devices,
-        ));
-    }
-
     fn builder(properties: ShapeProperties) -> Self {
         Self {
             properties: properties.into_ring().unwrap(),
@@ -143,10 +150,6 @@ impl Object for Ring {
             graphics_pipeline: None,
             buffers: None,
         }
-    }
-
-    fn is_indexed(&self) -> bool {
-        self.indexed
     }
 }
 

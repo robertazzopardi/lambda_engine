@@ -4,6 +4,8 @@ use ash::vk;
 use cgmath::{Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
+pub trait ObjectMath {}
+
 #[derive(Clone, Copy)]
 pub enum ModelTopology {
     LineList,
@@ -18,31 +20,6 @@ pub enum ModelTopology {
     TriangleStrip,
     TriangleStripWithAdjacency,
     Default,
-}
-
-impl From<ModelTopology> for vk::PrimitiveTopology {
-    fn from(topology: ModelTopology) -> Self {
-        match topology {
-            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
-            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
-            ModelTopology::TriangleListWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
-            }
-            ModelTopology::TriangleStripWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
-            }
-            ModelTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
-            ModelTopology::LineListWithAdjacency => vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY,
-            ModelTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
-            ModelTopology::LineStripWithADjacency => {
-                vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY
-            }
-            ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
-            ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
-            ModelTopology::Default => vk::PrimitiveTopology::default(),
-        }
-    }
 }
 
 impl From<&ModelTopology> for vk::PrimitiveTopology {
@@ -76,17 +53,6 @@ pub enum ModelCullMode {
     Back,
     FrontAndBack,
     None,
-}
-
-impl From<ModelCullMode> for vk::CullModeFlags {
-    fn from(cull_mode: ModelCullMode) -> Self {
-        match cull_mode {
-            ModelCullMode::Front => vk::CullModeFlags::FRONT,
-            ModelCullMode::Back => vk::CullModeFlags::BACK,
-            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
-            ModelCullMode::None => vk::CullModeFlags::NONE,
-        }
-    }
 }
 
 impl From<&ModelCullMode> for vk::CullModeFlags {
@@ -175,12 +141,18 @@ where
     buffer
 }
 
+pub(crate) fn scale_from_origin(model: &mut [Vertex; 4], radius: f32) {
+    model.iter_mut().for_each(|face| {
+        face.pos = face.pos.mul(radius);
+    });
+}
+
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
     let normal = normal(model[0].pos, model[1].pos, model[2].pos);
 
-    for point in model {
+    model.iter_mut().for_each(|point| {
         point.normal = normal;
-    }
+    });
 }
 
 fn normal(p1: Vector3<f32>, p2: Vector3<f32>, p3: Vector3<f32>) -> Vector3<f32> {

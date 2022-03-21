@@ -1,6 +1,7 @@
 use crate::{
     pipeline::GraphicsPipeline,
     shapes::{
+        private,
         utility::{self, ModelCullMode, ModelTopology},
         ModelBuffers, Object, ObjectBuilder, ShapeProperties, Vertex, VerticesAndIndices, WHITE,
     },
@@ -209,7 +210,7 @@ pub struct Cube {
     pub(crate) buffers: Option<ModelBuffers>,
 }
 
-impl Object for Cube {
+impl private::Object for Cube {
     fn object_topology(&self) -> &ModelTopology {
         &self.topology
     }
@@ -234,10 +235,35 @@ impl Object for Cube {
         self.vertices_and_indices.as_ref().unwrap()
     }
 
+    fn is_indexed(&self) -> bool {
+        self.indexed
+    }
+
+    fn graphics_pipeline(
+        &mut self,
+        swap_chain: &crate::swap_chain::SwapChain,
+        render_pass: ash::vk::RenderPass,
+        instance_devices: &crate::utility::InstanceDevices,
+    ) {
+        self.graphics_pipeline = Some(GraphicsPipeline::new(
+            swap_chain,
+            render_pass,
+            self.object_texture(),
+            self,
+            instance_devices,
+        ));
+    }
+}
+
+impl Object for Cube {
     fn vertices_and_indices(&mut self) {
-        let cube = CUBE_VERTICES;
+        let mut cube = CUBE_VERTICES;
 
         cube.map(|_| utility::calculate_normals);
+
+        for face in cube.iter_mut() {
+            utility::scale_from_origin(face, self.properties.radius);
+        }
 
         let vertices = cube.into_iter().flatten().collect::<Vec<Vertex>>();
 
@@ -258,21 +284,6 @@ impl Object for Cube {
         }
     }
 
-    fn graphics_pipeline(
-        &mut self,
-        swap_chain: &crate::swap_chain::SwapChain,
-        render_pass: ash::vk::RenderPass,
-        instance_devices: &crate::utility::InstanceDevices,
-    ) {
-        self.graphics_pipeline = Some(GraphicsPipeline::new(
-            swap_chain,
-            render_pass,
-            self.object_texture(),
-            self,
-            instance_devices,
-        ));
-    }
-
     fn builder(properties: ShapeProperties) -> Self {
         Self {
             properties: properties.into_cube().unwrap(),
@@ -285,10 +296,6 @@ impl Object for Cube {
             graphics_pipeline: None,
             buffers: None,
         }
-    }
-
-    fn is_indexed(&self) -> bool {
-        self.indexed
     }
 }
 
