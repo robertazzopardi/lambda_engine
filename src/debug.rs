@@ -1,5 +1,6 @@
 use crate::utility::EntryInstance;
 use ash::{extensions::ext::DebugUtils, vk};
+use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;
 
@@ -55,6 +56,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 /// ## VkDebugUtilsMessageSeverityFlagBitsEXT
+#[derive(Clone, Default)]
 pub struct MessageLevel {
     flags: vk::DebugUtilsMessageSeverityFlagsEXT,
 }
@@ -89,6 +91,7 @@ impl MessageLevel {
 }
 
 /// ## VkDebugUtilsMessageTypeFlagBitsEXT
+#[derive(Clone, Default)]
 pub struct MessageType {
     flags: vk::DebugUtilsMessageTypeFlagsEXT,
 }
@@ -116,18 +119,10 @@ impl MessageType {
     }
 }
 
+#[derive(new)]
 pub struct DebugMessageProperties {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
-}
-
-impl Default for DebugMessageProperties {
-    fn default() -> Self {
-        Self {
-            message_level: MessageLevel::builder(),
-            message_type: MessageType::builder(),
-        }
-    }
 }
 
 pub(crate) fn debugger(

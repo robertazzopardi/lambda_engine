@@ -3,8 +3,8 @@ use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
-#[derive(new)]
-pub(crate) struct Image {
+#[derive(new, Clone, Copy, Default, Debug)]
+pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
     #[new(value = "1")]
@@ -30,7 +30,7 @@ pub(crate) struct ImageInfo {
 }
 
 #[derive(new)]
-pub(crate) struct InstanceDevices<'a> {
+pub struct InstanceDevices<'a> {
     pub instance: &'a Instance,
     pub devices: &'a Devices,
 }
@@ -53,10 +53,7 @@ impl EntryInstance {
             .collect();
 
         let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
-        let mut extension_names_raw = surface_extensions
-            .iter()
-            .map(|ext| ext.as_ptr())
-            .collect::<Vec<_>>();
+        let mut extension_names_raw = surface_extensions.to_vec();
         extension_names_raw.push(DebugUtils::name().as_ptr());
 
         let app_name = CString::new("Vulkan").unwrap();
@@ -72,7 +69,7 @@ impl EntryInstance {
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_layer_names(&layers_names_raw)
-            .enabled_extension_names(&extension_names_raw);
+            .enabled_extension_names(extension_names_raw.as_slice());
 
         unsafe {
             let entry = Entry::load().unwrap();

@@ -1,6 +1,6 @@
 use crate::Camera;
 use ash::vk;
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
+use cgmath::{Deg, Matrix4, Point3, SquareMatrix};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UniformBufferObject {
@@ -22,11 +22,12 @@ impl UniformBufferObject {
     pub fn update(&mut self, extent: vk::Extent2D, camera: &mut Camera) {
         let aspect = extent.width as f32 / extent.height as f32;
 
-        // self.model = Matrix4::from_angle_y(Deg(0.));
+        self.model = Matrix4::from_angle_y(Deg(0.));
 
         self.view = camera.calc_matrix(Point3::new(0., 0., 0.));
+
         self.proj = {
-            let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 100.);
+            let mut p = cgmath::perspective(Deg(45.), aspect, 0.00001, 100.);
             p[1][1] *= -1.;
             p
         };

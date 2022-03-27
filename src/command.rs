@@ -1,4 +1,4 @@
-use crate::{device, shapes::Model, swap_chain::SwapChain, utility::InstanceDevices, Devices};
+use crate::{device, shapes::Object, swap_chain::SwapChain, utility::InstanceDevices, Devices};
 use ash::{extensions::khr::Surface, vk};
 use std::ptr;
 
@@ -36,7 +36,7 @@ pub(crate) fn create_command_buffers(
     devices: &Devices,
     render_pass: vk::RenderPass,
     frame_buffers: &[vk::Framebuffer],
-    models: &[Model],
+    models: &[Box<dyn Object>],
 ) -> Vec<vk::CommandBuffer> {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)

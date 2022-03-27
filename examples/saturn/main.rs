@@ -5,12 +5,14 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        self,
+        l2d::ring::Ring,
+        l3d::sphere::Sphere,
         utility::{ModelCullMode, ModelTopology},
-        ModelProperties,
+        Object, ObjectBuilder, Shape,
     },
+    space::{Orientation, Position},
     time::Time,
-    VkArray, Vulkan,
+    Vulkan,
 };
 
 fn main() {
@@ -18,31 +20,54 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    let models = VkArray {
-        objects: [
-            ModelProperties {
-                texture: include_bytes!("../../assets/2k_saturn.jpg").to_vec(),
-                indexed: true,
-                topology: ModelTopology::TriangleList,
-                cull_mode: ModelCullMode::Back,
-                vertices_and_indices: shapes::sphere(0.4, 20, 20),
-            },
-            ModelProperties {
-                texture: include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
-                indexed: false,
-                topology: ModelTopology::TriangleStrip,
-                cull_mode: ModelCullMode::None,
-                vertices_and_indices: shapes::ring(0.5, 1., 40),
-            },
-        ],
-    };
+    // let cube: Shape<Cube> = ObjectBuilder::default()
+    //     .properties(Cube::new(Position::default(), Orientation::default(), 3.))
+    //     .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+    //     .topology(ModelTopology::TRIANGLE_LIST)
+    //     .cull_mode(ModelCullMode::BACK)
+    //     .indexed(true)
+    //     .build()
+    //     .unwrap();
 
-    let debugging = Some(DebugMessageProperties {
-        message_level: MessageLevel::builder().error().verbose().warning(),
-        message_type: MessageType::builder().performance().validation(),
-    });
+    let sphere: Shape<Sphere> = ObjectBuilder::default()
+        .properties(Sphere::new(
+            Position::default(),
+            Orientation::default(),
+            0.4,
+            50,
+            50,
+        ))
+        .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+        .topology(ModelTopology::TRIANGLE_LIST)
+        .cull_mode(ModelCullMode::BACK)
+        .indexed(true)
+        .build()
+        .unwrap();
 
-    let vulkan: Vulkan = Vulkan::new(&display.window, &mut camera, models, debugging);
+    let ring: Shape<Ring> = ObjectBuilder::default()
+        .properties(Ring::new(
+            Position::default(),
+            Orientation::default(),
+            0.5,
+            1.,
+            50,
+        ))
+        .texture_buffer(Some(
+            include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
+        ))
+        .topology(ModelTopology::TRIANGLE_STRIP)
+        .cull_mode(ModelCullMode::NONE)
+        .build()
+        .unwrap();
+
+    let objects: Vec<Box<dyn Object>> = vec![Box::new(sphere), Box::new(ring)];
+
+    let debugging = Some(DebugMessageProperties::new(
+        MessageLevel::builder().error().verbose().warning(),
+        MessageType::builder().performance().validation(),
+    ));
+
+    let vulkan = Vulkan::new(&display.window, &mut camera, objects, debugging);
 
     let mouse_pressed = false;
 

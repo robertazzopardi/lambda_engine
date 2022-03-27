@@ -1,7 +1,7 @@
 use crate::{
-    shapes::{Buffer, ModelProperties, Object, Vertex},
+    shapes::{Buffer, Object, Vertex},
     swap_chain::SwapChain,
-    texture,
+    texture::{self, Texture},
     uniform::UniformBufferObject,
     utility::InstanceDevices,
     Devices,
@@ -10,6 +10,7 @@ use ash::vk;
 use memoffset::offset_of;
 use std::{ffi::CString, mem};
 
+#[derive(Clone, Default, Debug)]
 pub struct Descriptor {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub descriptor_pool: vk::DescriptorPool,
@@ -17,13 +18,14 @@ pub struct Descriptor {
     pub uniform_buffers: Vec<Buffer>,
 }
 
-#[derive(new)]
-pub(crate) struct GraphicsPipelineFeatures {
+#[derive(new, Clone, Default, Debug)]
+pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
 }
 
-pub(crate) struct GraphicsPipeline {
+#[derive(Clone, Default, Debug)]
+pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptor_set: Descriptor,
 }
@@ -32,10 +34,8 @@ impl GraphicsPipeline {
     pub fn new(
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
-        texture_image_view: vk::ImageView,
-        sampler: vk::Sampler,
-        properties: ModelProperties,
-        // properties: &impl Object,
+        texture: &Texture,
+        properties: &impl Object,
         instance_devices: &InstanceDevices,
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
@@ -60,8 +60,7 @@ impl GraphicsPipeline {
             descriptor_set_layout,
             descriptor_pool,
             swap_chain.images.len() as u32,
-            texture_image_view,
-            sampler,
+            texture,
             &uniform_buffers,
         );
 
@@ -140,13 +139,13 @@ fn create_uniform_buffers(
     let mut buffers = Vec::new();
 
     for _i in 0..swap_chain_image_count {
-        let (buffer, memory) = texture::create_buffer(
+        let buffer = texture::create_buffer(
             mem::size_of::<UniformBufferObject>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             instance_devices,
         );
-        buffers.push(Buffer::new(buffer, memory))
+        buffers.push(buffer)
     }
 
     buffers
@@ -172,7 +171,8 @@ fn create_pipeline_and_layout(
     swap_chain: &SwapChain,
     descriptor_set_layout: &vk::DescriptorSetLayout,
     render_pass: vk::RenderPass,
-    properties: ModelProperties,
+    // properties: ModelProperties,
+    properties: &impl Object,
 ) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 
@@ -187,18 +187,16 @@ fn create_pipeline_and_layout(
     );
 
     let shader_stages = [
-        vk::PipelineShaderStageCreateInfo {
-            stage: vk::ShaderStageFlags::VERTEX,
-            module: vert_shader_module,
-            p_name: entry_point.as_ptr(),
-            ..Default::default()
-        },
-        vk::PipelineShaderStageCreateInfo {
-            stage: vk::ShaderStageFlags::FRAGMENT,
-            module: frag_shader_module,
-            p_name: entry_point.as_ptr(),
-            ..Default::default()
-        },
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::VERTEX)
+            .module(vert_shader_module)
+            .name(&entry_point)
+            .build(),
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::FRAGMENT)
+            .module(frag_shader_module)
+            .name(&entry_point)
+            .build(),
     ];
 
     let binding_description = vk::VertexInputBindingDescription::builder()
@@ -238,7 +236,7 @@ fn create_pipeline_and_layout(
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(properties.topology.into())
+        .topology(properties.object_topology().0)
         .primitive_restart_enable(false);
 
     let view_port = vk::Viewport::builder()
@@ -264,7 +262,7 @@ fn create_pipeline_and_layout(
         // .polygon_mode(vk::PolygonMode::LINE)
         // .polygon_mode(vk::PolygonMode::POINT)
         .line_width(1.)
-        .cull_mode(properties.cull_mode.into())
+        .cull_mode(properties.object_cull_mode().0)
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 
@@ -293,8 +291,8 @@ fn create_pipeline_and_layout(
         .stencil_test_enable(false)
         .front(stencil_state)
         .back(stencil_state)
-        .min_depth_bounds(0.0)
-        .max_depth_bounds(1.0);
+        .min_depth_bounds(0.)
+        .max_depth_bounds(1.);
 
     let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
         .color_write_mask(
@@ -375,8 +373,7 @@ fn create_descriptor_sets(
     descriptor_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
     swap_chain_image_count: u32,
-    texture_image_view: vk::ImageView,
-    sampler: vk::Sampler,
+    texture: &Texture,
     uniform_buffers: &[Buffer],
 ) -> Vec<vk::DescriptorSet> {
     let layouts = vec![descriptor_layout; swap_chain_image_count as usize];
@@ -389,8 +386,8 @@ fn create_descriptor_sets(
     };
 
     let image_info = vk::DescriptorImageInfo {
-        sampler,
-        image_view: texture_image_view,
+        sampler: texture.sampler,
+        image_view: texture.image_view,
         image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
 

@@ -1,67 +1,45 @@
 use super::{Buffer, Vertex, WHITE};
-use crate::{command, device::Devices, memory, texture, utility::InstanceDevices};
+use crate::{
+    command,
+    device::Devices,
+    memory,
+    space::{DirectionVec, Position},
+    texture,
+    utility::InstanceDevices,
+};
 use ash::vk;
-use cgmath::{Vector2, Vector3};
+use cgmath::{Point3, Vector2};
 use std::ops::{Mul, Sub};
 
-#[derive(Clone)]
-pub enum ModelTopology {
-    LineList,
-    LineListWithAdjacency,
-    LineStrip,
-    LineStripWithADjacency,
-    PatchList,
-    PointList,
-    TriangleFan,
-    TriangleList,
-    TriangleListWithAdjacency,
-    TriangleStrip,
-    TriangleStripWithAdjacency,
-    Default,
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ModelTopology(pub(crate) vk::PrimitiveTopology);
+
+type VkTop = vk::PrimitiveTopology;
+
+impl ModelTopology {
+    pub const LINE_LIST: Self = Self(VkTop::LINE_LIST);
+    pub const LINE_LIST_WITH_ADJACENCY: Self = Self(VkTop::LINE_LIST_WITH_ADJACENCY);
+    pub const LINE_STRIP: Self = Self(VkTop::LINE_STRIP);
+    pub const LINE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::LINE_STRIP_WITH_ADJACENCY);
+    pub const PATCH_LIST: Self = Self(VkTop::PATCH_LIST);
+    pub const POINT_LIST: Self = Self(VkTop::POINT_LIST);
+    pub const TRIANGLE_FAN: Self = Self(VkTop::TRIANGLE_FAN);
+    pub const TRIANGLE_LIST: Self = Self(VkTop::TRIANGLE_LIST);
+    pub const TRIANGLE_LIST_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_LIST_WITH_ADJACENCY);
+    pub const TRIANGLE_STRIP: Self = Self(VkTop::TRIANGLE_STRIP);
+    pub const TRIANGLE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_STRIP_WITH_ADJACENCY);
 }
 
-impl From<ModelTopology> for vk::PrimitiveTopology {
-    fn from(topology: ModelTopology) -> Self {
-        match topology {
-            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
-            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
-            ModelTopology::TriangleListWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
-            }
-            ModelTopology::TriangleStripWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
-            }
-            ModelTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
-            ModelTopology::LineListWithAdjacency => vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY,
-            ModelTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
-            ModelTopology::LineStripWithADjacency => {
-                vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY
-            }
-            ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
-            ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
-            ModelTopology::Default => vk::PrimitiveTopology::default(),
-        }
-    }
-}
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ModelCullMode(pub(crate) vk::CullModeFlags);
 
-#[derive(Clone, Copy)]
-pub enum ModelCullMode {
-    Front,
-    Back,
-    FrontAndBack,
-    None,
-}
+type VkCull = vk::CullModeFlags;
 
-impl From<ModelCullMode> for vk::CullModeFlags {
-    fn from(cull_mode: ModelCullMode) -> Self {
-        match cull_mode {
-            ModelCullMode::Front => vk::CullModeFlags::FRONT,
-            ModelCullMode::Back => vk::CullModeFlags::BACK,
-            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
-            ModelCullMode::None => vk::CullModeFlags::NONE,
-        }
-    }
+impl ModelCullMode {
+    pub const BACK: Self = Self(VkCull::BACK);
+    pub const FRONT: Self = Self(VkCull::FRONT);
+    pub const FRONT_AND_BACK: Self = Self(VkCull::FRONT_AND_BACK);
+    pub const NONE: Self = Self(VkCull::NONE);
 }
 
 fn copy_buffer(
@@ -106,21 +84,16 @@ where
 {
     let InstanceDevices { devices, .. } = instance_devices;
 
-    let (staging_buffer, staging_buffer_memory) = texture::create_buffer(
+    let staging = texture::create_buffer(
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         instance_devices,
     );
 
-    memory::map_memory(
-        &devices.logical.device,
-        staging_buffer_memory,
-        buffer_size,
-        data,
-    );
+    memory::map_memory(&devices.logical.device, staging.memory, buffer_size, data);
 
-    let (buffer, buffer_memory) = texture::create_buffer(
+    let buffer = texture::create_buffer(
         buffer_size,
         usage_flags,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
@@ -132,33 +105,42 @@ where
         command_pool,
         command_buffer_count,
         buffer_size,
-        staging_buffer,
-        buffer,
+        staging.buffer,
+        buffer.buffer,
     );
 
     unsafe {
-        devices.logical.device.destroy_buffer(staging_buffer, None);
-        devices
-            .logical
-            .device
-            .free_memory(staging_buffer_memory, None);
+        devices.logical.device.destroy_buffer(staging.buffer, None);
+        devices.logical.device.free_memory(staging.memory, None);
     }
 
-    Buffer::new(buffer, buffer_memory)
+    buffer
 }
+
+pub(crate) fn scale_from_origin(model: &mut [Vertex; 4], radius: f32) {
+    model.iter_mut().for_each(|face| {
+        face.pos.0 = face.pos.mul(radius);
+    });
+}
+
+pub(crate) fn translate_from_origin(model: &mut [Vertex; 4], radius: f32) {}
 
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
-    let normal = normal(model[0].pos, model[1].pos, model[2].pos);
+    let normal = normal(
+        model[0].pos.into(),
+        model[1].pos.into(),
+        model[2].pos.into(),
+    );
 
-    for point in model {
+    model.iter_mut().for_each(|point| {
         point.normal = normal;
-    }
+    });
 }
 
-fn normal(p1: Vector3<f32>, p2: Vector3<f32>, p3: Vector3<f32>) -> Vector3<f32> {
+fn normal(p1: DirectionVec, p2: DirectionVec, p3: DirectionVec) -> DirectionVec {
     let a = p3.sub(p2);
     let b = p1.sub(p2);
-    a.cross(b)
+    DirectionVec(a.cross(*b))
 }
 
 pub(crate) fn make_point(
@@ -172,31 +154,32 @@ pub(crate) fn make_point(
     let pos_1 = angle.to_radians().sin() * radius;
     *angle += step;
 
-    let pos = Vector3::new(pos_0, pos_1, 0.);
+    let pos = Position(Point3::new(pos_0, pos_1, 0.));
 
-    Vertex::new(pos, WHITE, pos.mul(length), tex_coord)
+    Vertex::new(pos, WHITE, pos.mul(length).into(), tex_coord)
 }
 
 pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {
-    let mut k1: u16;
-    let mut k2: u16;
+    let mut k1: u32;
+    let mut k2: u32;
 
     let mut indices: Vec<u16> = Vec::new();
+
     for i in 0..stack_count {
-        k1 = i as u16 * (sector_count + 1) as u16;
-        k2 = k1 + (stack_count + 1) as u16;
+        k1 = i * (sector_count + 1);
+        k2 = k1 + sector_count + 1;
 
         for _j in 0..sector_count {
             if i != 0 {
-                indices.push(k1);
-                indices.push(k2);
-                indices.push(k1 + 1);
+                indices.push(k1 as u16);
+                indices.push(k2 as u16);
+                indices.push(k1 as u16 + 1);
             }
 
             if i != (stack_count - 1) {
-                indices.push(k1 + 1);
-                indices.push(k2);
-                indices.push(k2 + 1);
+                indices.push(k1 as u16 + 1);
+                indices.push(k2 as u16);
+                indices.push(k2 as u16 + 1);
             }
 
             k1 += 1;

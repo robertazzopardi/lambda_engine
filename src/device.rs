@@ -6,14 +6,14 @@ use ash::{
 };
 
 #[derive(new)]
-pub(crate) struct PhysicalDeviceProperties {
+pub struct PhysicalDeviceProperties {
     pub device: vk::PhysicalDevice,
     pub queue_family_index: u32,
     pub samples: vk::SampleCountFlags,
 }
 
 #[derive(new)]
-pub(crate) struct LogicalDeviceFeatures {
+pub struct LogicalDeviceFeatures {
     pub device: Device,
     pub present: vk::Queue,
     pub graphics: vk::Queue,
@@ -31,7 +31,7 @@ impl QueueFamilyIndices {
     }
 }
 
-pub(crate) struct Devices {
+pub struct Devices {
     pub physical: PhysicalDeviceProperties,
     pub logical: LogicalDeviceFeatures,
 }

@@ -1,5 +1,6 @@
 use crate::{
     command, memory,
+    shapes::Buffer,
     utility::{self, Image, ImageInfo, InstanceDevices},
     Devices,
 };
@@ -7,7 +8,8 @@ use ash::vk;
 use cgmath::Point2;
 use std::cmp;
 
-pub(crate) struct Texture {
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Texture {
     pub image: Image,
     pub image_view: vk::ImageView,
     pub sampler: vk::Sampler,
@@ -92,19 +94,14 @@ fn create_texture_image(
     let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
         as vk::DeviceSize;
 
-    let (staging_buffer, staging_buffer_memory) = create_buffer(
+    let Buffer { buffer, memory } = create_buffer(
         size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         instance_devices,
     );
 
-    memory::map_memory(
-        &devices.logical.device,
-        staging_buffer_memory,
-        size,
-        image_data.as_slice(),
-    );
+    memory::map_memory(&devices.logical.device, memory, size, image_data.as_slice());
 
     let image_info = ImageInfo::new(
         image_dimensions,
@@ -132,20 +129,11 @@ fn create_texture_image(
         mip_levels,
     );
 
-    copy_buffer_to_image(
-        devices,
-        command_pool,
-        image_dimensions,
-        staging_buffer,
-        image.image,
-    );
+    copy_buffer_to_image(devices, command_pool, image_dimensions, buffer, image.image);
 
     unsafe {
-        devices.logical.device.destroy_buffer(staging_buffer, None);
-        devices
-            .logical
-            .device
-            .free_memory(staging_buffer_memory, None);
+        devices.logical.device.destroy_buffer(buffer, None);
+        devices.logical.device.free_memory(memory, None);
     }
 
     generate_mip_maps(
@@ -168,7 +156,7 @@ pub(crate) fn create_buffer(
     usage: vk::BufferUsageFlags,
     properties: vk::MemoryPropertyFlags,
     instance_devices: &InstanceDevices,
-) -> (vk::Buffer, vk::DeviceMemory) {
+) -> Buffer {
     let InstanceDevices { devices, .. } = instance_devices;
 
     let image_buffer_info = vk::BufferCreateInfo::builder()
@@ -210,7 +198,7 @@ pub(crate) fn create_buffer(
             .bind_buffer_memory(buffer, buffer_memory, 0)
             .expect("Could not bind command buffer memory");
 
-        (buffer, buffer_memory)
+        Buffer::new(buffer, buffer_memory)
     }
 }
 

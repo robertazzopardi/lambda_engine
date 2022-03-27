@@ -1,45 +1,43 @@
-use cgmath::{InnerSpace, Matrix4, Point3, Rad, Vector3};
+use crate::space::{self, Position};
+use cgmath::{Angle, InnerSpace, Matrix4, Point3, Rad, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseScrollDelta, VirtualKeyCode},
 };
 
-use crate::space;
-
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
-// #[derive(new)]
 #[derive(PartialEq, Debug)]
 pub struct Camera {
-    pub pos: Point3<f32>,
+    pub pos: Position,
     rotation: space::Rotation,
     orientation: space::Orientation,
     sensitivity: f32,
     speed: f32,
     scroll: f32,
-    direction: space::Direction,
+    direction: space::LookDirection,
 }
 
 impl Camera {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
-            pos: Point3::new(x, y, z),
+            pos: Point3::new(x, y, z).into(),
             rotation: space::Rotation::default(),
-            orientation: space::Orientation::new(),
-            sensitivity: 0.5,
+            orientation: space::Orientation::default(),
+            sensitivity: 0.9,
             speed: 0.5,
             scroll: 0.0,
-            direction: space::Direction::default(),
+            direction: space::LookDirection::default(),
         }
     }
 
-    pub fn calc_matrix(&self, center: Point3<f32>) -> Matrix4<f32> {
+    pub fn calc_matrix(&self, _center: Point3<f32>) -> Matrix4<f32> {
         let space::Orientation { yaw, pitch, _roll } = self.orientation;
-        // Matrix4::look_at_rh(self.pos, center, Vector3::unit_z())
+        // Matrix4::look_at_rh(self.pos.0, center, Vector3::unit_z())
         Matrix4::look_to_rh(
-            self.pos,
-            Vector3::new(yaw.0.cos(), pitch.0.sin(), yaw.0.sin()).normalize(),
+            *self.pos,
+            Vector3::new(yaw.cos(), pitch.sin(), yaw.sin()).normalize(),
             Vector3::unit_y(),
         )
     }
@@ -88,7 +86,7 @@ impl Camera {
     }
 
     pub fn rotate(&mut self, dt: f32) {
-        let space::Direction {
+        let space::LookDirection {
             left,
             right,
             up,
@@ -98,14 +96,14 @@ impl Camera {
         } = self.direction;
 
         // Movement
-        let (yaw_sin, yaw_cos) = self.orientation.yaw.0.sin_cos();
+        let (yaw_sin, yaw_cos) = self.orientation.yaw.sin_cos();
         let forward_dir = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
         let right_dir = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
         self.pos += forward_dir * (forward - backward) * self.speed * dt;
         self.pos += right_dir * (right - left) * self.speed * dt;
 
         // Zoom
-        let (pitch_sin, pitch_cos) = self.orientation.pitch.0.sin_cos();
+        let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
         let scroll_dir =
             Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize();
         self.pos += scroll_dir * self.scroll * self.speed * self.sensitivity * dt;
@@ -121,10 +119,11 @@ impl Camera {
         self.rotation.vertical = 0.0;
 
         // Keep the camera's angle from going too high/low.
-        if self.orientation.pitch < -Rad(SAFE_FRAC_PI_2) {
-            self.orientation.pitch = -Rad(SAFE_FRAC_PI_2);
-        } else if self.orientation.pitch > Rad(SAFE_FRAC_PI_2) {
-            self.orientation.pitch = Rad(SAFE_FRAC_PI_2);
+        let angle = space::Angle(Rad(SAFE_FRAC_PI_2));
+        if self.orientation.pitch < -angle {
+            self.orientation.pitch.0 = -angle.0;
+        } else if self.orientation.pitch > angle {
+            self.orientation.pitch.0 = angle.0;
         }
     }
 }
@@ -139,16 +138,16 @@ mod tests {
     fn test_camera_new() {
         let camera = Camera::new(0.91, 0.3, 0.7);
 
-        assert_eq!(camera.pos, Point3::new(0.91, 0.3, 0.7));
+        assert_eq!(camera.pos, Point3::new(0.91, 0.3, 0.7).into());
 
         let expected_camera = Camera {
-            pos: Point3::new(0.91, 0.3, 0.7),
+            pos: Point3::new(0.91, 0.3, 0.7).into(),
             rotation: space::Rotation::default(),
-            orientation: space::Orientation::new(),
+            orientation: space::Orientation::default(),
             sensitivity: 0.5,
             speed: 0.5,
             scroll: 0.0,
-            direction: space::Direction::default(),
+            direction: space::LookDirection::default(),
         };
 
         assert_eq!(expected_camera, camera);
