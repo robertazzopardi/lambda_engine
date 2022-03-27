@@ -1,15 +1,49 @@
-use cgmath::{Point3, Rad};
+use std::ops::{AddAssign, SubAssign};
 
-pub const ORIGIN: Point3<f32> = Point3::new(0., 0., 0.);
+use cgmath::{Point3, Rad, Vector3};
+use derive_more::{Deref, DerefMut, From, Neg};
 
-#[derive(new, Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
+pub struct Position(pub(crate) Point3<f32>);
+
+impl Default for Position {
+    fn default() -> Self {
+        Self(Point3::new(0., 0., 0.))
+    }
+}
+
+impl AddAssign<Vector3<f32>> for Position {
+    fn add_assign(&mut self, rhs: Vector3<f32>) {
+        self.0 += rhs
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Deref, DerefMut, Neg)]
+pub struct Angle(pub Rad<f32>);
+
+impl Default for Angle {
+    fn default() -> Self {
+        Self(Rad(0.))
+    }
+}
+
+impl AddAssign<Rad<f32>> for Angle {
+    fn add_assign(&mut self, rhs: Rad<f32>) {
+        self.0 += rhs
+    }
+}
+
+impl SubAssign<Rad<f32>> for Angle {
+    fn sub_assign(&mut self, rhs: Rad<f32>) {
+        self.0 -= rhs
+    }
+}
+
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct Orientation {
-    #[new(value = "Rad(0.0)")]
-    pub yaw: Rad<f32>,
-    #[new(value = "Rad(0.0)")]
-    pub pitch: Rad<f32>,
-    #[new(value = "Rad(0.0)")]
-    pub _roll: Rad<f32>,
+    pub yaw: Angle,
+    pub pitch: Angle,
+    pub _roll: Angle,
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -19,7 +53,7 @@ pub struct Rotation {
 }
 
 #[derive(Default, Debug, PartialEq)]
-pub struct Direction {
+pub struct LookDirection {
     pub left: f32,
     pub right: f32,
     pub up: f32,

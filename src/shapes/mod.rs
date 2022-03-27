@@ -3,40 +3,120 @@ pub mod l3d;
 pub mod utility;
 
 use self::{
-    l2d::ring::RingProperties,
-    l3d::{cube::CubeProperties, sphere::SphereProperties},
+    l2d::ring::Ring,
+    l3d::{cube::Cube, sphere::Sphere},
     utility::{ModelCullMode, ModelTopology},
 };
-use crate::{swap_chain::SwapChain, utility::InstanceDevices};
+use crate::{
+    pipeline::GraphicsPipeline,
+    space::Position,
+    swap_chain::SwapChain,
+    texture::{self, Texture},
+    utility::InstanceDevices,
+};
 use ash::vk;
-use cgmath::{Vector2, Vector3};
+use cgmath::{Point3, Vector2, Vector3};
+use derive_builder::Builder;
+use derive_more::{Deref, DerefMut, From, Sub};
 use enum_as_inner::EnumAsInner;
 use std::mem::size_of;
 
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
+pub const POINT3_ZERO: Point3<f32> = Point3::new(0., 0., 0.);
+pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 #[derive(Debug, EnumAsInner)]
 pub enum ShapeProperties {
-    Cube(CubeProperties),
-    Sphere(SphereProperties),
-    Ring(RingProperties),
+    Cube(Cube),
+    Sphere(Sphere),
+    Ring(Ring),
+}
+
+#[derive(Default, Builder, Debug, Clone)]
+#[builder(default)]
+pub struct Shape<T: Default> {
+    pub properties: T,
+
+    pub texture_buffer: Option<Vec<u8>>,
+    pub indexed: bool,
+    pub topology: ModelTopology,
+    pub cull_mode: ModelCullMode,
+
+    pub vertices_and_indices: Option<VerticesAndIndices>,
+    pub(crate) texture: Option<Texture>,
+    pub(crate) graphics_pipeline: Option<GraphicsPipeline>,
+    pub(crate) buffers: Option<ModelBuffers>,
+}
+
+#[derive(Default, Clone, Deref, DerefMut)]
+pub struct ObjectBuilder<T: Clone + Default>(ShapeBuilder<T>);
+
+impl<T: Default> private::Object for Shape<T>
+where
+    Shape<T>: Object,
+{
+    fn buffers(&mut self, model_buffers: ModelBuffers) {
+        self.buffers = Some(model_buffers);
+    }
+
+    fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices) {
+        if let Some(buffer) = &self.texture_buffer {
+            self.texture = Some(texture::Texture::new(
+                buffer,
+                command_pool,
+                instance_devices,
+            ));
+        }
+    }
+
+    fn object_topology(&self) -> &ModelTopology {
+        &self.topology
+    }
+
+    fn object_cull_mode(&self) -> &ModelCullMode {
+        &self.cull_mode
+    }
+
+    fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
+        self.graphics_pipeline.as_ref().unwrap()
+    }
+
+    fn object_buffers(&self) -> &ModelBuffers {
+        self.buffers.as_ref().unwrap()
+    }
+
+    fn object_texture(&self) -> &Texture {
+        self.texture.as_ref().unwrap()
+    }
+
+    fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
+        self.vertices_and_indices.as_ref().unwrap()
+    }
+
+    fn is_indexed(&self) -> bool {
+        self.indexed
+    }
+
+    fn graphics_pipeline(
+        &mut self,
+        swap_chain: &crate::swap_chain::SwapChain,
+        render_pass: ash::vk::RenderPass,
+        instance_devices: &crate::utility::InstanceDevices,
+    ) {
+        self.graphics_pipeline = Some(GraphicsPipeline::new(
+            swap_chain,
+            render_pass,
+            self.object_texture(),
+            self,
+            instance_devices,
+        ));
+    }
 }
 
 pub trait Object: private::Object {
-    fn translate(&mut self) {}
-    fn rotate(&mut self) {}
-    fn scale(&mut self) {}
-
     fn vertices_and_indices(&mut self);
 
-    fn buffers(&mut self, model_buffers: ModelBuffers);
-    fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices);
-
-    fn builder(properties: ShapeProperties) -> Self
-    where
-        Self: Sized;
-
-    fn build(
+    fn construct(
         &mut self,
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
@@ -61,8 +141,6 @@ pub trait Object: private::Object {
 }
 
 pub(crate) mod private {
-    use ash::vk;
-
     use super::{
         utility::{ModelCullMode, ModelTopology},
         ModelBuffers, VerticesAndIndices,
@@ -76,42 +154,62 @@ pub(crate) mod private {
         uniform::UniformBufferObject,
         utility::InstanceDevices,
     };
+    use ash::vk;
 
     pub trait Object {
-        fn object_topology(&self) -> &ModelTopology;
-        fn object_cull_mode(&self) -> &ModelCullMode;
-        fn object_graphics_pipeline(&self) -> &GraphicsPipeline;
-        fn object_buffers(&self) -> &ModelBuffers;
-        fn object_texture(&self) -> &Texture;
-        fn object_vertices_and_indices(&self) -> &VerticesAndIndices;
+        fn buffers(&mut self, model_buffers: ModelBuffers);
+        fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices);
 
-        fn is_indexed(&self) -> bool;
+        fn object_topology(&self) -> &ModelTopology {
+            unimplemented!()
+        }
+        fn object_cull_mode(&self) -> &ModelCullMode {
+            unimplemented!()
+        }
+        fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
+            unimplemented!()
+        }
+        fn object_buffers(&self) -> &ModelBuffers {
+            unimplemented!()
+        }
+        fn object_texture(&self) -> &Texture {
+            unimplemented!()
+        }
+        fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
+            unimplemented!()
+        }
+
+        fn is_indexed(&self) -> bool {
+            unimplemented!()
+        }
         fn graphics_pipeline(
             &mut self,
-            swap_chain: &SwapChain,
-            render_pass: ash::vk::RenderPass,
-            instance_devices: &InstanceDevices,
-        );
+            _: &SwapChain,
+            _: ash::vk::RenderPass,
+            _: &InstanceDevices,
+        ) {
+            unimplemented!()
+        }
 
         /// # Safety
         ///
         ///
         unsafe fn destroy(&self, logical: &LogicalDeviceFeatures) {
-            logical
-                .device
-                .destroy_sampler(self.object_texture().sampler, None);
+            let object_texture = self.object_texture();
+
+            logical.device.destroy_sampler(object_texture.sampler, None);
 
             logical
                 .device
-                .destroy_image_view(self.object_texture().image_view, None);
+                .destroy_image_view(object_texture.image_view, None);
 
             logical
                 .device
-                .destroy_image(self.object_texture().image.image, None);
+                .destroy_image(object_texture.image.image, None);
 
             logical
                 .device
-                .free_memory(self.object_texture().image.memory, None);
+                .free_memory(object_texture.image.memory, None);
 
             logical.device.destroy_descriptor_set_layout(
                 self.object_graphics_pipeline()
@@ -120,21 +218,23 @@ pub(crate) mod private {
                 None,
             );
 
-            logical
-                .device
-                .destroy_buffer(self.object_buffers().vertex.buffer, None);
+            let object_buffers = self.object_buffers();
 
             logical
                 .device
-                .free_memory(self.object_buffers().vertex.memory, None);
+                .destroy_buffer(object_buffers.vertex.buffer, None);
 
             logical
                 .device
-                .destroy_buffer(self.object_buffers().index.buffer, None);
+                .free_memory(object_buffers.vertex.memory, None);
 
             logical
                 .device
-                .free_memory(self.object_buffers().index.memory, None);
+                .destroy_buffer(object_buffers.index.buffer, None);
+
+            logical
+                .device
+                .free_memory(object_buffers.index.memory, None);
         }
 
         /// # Safety
@@ -147,27 +247,28 @@ pub(crate) mod private {
             offsets: &[vk::DeviceSize],
             index: usize,
         ) {
+            let object_graphics_pipeline = self.object_graphics_pipeline();
+
             devices.logical.device.cmd_bind_pipeline(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                self.object_graphics_pipeline().features.pipeline,
+                object_graphics_pipeline.features.pipeline,
             );
 
             devices.logical.device.cmd_bind_descriptor_sets(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                self.object_graphics_pipeline().features.layout,
+                object_graphics_pipeline.features.layout,
                 0,
                 std::slice::from_ref(
-                    &self
-                        .object_graphics_pipeline()
-                        .descriptor_set
-                        .descriptor_sets[index],
+                    &object_graphics_pipeline.descriptor_set.descriptor_sets[index],
                 ),
                 &[],
             );
 
-            let vertex_buffers = [self.object_buffers().vertex.buffer];
+            let object_buffers = self.object_buffers();
+
+            let vertex_buffers = [object_buffers.vertex.buffer];
 
             devices.logical.device.cmd_bind_vertex_buffers(
                 command_buffer,
@@ -176,9 +277,11 @@ pub(crate) mod private {
                 offsets,
             );
 
+            let object_and_vertices_and_indices = self.object_vertices_and_indices();
+
             devices.logical.device.cmd_draw(
                 command_buffer,
-                self.object_vertices_and_indices().vertices.len() as u32,
+                object_and_vertices_and_indices.vertices.len() as u32,
                 1,
                 0,
                 0,
@@ -187,14 +290,14 @@ pub(crate) mod private {
             if self.is_indexed() {
                 devices.logical.device.cmd_bind_index_buffer(
                     command_buffer,
-                    self.object_buffers().index.buffer,
+                    object_buffers.index.buffer,
                     0,
                     vk::IndexType::UINT16,
                 );
 
                 devices.logical.device.cmd_draw_indexed(
                     command_buffer,
-                    self.object_vertices_and_indices().indices.len() as u32,
+                    object_and_vertices_and_indices.indices.len() as u32,
                     1,
                     0,
                     0,
@@ -225,33 +328,27 @@ pub(crate) mod private {
         ///
         ///
         unsafe fn recreate_drop(&self, logical: &LogicalDeviceFeatures, swap_chain: &SwapChain) {
+            let object_graphics_pipeline = self.object_graphics_pipeline();
+
             logical
                 .device
-                .destroy_pipeline(self.object_graphics_pipeline().features.pipeline, None);
+                .destroy_pipeline(object_graphics_pipeline.features.pipeline, None);
             logical
                 .device
-                .destroy_pipeline_layout(self.object_graphics_pipeline().features.layout, None);
+                .destroy_pipeline_layout(object_graphics_pipeline.features.layout, None);
 
             logical.device.destroy_descriptor_pool(
-                self.object_graphics_pipeline()
-                    .descriptor_set
-                    .descriptor_pool,
+                object_graphics_pipeline.descriptor_set.descriptor_pool,
                 None,
             );
 
             for i in 0..swap_chain.images.len() {
                 logical.device.destroy_buffer(
-                    self.object_graphics_pipeline()
-                        .descriptor_set
-                        .uniform_buffers[i]
-                        .buffer,
+                    object_graphics_pipeline.descriptor_set.uniform_buffers[i].buffer,
                     None,
                 );
                 logical.device.free_memory(
-                    self.object_graphics_pipeline()
-                        .descriptor_set
-                        .uniform_buffers[i]
-                        .memory,
+                    object_graphics_pipeline.descriptor_set.uniform_buffers[i].memory,
                     None,
                 );
             }
@@ -259,14 +356,7 @@ pub(crate) mod private {
     }
 }
 
-pub trait ObjectBuilder: Object + Sized {
-    fn texture_buffer(self, texture_buffer: Vec<u8>) -> Box<Self>;
-    fn indexed(self, indexed: bool) -> Box<Self>;
-    fn topology(self, topology: ModelTopology) -> Box<Self>;
-    fn cull_mode(self, cull_mode: ModelCullMode) -> Box<Self>;
-}
-
-#[derive(Clone, new)]
+#[derive(new, Clone, Default, Debug)]
 pub struct VerticesAndIndices {
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
@@ -303,21 +393,42 @@ impl VerticesAndIndices {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deref, DerefMut, Sub, From)]
+pub struct DirectionVec(Vector3<f32>);
+
+impl From<DirectionVec> for Position {
+    fn from(vec: DirectionVec) -> Self {
+        Position(Point3::new(vec.x, vec.y, vec.z))
+    }
+}
+
+impl From<Position> for DirectionVec {
+    fn from(pos: Position) -> Self {
+        DirectionVec(Vector3::new(pos.x, pos.y, pos.z))
+    }
+}
+
+impl From<Point3<f32>> for DirectionVec {
+    fn from(pos: Point3<f32>) -> Self {
+        DirectionVec(Vector3::new(pos.x, pos.y, pos.z))
+    }
+}
+
 #[derive(Clone, Copy, Debug, new)]
 pub struct Vertex {
-    pub pos: Vector3<f32>,
+    pub pos: Position,
     pub colour: Vector3<f32>,
-    pub normal: Vector3<f32>,
+    pub normal: DirectionVec,
     pub tex_coord: Vector2<f32>,
 }
 
-#[derive(new, Clone, Copy)]
+#[derive(new, Clone, Copy, Default, Debug)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
 }
 
-#[derive(new, Clone, Copy)]
+#[derive(new, Clone, Copy, Default, Debug)]
 pub struct ModelBuffers {
     pub vertex: Buffer,
     pub index: Buffer,

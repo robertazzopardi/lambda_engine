@@ -8,7 +8,7 @@ use ash::vk;
 use cgmath::Point2;
 use std::cmp;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Texture {
     pub image: Image,
     pub image_view: vk::ImageView,

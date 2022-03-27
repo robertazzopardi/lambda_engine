@@ -5,15 +5,12 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        l2d::ring::{Ring, RingProperties},
-        l3d::{
-            cube::{Cube, CubeProperties},
-            sphere::{Sphere, SphereProperties},
-        },
+        l2d::ring::Ring,
+        l3d::sphere::Sphere,
         utility::{ModelCullMode, ModelTopology},
-        Object, ObjectBuilder,
+        Object, ObjectBuilder, Shape,
     },
-    space::{self, Orientation},
+    space::{Orientation, Position},
     time::Time,
     Vulkan,
 };
@@ -23,26 +20,47 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    let cube = Cube::builder(CubeProperties::new(space::ORIGIN, Orientation::new(), 3.).into())
-        .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
-        .topology(ModelTopology::TriangleList)
-        .cull_mode(ModelCullMode::Back);
+    // let cube: Shape<Cube> = ObjectBuilder::default()
+    //     .properties(Cube::new(Position::default(), Orientation::default(), 3.))
+    //     .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+    //     .topology(ModelTopology::TriangleList)
+    //     .cull_mode(ModelCullMode::Back)
+    //     .indexed(true)
+    //     .build()
+    //     .unwrap();
 
-    let sphere = Sphere::builder(
-        SphereProperties::new(space::ORIGIN, Orientation::new(), 0.4, 20, 20).into(),
-    )
-    .texture_buffer(include_bytes!("../../assets/2k_saturn.jpg").to_vec())
-    .topology(ModelTopology::TriangleList)
-    .cull_mode(ModelCullMode::Back);
+    let sphere: Shape<Sphere> = ObjectBuilder::default()
+        .properties(Sphere::new(
+            Position::default(),
+            Orientation::default(),
+            0.4,
+            20,
+            20,
+        ))
+        .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+        .topology(ModelTopology::TRIANGLE_LIST)
+        .cull_mode(ModelCullMode::BACK)
+        .indexed(true)
+        .build()
+        .unwrap();
 
-    let ring =
-        Ring::builder(RingProperties::new(space::ORIGIN, Orientation::new(), 0.5, 1., 40).into())
-            .texture_buffer(include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec())
-            .indexed(false)
-            .topology(ModelTopology::TriangleStrip)
-            .cull_mode(ModelCullMode::None);
+    let ring: Shape<Ring> = ObjectBuilder::default()
+        .properties(Ring::new(
+            Position::default(),
+            Orientation::default(),
+            0.5,
+            1.,
+            40,
+        ))
+        .texture_buffer(Some(
+            include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
+        ))
+        .topology(ModelTopology::TRIANGLE_STRIP)
+        .cull_mode(ModelCullMode::NONE)
+        .build()
+        .unwrap();
 
-    let objects: Vec<Box<dyn Object>> = vec![cube];
+    let objects: Vec<Box<dyn Object>> = vec![Box::new(ring), Box::new(sphere)];
 
     let debugging = Some(DebugMessageProperties::new(
         MessageLevel::builder().error().verbose().warning(),

@@ -1,69 +1,38 @@
-use super::{Buffer, Vertex, WHITE};
-use crate::{command, device::Devices, memory, texture, utility::InstanceDevices};
+use super::{Buffer, DirectionVec, Vertex, WHITE};
+use crate::{command, device::Devices, memory, space::Position, texture, utility::InstanceDevices};
 use ash::vk;
-use cgmath::{Vector2, Vector3};
+use cgmath::{Point3, Vector2};
 use std::ops::{Mul, Sub};
 
-pub trait ObjectMath {}
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ModelTopology(pub(crate) vk::PrimitiveTopology);
 
-#[derive(Clone, Copy)]
-pub enum ModelTopology {
-    LineList,
-    LineListWithAdjacency,
-    LineStrip,
-    LineStripWithADjacency,
-    PatchList,
-    PointList,
-    TriangleFan,
-    TriangleList,
-    TriangleListWithAdjacency,
-    TriangleStrip,
-    TriangleStripWithAdjacency,
-    Default,
+impl ModelTopology {
+    pub const TRIANGLE_LIST: Self = Self(vk::PrimitiveTopology::TRIANGLE_LIST);
+    pub const TRIANGLE_STRIP: Self = Self(vk::PrimitiveTopology::TRIANGLE_STRIP);
+    pub const TRIANGLE_FAN: Self = Self(vk::PrimitiveTopology::TRIANGLE_FAN);
+    pub const TRIANGLE_LIST_WITH_ADJACENCY: Self =
+        Self(vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY);
+    pub const TRIANGLE_STRIP_WITH_ADJACENCY: Self =
+        Self(vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY);
+    pub const LINE_LIST: Self = Self(vk::PrimitiveTopology::LINE_LIST);
+    pub const LINE_LIST_WITH_ADJACENCY: Self =
+        Self(vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY);
+    pub const LINE_STRIP: Self = Self(vk::PrimitiveTopology::LINE_STRIP);
+    pub const LINE_STRIP_WITH_ADJACENCY: Self =
+        Self(vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY);
+    pub const PATCH_LIST: Self = Self(vk::PrimitiveTopology::PATCH_LIST);
+    pub const POINT_LIST: Self = Self(vk::PrimitiveTopology::POINT_LIST);
 }
 
-impl From<&ModelTopology> for vk::PrimitiveTopology {
-    fn from(topology: &ModelTopology) -> Self {
-        match topology {
-            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
-            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
-            ModelTopology::TriangleListWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
-            }
-            ModelTopology::TriangleStripWithAdjacency => {
-                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
-            }
-            ModelTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
-            ModelTopology::LineListWithAdjacency => vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY,
-            ModelTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
-            ModelTopology::LineStripWithADjacency => {
-                vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY
-            }
-            ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
-            ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
-            ModelTopology::Default => vk::PrimitiveTopology::default(),
-        }
-    }
-}
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ModelCullMode(pub(crate) vk::CullModeFlags);
 
-#[derive(Clone, Copy)]
-pub enum ModelCullMode {
-    Front,
-    Back,
-    FrontAndBack,
-    None,
-}
-
-impl From<&ModelCullMode> for vk::CullModeFlags {
-    fn from(cull_mode: &ModelCullMode) -> Self {
-        match cull_mode {
-            ModelCullMode::Front => vk::CullModeFlags::FRONT,
-            ModelCullMode::Back => vk::CullModeFlags::BACK,
-            ModelCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
-            ModelCullMode::None => vk::CullModeFlags::NONE,
-        }
-    }
+impl ModelCullMode {
+    pub const FRONT: Self = Self(vk::CullModeFlags::FRONT);
+    pub const BACK: Self = Self(vk::CullModeFlags::BACK);
+    pub const FRONT_AND_BACK: Self = Self(vk::CullModeFlags::FRONT_AND_BACK);
+    pub const NONE: Self = Self(vk::CullModeFlags::NONE);
 }
 
 fn copy_buffer(
@@ -143,22 +112,26 @@ where
 
 pub(crate) fn scale_from_origin(model: &mut [Vertex; 4], radius: f32) {
     model.iter_mut().for_each(|face| {
-        face.pos = face.pos.mul(radius);
+        face.pos.0 = face.pos.mul(radius);
     });
 }
 
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
-    let normal = normal(model[0].pos, model[1].pos, model[2].pos);
+    let normal = normal(
+        model[0].pos.into(),
+        model[1].pos.into(),
+        model[2].pos.into(),
+    );
 
     model.iter_mut().for_each(|point| {
         point.normal = normal;
     });
 }
 
-fn normal(p1: Vector3<f32>, p2: Vector3<f32>, p3: Vector3<f32>) -> Vector3<f32> {
+fn normal(p1: DirectionVec, p2: DirectionVec, p3: DirectionVec) -> DirectionVec {
     let a = p3.sub(p2);
     let b = p1.sub(p2);
-    a.cross(b)
+    DirectionVec(a.cross(*b))
 }
 
 pub(crate) fn make_point(
@@ -172,9 +145,9 @@ pub(crate) fn make_point(
     let pos_1 = angle.to_radians().sin() * radius;
     *angle += step;
 
-    let pos = Vector3::new(pos_0, pos_1, 0.);
+    let pos = Position(Point3::new(pos_0, pos_1, 0.));
 
-    Vertex::new(pos, WHITE, pos.mul(length), tex_coord)
+    Vertex::new(pos, WHITE, pos.mul(length).into(), tex_coord)
 }
 
 pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {

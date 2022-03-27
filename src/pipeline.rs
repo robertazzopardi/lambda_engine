@@ -10,7 +10,7 @@ use ash::vk;
 use memoffset::offset_of;
 use std::{ffi::CString, mem};
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub struct Descriptor {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub descriptor_pool: vk::DescriptorPool,
@@ -18,13 +18,13 @@ pub struct Descriptor {
     pub uniform_buffers: Vec<Buffer>,
 }
 
-#[derive(new, Clone)]
+#[derive(new, Clone, Default, Debug)]
 pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptor_set: Descriptor,
@@ -238,7 +238,7 @@ fn create_pipeline_and_layout(
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(properties.object_topology().into())
+        .topology(properties.object_topology().0)
         .primitive_restart_enable(false);
 
     let view_port = vk::Viewport::builder()
@@ -264,7 +264,7 @@ fn create_pipeline_and_layout(
         // .polygon_mode(vk::PolygonMode::LINE)
         // .polygon_mode(vk::PolygonMode::POINT)
         .line_width(1.)
-        .cull_mode(properties.object_cull_mode().into())
+        .cull_mode(properties.object_cull_mode().0)
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 

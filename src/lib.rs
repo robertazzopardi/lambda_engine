@@ -1,8 +1,8 @@
 extern crate ash;
-extern crate derive_builder;
 extern crate winit;
 #[macro_use]
 extern crate derive_new;
+extern crate derive_builder;
 
 pub mod camera;
 mod command;
@@ -104,7 +104,7 @@ impl Vulkan {
         let mut models = models;
 
         models.iter_mut().for_each(|property| {
-            property.build(
+            property.construct(
                 command_pool,
                 swap_chain_len,
                 &swap_chain,
