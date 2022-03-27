@@ -1,165 +1,47 @@
 use crate::{
-    shapes::{utility, DirectionVec, Object, Shape, Vertex, VerticesAndIndices, VEC3_ZERO, WHITE},
-    space::{Orientation, Position},
+    pos,
+    shapes::{utility, Object, Shape, Vertex, VerticesAndIndices, WHITE},
+    space::{Orientation, Position, VEC_ZERO},
+    vector2, vertex,
 };
 use cgmath::{Point3, Vector2};
 
 const CUBE_VERTICES: [[Vertex; 4]; 6] = [
     [
-        Vertex {
-            pos: Position(Point3::new(-0.5, -0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, -0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, 0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, 0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 1.),
-        },
+        vertex!(pos!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        Vertex {
-            pos: Position(Point3::new(-0.5, 0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, 0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, -0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, -0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 1.),
-        },
+        vertex!(pos!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        Vertex {
-            pos: Position(Point3::new(-0.5, 0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, 0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, -0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, -0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 1.),
-        },
+        vertex!(pos!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        Vertex {
-            pos: Position(Point3::new(0.5, -0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, -0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, 0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, 0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 1.),
-        },
+        vertex!(pos!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        Vertex {
-            pos: Position(Point3::new(0.5, 0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, 0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, 0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, 0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 1.),
-        },
+        vertex!(pos!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        Vertex {
-            pos: Position(Point3::new(0.5, -0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(0.5, -0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 0.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, -0.5, 0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(0., 1.),
-        },
-        Vertex {
-            pos: Position(Point3::new(-0.5, -0.5, -0.5)),
-            colour: WHITE,
-            normal: DirectionVec(VEC3_ZERO),
-            tex_coord: Vector2::new(1., 1.),
-        },
+        vertex!(pos!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
 ];
 
@@ -191,6 +73,6 @@ impl Object for Shape<Cube> {
 
         let vertices = cube.into_iter().flatten().collect::<Vec<Vertex>>();
 
-        self.vertices_and_indices = Some(VerticesAndIndices::new(vertices, CUBE_INDICES.to_vec()));
+        self.vertices_and_indices = VerticesAndIndices::new(vertices, CUBE_INDICES.to_vec());
     }
 }

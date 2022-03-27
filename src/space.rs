@@ -1,10 +1,44 @@
+use cgmath::{Point3, Rad, Vector3};
+use derive_more::{Deref, DerefMut, From, Neg, Sub};
 use std::ops::{AddAssign, SubAssign};
 
-use cgmath::{Point3, Rad, Vector3};
-use derive_more::{Deref, DerefMut, From, Neg};
+pub const VEC_ZERO: DirectionVec = DirectionVec(Vector3::new(0., 0., 0.));
+
+#[derive(Clone, Copy, Debug, Deref, DerefMut, Sub, From)]
+pub struct DirectionVec(pub(crate) Vector3<f32>);
+
+impl DirectionVec {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self(Vector3::new(x, y, z))
+    }
+}
+
+impl From<DirectionVec> for Position {
+    fn from(vec: DirectionVec) -> Self {
+        Position(Point3::new(vec.x, vec.y, vec.z))
+    }
+}
+
+impl From<Position> for DirectionVec {
+    fn from(pos: Position) -> Self {
+        DirectionVec(Vector3::new(pos.x, pos.y, pos.z))
+    }
+}
+
+impl From<Point3<f32>> for DirectionVec {
+    fn from(pos: Point3<f32>) -> Self {
+        DirectionVec(Vector3::new(pos.x, pos.y, pos.z))
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
 pub struct Position(pub(crate) Point3<f32>);
+
+impl Position {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self(Point3::new(x, y, z))
+    }
+}
 
 impl Default for Position {
     fn default() -> Self {
@@ -19,7 +53,13 @@ impl AddAssign<Vector3<f32>> for Position {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Deref, DerefMut, Neg)]
-pub struct Angle(pub Rad<f32>);
+pub struct Angle(pub(crate) Rad<f32>);
+
+impl Angle {
+    pub fn new(a: f32) -> Self {
+        Self(Rad(a))
+    }
+}
 
 impl Default for Angle {
     fn default() -> Self {

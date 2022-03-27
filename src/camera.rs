@@ -25,7 +25,7 @@ impl Camera {
             pos: Point3::new(x, y, z).into(),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
-            sensitivity: 0.5,
+            sensitivity: 0.9,
             speed: 0.5,
             scroll: 0.0,
             direction: space::LookDirection::default(),
@@ -34,7 +34,7 @@ impl Camera {
 
     pub fn calc_matrix(&self, _center: Point3<f32>) -> Matrix4<f32> {
         let space::Orientation { yaw, pitch, _roll } = self.orientation;
-        // Matrix4::look_at_rh(self.pos, center, Vector3::unit_z())
+        // Matrix4::look_at_rh(self.pos.0, center, Vector3::unit_z())
         Matrix4::look_to_rh(
             *self.pos,
             Vector3::new(yaw.cos(), pitch.sin(), yaw.sin()).normalize(),
@@ -121,9 +121,9 @@ impl Camera {
         // Keep the camera's angle from going too high/low.
         let angle = space::Angle(Rad(SAFE_FRAC_PI_2));
         if self.orientation.pitch < -angle {
-            self.orientation.pitch -= *angle;
+            self.orientation.pitch.0 = -angle.0;
         } else if self.orientation.pitch > angle {
-            self.orientation.pitch = angle;
+            self.orientation.pitch.0 = angle.0;
         }
     }
 }

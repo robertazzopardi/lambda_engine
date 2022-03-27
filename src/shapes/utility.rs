@@ -1,5 +1,12 @@
-use super::{Buffer, DirectionVec, Vertex, WHITE};
-use crate::{command, device::Devices, memory, space::Position, texture, utility::InstanceDevices};
+use super::{Buffer, Vertex, WHITE};
+use crate::{
+    command,
+    device::Devices,
+    memory,
+    space::{DirectionVec, Position},
+    texture,
+    utility::InstanceDevices,
+};
 use ash::vk;
 use cgmath::{Point3, Vector2};
 use std::ops::{Mul, Sub};
@@ -7,32 +14,32 @@ use std::ops::{Mul, Sub};
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ModelTopology(pub(crate) vk::PrimitiveTopology);
 
+type VkTop = vk::PrimitiveTopology;
+
 impl ModelTopology {
-    pub const TRIANGLE_LIST: Self = Self(vk::PrimitiveTopology::TRIANGLE_LIST);
-    pub const TRIANGLE_STRIP: Self = Self(vk::PrimitiveTopology::TRIANGLE_STRIP);
-    pub const TRIANGLE_FAN: Self = Self(vk::PrimitiveTopology::TRIANGLE_FAN);
-    pub const TRIANGLE_LIST_WITH_ADJACENCY: Self =
-        Self(vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY);
-    pub const TRIANGLE_STRIP_WITH_ADJACENCY: Self =
-        Self(vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY);
-    pub const LINE_LIST: Self = Self(vk::PrimitiveTopology::LINE_LIST);
-    pub const LINE_LIST_WITH_ADJACENCY: Self =
-        Self(vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY);
-    pub const LINE_STRIP: Self = Self(vk::PrimitiveTopology::LINE_STRIP);
-    pub const LINE_STRIP_WITH_ADJACENCY: Self =
-        Self(vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY);
-    pub const PATCH_LIST: Self = Self(vk::PrimitiveTopology::PATCH_LIST);
-    pub const POINT_LIST: Self = Self(vk::PrimitiveTopology::POINT_LIST);
+    pub const LINE_LIST: Self = Self(VkTop::LINE_LIST);
+    pub const LINE_LIST_WITH_ADJACENCY: Self = Self(VkTop::LINE_LIST_WITH_ADJACENCY);
+    pub const LINE_STRIP: Self = Self(VkTop::LINE_STRIP);
+    pub const LINE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::LINE_STRIP_WITH_ADJACENCY);
+    pub const PATCH_LIST: Self = Self(VkTop::PATCH_LIST);
+    pub const POINT_LIST: Self = Self(VkTop::POINT_LIST);
+    pub const TRIANGLE_FAN: Self = Self(VkTop::TRIANGLE_FAN);
+    pub const TRIANGLE_LIST: Self = Self(VkTop::TRIANGLE_LIST);
+    pub const TRIANGLE_LIST_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_LIST_WITH_ADJACENCY);
+    pub const TRIANGLE_STRIP: Self = Self(VkTop::TRIANGLE_STRIP);
+    pub const TRIANGLE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_STRIP_WITH_ADJACENCY);
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ModelCullMode(pub(crate) vk::CullModeFlags);
 
+type VkCull = vk::CullModeFlags;
+
 impl ModelCullMode {
-    pub const FRONT: Self = Self(vk::CullModeFlags::FRONT);
-    pub const BACK: Self = Self(vk::CullModeFlags::BACK);
-    pub const FRONT_AND_BACK: Self = Self(vk::CullModeFlags::FRONT_AND_BACK);
-    pub const NONE: Self = Self(vk::CullModeFlags::NONE);
+    pub const BACK: Self = Self(VkCull::BACK);
+    pub const FRONT: Self = Self(VkCull::FRONT);
+    pub const FRONT_AND_BACK: Self = Self(VkCull::FRONT_AND_BACK);
+    pub const NONE: Self = Self(VkCull::NONE);
 }
 
 fn copy_buffer(
@@ -116,6 +123,8 @@ pub(crate) fn scale_from_origin(model: &mut [Vertex; 4], radius: f32) {
     });
 }
 
+pub(crate) fn translate_from_origin(model: &mut [Vertex; 4], radius: f32) {}
+
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
     let normal = normal(
         model[0].pos.into(),
@@ -151,25 +160,26 @@ pub(crate) fn make_point(
 }
 
 pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {
-    let mut k1: u16;
-    let mut k2: u16;
+    let mut k1: u32;
+    let mut k2: u32;
 
     let mut indices: Vec<u16> = Vec::new();
+
     for i in 0..stack_count {
-        k1 = i as u16 * (sector_count + 1) as u16;
-        k2 = k1 + (stack_count + 1) as u16;
+        k1 = i * (sector_count + 1);
+        k2 = k1 + sector_count + 1;
 
         for _j in 0..sector_count {
             if i != 0 {
-                indices.push(k1);
-                indices.push(k2);
-                indices.push(k1 + 1);
+                indices.push(k1 as u16);
+                indices.push(k2 as u16);
+                indices.push(k1 as u16 + 1);
             }
 
             if i != (stack_count - 1) {
-                indices.push(k1 + 1);
-                indices.push(k2);
-                indices.push(k2 + 1);
+                indices.push(k1 as u16 + 1);
+                indices.push(k2 as u16);
+                indices.push(k2 as u16 + 1);
             }
 
             k1 += 1;

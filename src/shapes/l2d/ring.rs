@@ -43,9 +43,9 @@ impl Object for Shape<Ring> {
             ));
         }
 
-        self.vertices_and_indices = Some(VerticesAndIndices::new(
+        self.vertices_and_indices = VerticesAndIndices::new(
             vertices,
             utility::spherical_indices(self.properties.sector_count, 2),
-        ));
+        );
     }
 }

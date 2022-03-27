@@ -21,35 +21,37 @@ impl Object for Shape<Sphere> {
         let sector_step = 2. * std::f32::consts::PI / self.properties.sector_count as f32;
         let stack_step = std::f32::consts::PI / self.properties.stack_count as f32;
 
-        let mut pos = Position::default();
+        let pos = self.properties.position;
 
         let mut vertices = Vec::new();
 
         for i in 0..=self.properties.stack_count {
             let stack_angle = std::f32::consts::FRAC_PI_2 - i as f32 * stack_step;
             let xy = self.properties.radius * stack_angle.cos();
-            pos[2] = self.properties.radius * stack_angle.sin();
+
+            let mut vec =
+                Position::new(0., 0., (self.properties.radius * stack_angle.sin()) + pos.z);
 
             for j in 0..=self.properties.sector_count {
                 let sector_angle = j as f32 * sector_step;
 
-                pos[0] = xy * sector_angle.cos();
-                pos[1] = xy * sector_angle.sin();
+                vec.x = (xy * sector_angle.cos()) + pos.x;
+                vec.y = (xy * sector_angle.sin()) + pos.y;
 
-                let normal = pos.mul(length);
+                let normal = vec.mul(length);
 
                 let tex_coord = Vector2::new(
                     j as f32 / self.properties.sector_count as f32,
                     i as f32 / self.properties.stack_count as f32,
                 );
 
-                vertices.push(Vertex::new(pos, WHITE, normal.into(), tex_coord));
+                vertices.push(Vertex::new(vec, WHITE, normal.into(), tex_coord));
             }
         }
 
-        self.vertices_and_indices = Some(VerticesAndIndices::new(
+        self.vertices_and_indices = VerticesAndIndices::new(
             vertices,
             utility::spherical_indices(self.properties.sector_count, self.properties.stack_count),
-        ));
+        );
     }
 }

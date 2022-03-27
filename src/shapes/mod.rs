@@ -9,21 +9,22 @@ use self::{
 };
 use crate::{
     pipeline::GraphicsPipeline,
-    space::Position,
+    space::{DirectionVec, Position},
     swap_chain::SwapChain,
     texture::{self, Texture},
     utility::InstanceDevices,
 };
 use ash::vk;
-use cgmath::{Point3, Vector2, Vector3};
+use cgmath::{Vector2, Vector3};
 use derive_builder::Builder;
-use derive_more::{Deref, DerefMut, From, Sub};
+use derive_more::{Deref, DerefMut};
 use enum_as_inner::EnumAsInner;
 use std::mem::size_of;
 
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
-pub const POINT3_ZERO: Point3<f32> = Point3::new(0., 0., 0.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
+
+pub struct Compound;
 
 #[derive(Debug, EnumAsInner)]
 pub enum ShapeProperties {
@@ -42,7 +43,7 @@ pub struct Shape<T: Default> {
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
 
-    pub vertices_and_indices: Option<VerticesAndIndices>,
+    pub(crate) vertices_and_indices: VerticesAndIndices,
     pub(crate) texture: Option<Texture>,
     pub(crate) graphics_pipeline: Option<GraphicsPipeline>,
     pub(crate) buffers: Option<ModelBuffers>,
@@ -90,7 +91,7 @@ where
     }
 
     fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
-        self.vertices_and_indices.as_ref().unwrap()
+        &self.vertices_and_indices
     }
 
     fn is_indexed(&self) -> bool {
@@ -393,25 +394,30 @@ impl VerticesAndIndices {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deref, DerefMut, Sub, From)]
-pub struct DirectionVec(Vector3<f32>);
-
-impl From<DirectionVec> for Position {
-    fn from(vec: DirectionVec) -> Self {
-        Position(Point3::new(vec.x, vec.y, vec.z))
-    }
+#[macro_export]
+macro_rules! vector2 {
+    ($a:expr, $b:expr) => {
+        Vector2::new($a, $b)
+    };
 }
 
-impl From<Position> for DirectionVec {
-    fn from(pos: Position) -> Self {
-        DirectionVec(Vector3::new(pos.x, pos.y, pos.z))
-    }
+#[macro_export]
+macro_rules! pos {
+    ($a1:expr, $a2:expr, $a3:expr) => {
+        Position(Point3::new($a1, $a2, $a3))
+    };
 }
 
-impl From<Point3<f32>> for DirectionVec {
-    fn from(pos: Point3<f32>) -> Self {
-        DirectionVec(Vector3::new(pos.x, pos.y, pos.z))
-    }
+#[macro_export]
+macro_rules! vertex {
+    ($pos:expr, $col:expr, $norm:expr, $tex:expr) => {
+        Vertex {
+            pos: $pos,
+            colour: $col,
+            normal: $norm,
+            tex_coord: $tex,
+        }
+    };
 }
 
 #[derive(Clone, Copy, Debug, new)]

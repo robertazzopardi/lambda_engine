@@ -23,8 +23,8 @@ fn main() {
     // let cube: Shape<Cube> = ObjectBuilder::default()
     //     .properties(Cube::new(Position::default(), Orientation::default(), 3.))
     //     .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
-    //     .topology(ModelTopology::TriangleList)
-    //     .cull_mode(ModelCullMode::Back)
+    //     .topology(ModelTopology::TRIANGLE_LIST)
+    //     .cull_mode(ModelCullMode::BACK)
     //     .indexed(true)
     //     .build()
     //     .unwrap();
@@ -34,8 +34,8 @@ fn main() {
             Position::default(),
             Orientation::default(),
             0.4,
-            20,
-            20,
+            50,
+            50,
         ))
         .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
         .topology(ModelTopology::TRIANGLE_LIST)
@@ -50,7 +50,7 @@ fn main() {
             Orientation::default(),
             0.5,
             1.,
-            40,
+            50,
         ))
         .texture_buffer(Some(
             include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
@@ -60,7 +60,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let objects: Vec<Box<dyn Object>> = vec![Box::new(ring), Box::new(sphere)];
+    let objects: Vec<Box<dyn Object>> = vec![Box::new(sphere), Box::new(ring)];
 
     let debugging = Some(DebugMessageProperties::new(
         MessageLevel::builder().error().verbose().warning(),

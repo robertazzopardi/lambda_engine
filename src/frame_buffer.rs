@@ -1,6 +1,5 @@
+use crate::{resource::Resources, swap_chain::SwapChain};
 use ash::{vk, Device};
-
-use crate::{swap_chain::SwapChain, resource::Resources};
 
 pub(crate) fn create_frame_buffers(
     swap_chain: &SwapChain,
