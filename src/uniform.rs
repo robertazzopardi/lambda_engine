@@ -27,7 +27,7 @@ impl UniformBufferObject {
         self.view = camera.calc_matrix(Point3::new(0., 0., 0.));
 
         self.proj = {
-            let mut p = cgmath::perspective(Deg(45.), aspect, 0.1, 100.);
+            let mut p = cgmath::perspective(Deg(45.), aspect, 0.00001, 100.);
             p[1][1] *= -1.;
             p
         };

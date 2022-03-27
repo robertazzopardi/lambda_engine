@@ -187,18 +187,16 @@ fn create_pipeline_and_layout(
     );
 
     let shader_stages = [
-        vk::PipelineShaderStageCreateInfo {
-            stage: vk::ShaderStageFlags::VERTEX,
-            module: vert_shader_module,
-            p_name: entry_point.as_ptr(),
-            ..Default::default()
-        },
-        vk::PipelineShaderStageCreateInfo {
-            stage: vk::ShaderStageFlags::FRAGMENT,
-            module: frag_shader_module,
-            p_name: entry_point.as_ptr(),
-            ..Default::default()
-        },
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::VERTEX)
+            .module(vert_shader_module)
+            .name(&entry_point)
+            .build(),
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::FRAGMENT)
+            .module(frag_shader_module)
+            .name(&entry_point)
+            .build(),
     ];
 
     let binding_description = vk::VertexInputBindingDescription::builder()
@@ -293,8 +291,8 @@ fn create_pipeline_and_layout(
         .stencil_test_enable(false)
         .front(stencil_state)
         .back(stencil_state)
-        .min_depth_bounds(0.0)
-        .max_depth_bounds(1.0);
+        .min_depth_bounds(0.)
+        .max_depth_bounds(1.);
 
     let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
         .color_write_mask(
