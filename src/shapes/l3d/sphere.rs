@@ -1,13 +1,14 @@
 use crate::{
     shapes::{utility, Object, Shape, Vertex, VerticesAndIndices, WHITE},
-    space::{Orientation, Position},
+    space::{Coordinate3d, Orientation},
+    vertex,
 };
 use cgmath::Vector2;
 use std::ops::Mul;
 
 #[derive(Default, Debug, Clone, Copy, new)]
 pub struct Sphere {
-    pub position: Position,
+    pub position: Coordinate3d,
     pub orientation: Orientation,
     pub radius: f32,
     pub sector_count: u32,
@@ -30,7 +31,7 @@ impl Object for Shape<Sphere> {
             let xy = self.properties.radius * stack_angle.cos();
 
             let mut vec =
-                Position::new(0., 0., (self.properties.radius * stack_angle.sin()) + pos.z);
+                Coordinate3d::new(0., 0., (self.properties.radius * stack_angle.sin()) + pos.z);
 
             for j in 0..=self.properties.sector_count {
                 let sector_angle = j as f32 * sector_step;
@@ -45,7 +46,7 @@ impl Object for Shape<Sphere> {
                     i as f32 / self.properties.stack_count as f32,
                 );
 
-                vertices.push(Vertex::new(vec, WHITE, normal.into(), tex_coord));
+                vertices.push(vertex!(vec, WHITE, normal.into(), tex_coord));
             }
         }
 

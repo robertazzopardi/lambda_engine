@@ -1,5 +1,5 @@
 use crate::{
-    command, memory,
+    command_buffer, memory,
     shapes::Buffer,
     utility::{self, Image, ImageInfo, InstanceDevices},
     Devices,
@@ -210,7 +210,7 @@ fn transition_image_layout(
     Point2 { x, y }: Point2<vk::ImageLayout>,
     mip_levels: u32,
 ) {
-    let command_buffer = command::begin_single_time_command(device, command_pool);
+    let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
 
     let src_access_mask;
     let dst_access_mask;
@@ -266,7 +266,7 @@ fn transition_image_layout(
         );
     }
 
-    command::end_single_time_command(device, submit_queue, command_pool, command_buffer);
+    command_buffer::end_single_time_command(device, submit_queue, command_pool, command_buffer);
 }
 
 fn copy_buffer_to_image(
@@ -276,7 +276,7 @@ fn copy_buffer_to_image(
     src_buffer: vk::Buffer,
     dst_image: vk::Image,
 ) {
-    let command_buffer = command::begin_single_time_command(&devices.logical.device, command_pool);
+    let command_buffer = command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
 
     let image_sub_resource = vk::ImageSubresourceLayers::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -308,7 +308,7 @@ fn copy_buffer_to_image(
         )
     }
 
-    command::end_single_time_command(
+    command_buffer::end_single_time_command(
         &devices.logical.device,
         devices.logical.graphics,
         command_pool,
@@ -333,7 +333,7 @@ fn generate_mip_maps(
         panic!("Texture image format does not support linear bilitting!");
     }
 
-    let command_buffer = command::begin_single_time_command(&devices.logical.device, command_pool);
+    let command_buffer = command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
 
     let mut image_barrier = vk::ImageMemoryBarrier::builder()
         .image(image)
@@ -441,7 +441,7 @@ fn generate_mip_maps(
         );
     }
 
-    command::end_single_time_command(
+    command_buffer::end_single_time_command(
         &devices.logical.device,
         devices.logical.graphics,
         command_pool,

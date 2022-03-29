@@ -1,5 +1,8 @@
 use crate::{
-    shapes::{Buffer, Object, Vertex},
+    shapes::{
+        utility::{ModelCullMode, ModelTopology},
+        Buffer, Vertex,
+    },
     swap_chain::SwapChain,
     texture::{self, Texture},
     uniform::UniformBufferObject,
@@ -35,7 +38,8 @@ impl GraphicsPipeline {
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
         texture: &Texture,
-        properties: &impl Object,
+        topology: ModelTopology,
+        cull_mode: ModelCullMode,
         instance_devices: &InstanceDevices,
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
@@ -47,7 +51,8 @@ impl GraphicsPipeline {
             swap_chain,
             &descriptor_set_layout,
             render_pass,
-            properties,
+            topology,
+            cull_mode,
         );
 
         let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
@@ -171,8 +176,8 @@ fn create_pipeline_and_layout(
     swap_chain: &SwapChain,
     descriptor_set_layout: &vk::DescriptorSetLayout,
     render_pass: vk::RenderPass,
-    // properties: ModelProperties,
-    properties: &impl Object,
+    topology: ModelTopology,
+    cull_mode: ModelCullMode,
 ) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 
@@ -236,7 +241,7 @@ fn create_pipeline_and_layout(
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(properties.object_topology().0)
+        .topology(topology.0)
         .primitive_restart_enable(false);
 
     let view_port = vk::Viewport::builder()
@@ -262,7 +267,7 @@ fn create_pipeline_and_layout(
         // .polygon_mode(vk::PolygonMode::LINE)
         // .polygon_mode(vk::PolygonMode::POINT)
         .line_width(1.)
-        .cull_mode(properties.object_cull_mode().0)
+        .cull_mode(cull_mode.0)
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 

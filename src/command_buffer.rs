@@ -1,10 +1,17 @@
-use crate::{device, shapes::Object, swap_chain::SwapChain, utility::InstanceDevices, Devices};
+use crate::{
+    device, frame_buffer::FrameBuffers, shapes::Object, swap_chain::SwapChain,
+    utility::InstanceDevices, Devices,
+};
 use ash::{extensions::khr::Surface, vk};
+use derive_more::{Deref, From};
 use std::ptr;
 
-#[derive(new)]
+#[derive(new, Debug, From, Deref)]
+pub struct CommandBuffers(Vec<vk::CommandBuffer>);
+
+#[derive(new, Debug)]
 pub(crate) struct VkCommander {
-    pub buffers: Vec<vk::CommandBuffer>,
+    pub buffers: CommandBuffers,
     pub pool: vk::CommandPool,
 }
 
@@ -35,9 +42,9 @@ pub(crate) fn create_command_buffers(
     swap_chain: &SwapChain,
     devices: &Devices,
     render_pass: vk::RenderPass,
-    frame_buffers: &[vk::Framebuffer],
+    frame_buffers: &FrameBuffers,
     models: &[Box<dyn Object>],
-) -> Vec<vk::CommandBuffer> {
+) -> CommandBuffers {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
         .command_buffer_count(swap_chain.images.len() as u32)
@@ -139,7 +146,7 @@ pub(crate) fn create_command_buffers(
         }
     }
 
-    command_buffers
+    command_buffers.into()
 }
 
 pub fn begin_single_time_command(

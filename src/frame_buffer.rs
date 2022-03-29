@@ -1,12 +1,16 @@
 use crate::{resource::Resources, swap_chain::SwapChain};
 use ash::{vk, Device};
+use derive_more::{From, Deref};
+
+#[derive(new, Debug, From, Deref)]
+pub struct FrameBuffers(pub(crate) Vec<vk::Framebuffer>);
 
 pub(crate) fn create_frame_buffers(
     swap_chain: &SwapChain,
     render_pass: vk::RenderPass,
     device: &Device,
     resources: &Resources,
-) -> Vec<vk::Framebuffer> {
+) -> FrameBuffers {
     let mut frame_buffers = Vec::new();
 
     for i in 0..swap_chain.images.len() {
@@ -32,5 +36,5 @@ pub(crate) fn create_frame_buffers(
         }
     }
 
-    frame_buffers
+    frame_buffers.into()
 }

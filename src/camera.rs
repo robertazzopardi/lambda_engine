@@ -1,4 +1,4 @@
-use crate::space::{self, Position};
+use crate::space::{self, Coordinate3d};
 use cgmath::{Angle, InnerSpace, Matrix4, Point3, Rad, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
@@ -10,7 +10,7 @@ const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 #[derive(PartialEq, Debug)]
 pub struct Camera {
-    pub pos: Position,
+    pub pos: Coordinate3d,
     rotation: space::Rotation,
     orientation: space::Orientation,
     sensitivity: f32,

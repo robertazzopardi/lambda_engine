@@ -1,9 +1,8 @@
-use std::ffi::CString;
-
 use ash::{
     extensions::khr::{Surface, Swapchain},
     vk, Device, Instance,
 };
+use std::ffi::CString;
 
 #[derive(new)]
 pub struct PhysicalDeviceProperties {

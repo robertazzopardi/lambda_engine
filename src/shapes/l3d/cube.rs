@@ -1,7 +1,7 @@
 use crate::{
     pos,
     shapes::{utility, Object, Shape, Vertex, VerticesAndIndices, WHITE},
-    space::{Orientation, Position, VEC_ZERO},
+    space::{Coordinate3d, Orientation, VEC_ZERO},
     vector2, vertex,
 };
 use cgmath::{Point3, Vector2};
@@ -56,7 +56,7 @@ const CUBE_INDICES: [u16; 36] = [
 
 #[derive(Default, Debug, Clone, new)]
 pub struct Cube {
-    pub position: Position,
+    pub position: Coordinate3d,
     pub orientation: Orientation,
     pub radius: f32,
 }
@@ -65,13 +65,12 @@ impl Object for Shape<Cube> {
     fn vertices_and_indices(&mut self) {
         let mut cube = CUBE_VERTICES;
 
-        cube.map(|_| utility::calculate_normals);
+        cube.iter_mut().for_each(|face| {
+            utility::calculate_normals(face);
+            utility::scale(face, self.properties.radius);
+        });
 
-        for face in cube.iter_mut() {
-            utility::scale_from_origin(face, self.properties.radius);
-        }
-
-        let vertices = cube.into_iter().flatten().collect::<Vec<Vertex>>();
+        let vertices = cube.into_iter().flatten().collect();
 
         self.vertices_and_indices = VerticesAndIndices::new(vertices, CUBE_INDICES.to_vec());
     }

@@ -1,14 +1,14 @@
 use super::{Buffer, Vertex, WHITE};
 use crate::{
-    command,
+    command_buffer,
     device::Devices,
     memory,
-    space::{DirectionVec, Position},
+    space::{Coordinate3d, DirectionVector},
     texture,
     utility::InstanceDevices,
 };
 use ash::vk;
-use cgmath::{Point3, Vector2};
+use cgmath::Vector2;
 use std::ops::{Mul, Sub};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -50,7 +50,8 @@ fn copy_buffer(
     src_buffer: vk::Buffer,
     dst_buffer: vk::Buffer,
 ) {
-    let command_buffer = command::begin_single_time_command(&devices.logical.device, command_pool);
+    let command_buffer =
+        command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
 
     let copy_region = vk::BufferCopy::builder().size(size);
 
@@ -63,7 +64,7 @@ fn copy_buffer(
         );
     }
 
-    command::end_single_time_command(
+    command_buffer::end_single_time_command(
         &devices.logical.device,
         devices.logical.graphics,
         command_pool,
@@ -117,13 +118,13 @@ where
     buffer
 }
 
-pub(crate) fn scale_from_origin(model: &mut [Vertex; 4], radius: f32) {
+pub(crate) fn scale(model: &mut [Vertex; 4], radius: f32) {
     model.iter_mut().for_each(|face| {
         face.pos.0 = face.pos.mul(radius);
     });
 }
 
-pub(crate) fn translate_from_origin(model: &mut [Vertex; 4], radius: f32) {}
+pub(crate) fn translate(model: &mut [Vertex; 4], radius: f32) {}
 
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
     let normal = normal(
@@ -137,10 +138,10 @@ pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
     });
 }
 
-fn normal(p1: DirectionVec, p2: DirectionVec, p3: DirectionVec) -> DirectionVec {
+fn normal(p1: DirectionVector, p2: DirectionVector, p3: DirectionVector) -> DirectionVector {
     let a = p3.sub(p2);
     let b = p1.sub(p2);
-    DirectionVec(a.cross(*b))
+    DirectionVector(a.cross(*b))
 }
 
 pub(crate) fn make_point(
@@ -149,12 +150,14 @@ pub(crate) fn make_point(
     step: f32,
     length: f32,
     tex_coord: Vector2<f32>,
+    pos: &Coordinate3d,
 ) -> Vertex {
-    let pos_0 = angle.to_radians().cos() * radius;
-    let pos_1 = angle.to_radians().sin() * radius;
+    let x = (angle.to_radians().cos() * radius) + pos.x;
+    let y = (angle.to_radians().sin() * radius) + pos.y;
+
     *angle += step;
 
-    let pos = Position(Point3::new(pos_0, pos_1, 0.));
+    let pos = Coordinate3d::new(x, y, pos.z);
 
     Vertex::new(pos, WHITE, pos.mul(length).into(), tex_coord)
 }
@@ -163,7 +166,7 @@ pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16>
     let mut k1: u32;
     let mut k2: u32;
 
-    let mut indices: Vec<u16> = Vec::new();
+    let mut indices = Vec::new();
 
     for i in 0..stack_count {
         k1 = i * (sector_count + 1);

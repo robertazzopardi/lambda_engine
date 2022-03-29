@@ -1,12 +1,12 @@
 use crate::{
     shapes::{utility, Object, Shape, VerticesAndIndices},
-    space::{Orientation, Position},
+    space::{Coordinate3d, Orientation},
 };
 use cgmath::{Vector2, Zero};
 
 #[derive(Default, Debug, Clone, new)]
 pub struct Ring {
-    pub position: Position,
+    pub position: Coordinate3d,
     pub orientation: Orientation,
     pub inner_radius: f32,
     pub outer_radius: f32,
@@ -24,6 +24,8 @@ impl Object for Shape<Ring> {
         let angle_step = 180. / self.properties.sector_count as f32;
         let length = 1.;
 
+        let pos = self.properties.position;
+
         let mut vertices = Vec::new();
 
         for _ in 0..=self.properties.sector_count {
@@ -33,6 +35,7 @@ impl Object for Shape<Ring> {
                 angle_step,
                 length,
                 Vector2::zero(),
+                &pos,
             ));
             vertices.push(utility::make_point(
                 &mut angle,
@@ -40,6 +43,7 @@ impl Object for Shape<Ring> {
                 angle_step,
                 length,
                 Vector2::new(1., 1.),
+                &pos,
             ));
         }
 

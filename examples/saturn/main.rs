@@ -6,11 +6,11 @@ use lambda_engine::{
     display::Display,
     shapes::{
         l2d::ring::Ring,
-        l3d::sphere::Sphere,
+        l3d::{cube::Cube, sphere::Sphere},
         utility::{ModelCullMode, ModelTopology},
         Object, ObjectBuilder, Shape,
     },
-    space::{Orientation, Position},
+    space::{Coordinate3d, Orientation},
     time::Time,
     Vulkan,
 };
@@ -20,18 +20,22 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    // let cube: Shape<Cube> = ObjectBuilder::default()
-    //     .properties(Cube::new(Position::default(), Orientation::default(), 3.))
-    //     .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
-    //     .topology(ModelTopology::TRIANGLE_LIST)
-    //     .cull_mode(ModelCullMode::BACK)
-    //     .indexed(true)
-    //     .build()
-    //     .unwrap();
+    let cube: Shape<Cube> = ObjectBuilder::default()
+        .properties(Cube::new(
+            Coordinate3d::default(),
+            Orientation::default(),
+            3.,
+        ))
+        .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+        .topology(ModelTopology::TRIANGLE_LIST)
+        .cull_mode(ModelCullMode::BACK)
+        .indexed(true)
+        .build()
+        .unwrap();
 
     let sphere: Shape<Sphere> = ObjectBuilder::default()
         .properties(Sphere::new(
-            Position::default(),
+            Coordinate3d::new(2.5, 1., 5.5),
             Orientation::default(),
             0.4,
             50,
@@ -46,7 +50,7 @@ fn main() {
 
     let ring: Shape<Ring> = ObjectBuilder::default()
         .properties(Ring::new(
-            Position::default(),
+            Coordinate3d::new(2.5, 1., 5.5),
             Orientation::default(),
             0.5,
             1.,

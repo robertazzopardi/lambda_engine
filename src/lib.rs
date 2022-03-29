@@ -5,7 +5,7 @@ extern crate derive_new;
 extern crate derive_builder;
 
 pub mod camera;
-mod command;
+mod command_buffer;
 pub mod debug;
 mod device;
 pub mod display;
@@ -29,10 +29,11 @@ use ash::{
     Instance,
 };
 use camera::Camera;
-use command::VkCommander;
+use command_buffer::VkCommander;
 use debug::{Debug, DebugMessageProperties};
 use device::Devices;
 use display::Display;
+use frame_buffer::FrameBuffers;
 use resource::Resources;
 use shapes::Object;
 use std::ptr;
@@ -48,7 +49,7 @@ pub struct Vulkan {
     current_frame: usize,
     debugger: Option<Debug>,
     devices: Devices,
-    frame_buffers: Vec<vk::Framebuffer>,
+    frame_buffers: FrameBuffers,
     instance: Instance,
     is_frame_buffer_resized: bool,
     models: Vec<Box<dyn Object>>,
@@ -95,7 +96,7 @@ impl Vulkan {
         );
 
         let command_pool =
-            command::create_command_pool(&instance_devices, &surface_loader, &surface);
+            command_buffer::create_command_pool(&instance_devices, &surface_loader, &surface);
 
         let sync_objects = SyncObjects::new(&devices.logical.device);
 
@@ -113,7 +114,7 @@ impl Vulkan {
             )
         });
 
-        let command_buffers = command::create_command_buffers(
+        let command_buffers = command_buffer::create_command_buffers(
             command_pool,
             &swap_chain,
             &devices,
@@ -184,7 +185,7 @@ impl Vulkan {
             model.graphics_pipeline(&self.swap_chain, self.render_pass, &instance_devices)
         });
 
-        self.commander.buffers = command::create_command_buffers(
+        self.commander.buffers = command_buffer::create_command_buffers(
             self.commander.pool,
             &self.swap_chain,
             &self.devices,

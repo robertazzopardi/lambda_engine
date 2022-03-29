@@ -9,7 +9,7 @@ use self::{
 };
 use crate::{
     pipeline::GraphicsPipeline,
-    space::{DirectionVec, Position},
+    space::{Coordinate3d, DirectionVector},
     swap_chain::SwapChain,
     texture::{self, Texture},
     utility::InstanceDevices,
@@ -24,7 +24,11 @@ use std::mem::size_of;
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
-pub struct Compound;
+#[derive(Default, Builder, Debug, Clone)]
+pub struct Compound<T: Default> {
+    base: Shape<T>,
+    child: Vec<Shape<T>>,
+}
 
 #[derive(Debug, EnumAsInner)]
 pub enum ShapeProperties {
@@ -70,14 +74,6 @@ where
         }
     }
 
-    fn object_topology(&self) -> &ModelTopology {
-        &self.topology
-    }
-
-    fn object_cull_mode(&self) -> &ModelCullMode {
-        &self.cull_mode
-    }
-
     fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
         self.graphics_pipeline.as_ref().unwrap()
     }
@@ -107,12 +103,15 @@ where
         self.graphics_pipeline = Some(GraphicsPipeline::new(
             swap_chain,
             render_pass,
-            self.object_texture(),
-            self,
+            &self.texture.unwrap(),
+            self.topology,
+            self.cull_mode,
             instance_devices,
         ));
     }
 }
+
+impl<T: Default> Shape<T> {}
 
 pub trait Object: private::Object {
     fn vertices_and_indices(&mut self);
@@ -142,10 +141,7 @@ pub trait Object: private::Object {
 }
 
 pub(crate) mod private {
-    use super::{
-        utility::{ModelCullMode, ModelTopology},
-        ModelBuffers, VerticesAndIndices,
-    };
+    use super::{ModelBuffers, VerticesAndIndices};
     use crate::{
         device::{Devices, LogicalDeviceFeatures},
         memory,
@@ -161,12 +157,6 @@ pub(crate) mod private {
         fn buffers(&mut self, model_buffers: ModelBuffers);
         fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices);
 
-        fn object_topology(&self) -> &ModelTopology {
-            unimplemented!()
-        }
-        fn object_cull_mode(&self) -> &ModelCullMode {
-            unimplemented!()
-        }
         fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
             unimplemented!()
         }
@@ -404,7 +394,7 @@ macro_rules! vector2 {
 #[macro_export]
 macro_rules! pos {
     ($a1:expr, $a2:expr, $a3:expr) => {
-        Position(Point3::new($a1, $a2, $a3))
+        Coordinate3d(Point3::new($a1, $a2, $a3))
     };
 }
 
@@ -422,9 +412,9 @@ macro_rules! vertex {
 
 #[derive(Clone, Copy, Debug, new)]
 pub struct Vertex {
-    pub pos: Position,
+    pub pos: Coordinate3d,
     pub colour: Vector3<f32>,
-    pub normal: DirectionVec,
+    pub normal: DirectionVector,
     pub tex_coord: Vector2<f32>,
 }
 
