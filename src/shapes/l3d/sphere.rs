@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{utility, Object, Shape, Vertex, VerticesAndIndices, WHITE},
+    shapes::{utility, Object, Shape, VerticesAndIndices, WHITE},
     space::{Coordinate3d, Orientation},
     vertex,
 };
@@ -53,7 +53,7 @@ impl Object for Sphere<'_> {
         }
 
         self.vertices_and_indices = VerticesAndIndices::new(
-            vertices,
+            vertices.into(),
             utility::spherical_indices(self.properties.sector_count, self.properties.stack_count),
         );
     }

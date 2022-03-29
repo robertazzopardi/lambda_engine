@@ -50,7 +50,7 @@ impl Object for Ring<'_> {
         }
 
         self.vertices_and_indices = VerticesAndIndices::new(
-            vertices,
+            vertices.into(),
             utility::spherical_indices(self.properties.sector_count, 2),
         );
     }

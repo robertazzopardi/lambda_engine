@@ -1,6 +1,5 @@
 use cgmath::{Point2, Point3, Rad, Vector3};
 use derive_more::{Deref, DerefMut, From, Neg, Sub};
-use std::ops::{AddAssign, SubAssign};
 
 pub const VEC_ZERO: DirectionVector = DirectionVector(Vector3::new(0., 0., 0.));
 
@@ -40,6 +39,12 @@ impl Coordinate2d {
     }
 }
 
+impl Default for Coordinate2d {
+    fn default() -> Self {
+        Self::new(0., 0.)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
 pub struct Coordinate3d(pub(crate) Point3<f32>);
 
@@ -55,7 +60,7 @@ impl Default for Coordinate3d {
     }
 }
 
-impl AddAssign<Vector3<f32>> for Coordinate3d {
+impl std::ops::AddAssign<Vector3<f32>> for Coordinate3d {
     fn add_assign(&mut self, rhs: Vector3<f32>) {
         self.0 += rhs
     }
@@ -70,13 +75,13 @@ impl Default for Angle {
     }
 }
 
-impl AddAssign<Rad<f32>> for Angle {
+impl std::ops::AddAssign<Rad<f32>> for Angle {
     fn add_assign(&mut self, rhs: Rad<f32>) {
         self.0 += rhs
     }
 }
 
-impl SubAssign<Rad<f32>> for Angle {
+impl std::ops::SubAssign<Rad<f32>> for Angle {
     fn sub_assign(&mut self, rhs: Rad<f32>) {
         self.0 -= rhs
     }
@@ -89,13 +94,13 @@ pub struct Orientation {
     pub _roll: Angle,
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct Rotation {
     pub horizontal: f32,
     pub vertical: f32,
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct LookDirection {
     pub left: f32,
     pub right: f32,

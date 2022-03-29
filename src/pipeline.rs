@@ -266,6 +266,7 @@ fn create_pipeline_and_layout(
         .polygon_mode(vk::PolygonMode::FILL)
         // .polygon_mode(vk::PolygonMode::LINE)
         // .polygon_mode(vk::PolygonMode::POINT)
+        // .polygon_mode(vk::PolygonMode::FILL_RECTANGLE_NV)
         .line_width(1.)
         .cull_mode(cull_mode.0)
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)

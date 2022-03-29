@@ -1,4 +1,4 @@
-use super::{Buffer, Vertex, WHITE};
+use super::{Buffer, Indices, Vertex, WHITE};
 use crate::{
     command_buffer,
     device::Devices,
@@ -66,7 +66,7 @@ fn copy_buffer(
 
     command_buffer::end_single_time_command(
         &devices.logical.device,
-        devices.logical.graphics,
+        devices.logical.queues.graphics,
         command_pool,
         command_buffer,
     );
@@ -124,8 +124,6 @@ pub(crate) fn scale(model: &mut [Vertex; 4], radius: f32) {
     });
 }
 
-pub(crate) fn translate(model: &mut [Vertex; 4], radius: f32) {}
-
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
     let normal = normal(
         model[0].pos.into(),
@@ -162,7 +160,7 @@ pub(crate) fn make_point(
     Vertex::new(pos, WHITE, pos.mul(length).into(), tex_coord)
 }
 
-pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16> {
+pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Indices {
     let mut k1: u32;
     let mut k2: u32;
 
@@ -190,5 +188,5 @@ pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Vec<u16>
         }
     }
 
-    indices
+    indices.into()
 }

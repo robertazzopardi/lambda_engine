@@ -120,7 +120,7 @@ fn create_texture_image(
     transition_image_layout(
         &devices.logical.device,
         command_pool,
-        devices.logical.graphics,
+        devices.logical.queues.graphics,
         image.image,
         Point2 {
             x: vk::ImageLayout::UNDEFINED,
@@ -276,7 +276,8 @@ fn copy_buffer_to_image(
     src_buffer: vk::Buffer,
     dst_image: vk::Image,
 ) {
-    let command_buffer = command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
+    let command_buffer =
+        command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
 
     let image_sub_resource = vk::ImageSubresourceLayers::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -310,7 +311,7 @@ fn copy_buffer_to_image(
 
     command_buffer::end_single_time_command(
         &devices.logical.device,
-        devices.logical.graphics,
+        devices.logical.queues.graphics,
         command_pool,
         command_buffer,
     );
@@ -333,7 +334,8 @@ fn generate_mip_maps(
         panic!("Texture image format does not support linear bilitting!");
     }
 
-    let command_buffer = command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
+    let command_buffer =
+        command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
 
     let mut image_barrier = vk::ImageMemoryBarrier::builder()
         .image(image)
@@ -443,7 +445,7 @@ fn generate_mip_maps(
 
     command_buffer::end_single_time_command(
         &devices.logical.device,
-        devices.logical.graphics,
+        devices.logical.queues.graphics,
         command_pool,
         command_buffer,
     );

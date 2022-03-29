@@ -4,18 +4,23 @@ use ash::{
 };
 use std::ffi::CString;
 
-#[derive(new)]
+#[derive(new, Clone, Copy, Debug)]
 pub struct PhysicalDeviceProperties {
     pub device: vk::PhysicalDevice,
     pub queue_family_index: u32,
     pub samples: vk::SampleCountFlags,
 }
 
-#[derive(new)]
-pub struct LogicalDeviceFeatures {
-    pub device: Device,
+#[derive(Clone, Copy, Debug, new)]
+pub struct Queues {
     pub present: vk::Queue,
     pub graphics: vk::Queue,
+}
+
+#[derive(new, Clone)]
+pub struct LogicalDeviceFeatures {
+    pub device: Device,
+    pub queues: Queues,
 }
 
 #[derive(Default)]
@@ -139,7 +144,7 @@ fn create_logical_device(
         let present_queue =
             logical_device.get_device_queue(queue_family.present_family.unwrap(), 0);
 
-        LogicalDeviceFeatures::new(logical_device, present_queue, graphics_queue)
+        LogicalDeviceFeatures::new(logical_device, Queues::new(present_queue, graphics_queue))
     }
 }
 

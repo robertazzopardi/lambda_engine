@@ -8,7 +8,7 @@ use winit::{
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Camera {
     pub pos: Coordinate3d,
     rotation: space::Rotation,

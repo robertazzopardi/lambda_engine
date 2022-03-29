@@ -340,7 +340,7 @@ impl Vulkan {
             .logical
             .device
             .queue_submit(
-                self.devices.logical.present,
+                self.devices.logical.queues.present,
                 &submit_infos,
                 self.sync_objects.in_flight_fences[self.current_frame],
             )
@@ -360,7 +360,7 @@ impl Vulkan {
         let result = self
             .swap_chain
             .loader
-            .queue_present(self.devices.logical.present, &present_info);
+            .queue_present(self.devices.logical.queues.present, &present_info);
 
         let is_resized = match result {
             Ok(_) => self.is_frame_buffer_resized,

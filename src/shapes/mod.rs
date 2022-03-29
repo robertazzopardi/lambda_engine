@@ -1,9 +1,10 @@
 pub mod l2d;
 pub mod l3d;
+pub mod macros;
 pub mod utility;
 
 use self::{
-    l2d::ring::RingInfo,
+    l2d::{ring::RingInfo, square::SquareInfo},
     l3d::{cube::CubeInfo, sphere::SphereInfo},
     utility::{ModelCullMode, ModelTopology},
 };
@@ -17,7 +18,7 @@ use crate::{
 use ash::vk;
 use cgmath::{Vector2, Vector3};
 use derive_builder::Builder;
-use derive_more::{Deref, DerefMut};
+use derive_more::{Deref, DerefMut, From};
 use enum_as_inner::EnumAsInner;
 use std::mem::size_of;
 
@@ -35,6 +36,7 @@ pub enum ShapeProperties {
     Cube(CubeInfo),
     Sphere(SphereInfo),
     Ring(RingInfo),
+    Square(SquareInfo),
 }
 
 #[derive(Default, Builder, Debug, Clone)]
@@ -347,10 +349,16 @@ pub(crate) mod private {
     }
 }
 
+#[derive(new, Clone, Default, Debug, From, Deref)]
+pub struct Vertices(Vec<Vertex>);
+
+#[derive(new, Clone, Default, Debug, From, Deref)]
+pub struct Indices(Vec<u16>);
+
 #[derive(new, Clone, Default, Debug)]
 pub struct VerticesAndIndices {
-    vertices: Vec<Vertex>,
-    indices: Vec<u16>,
+    vertices: Vertices,
+    indices: Indices,
 }
 
 impl VerticesAndIndices {
@@ -382,32 +390,6 @@ impl VerticesAndIndices {
 
         ModelBuffers::new(vertex, index)
     }
-}
-
-#[macro_export]
-macro_rules! vector2 {
-    ($a:expr, $b:expr) => {
-        Vector2::new($a, $b)
-    };
-}
-
-#[macro_export]
-macro_rules! pos {
-    ($a1:expr, $a2:expr, $a3:expr) => {
-        Coordinate3d(Point3::new($a1, $a2, $a3))
-    };
-}
-
-#[macro_export]
-macro_rules! vertex {
-    ($pos:expr, $col:expr, $norm:expr, $tex:expr) => {
-        Vertex {
-            pos: $pos,
-            colour: $col,
-            normal: $norm,
-            tex_coord: $tex,
-        }
-    };
 }
 
 #[derive(Clone, Copy, Debug, new)]

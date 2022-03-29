@@ -56,7 +56,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 /// ## VkDebugUtilsMessageSeverityFlagBitsEXT
-#[derive(Clone, Default)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct MessageLevel {
     flags: vk::DebugUtilsMessageSeverityFlagsEXT,
 }
@@ -91,7 +91,7 @@ impl MessageLevel {
 }
 
 /// ## VkDebugUtilsMessageTypeFlagBitsEXT
-#[derive(Clone, Default)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct MessageType {
     flags: vk::DebugUtilsMessageTypeFlagsEXT,
 }
@@ -119,7 +119,7 @@ impl MessageType {
     }
 }
 
-#[derive(new)]
+#[derive(new, Clone, Copy, Debug)]
 pub struct DebugMessageProperties {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
@@ -132,7 +132,6 @@ pub(crate) fn debugger(
         message_type,
     }: DebugMessageProperties,
 ) -> Debug {
-    // if enable_validation_layers() {
     let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
         .message_severity(message_level.flags)
         .message_type(message_type.flags)
@@ -147,6 +146,4 @@ pub(crate) fn debugger(
     };
 
     Debug { messenger, utils }
-    // }
-    // None
 }

@@ -1,47 +1,46 @@
 use crate::{
-    pos,
-    shapes::{utility, Object, Shape, Vertex, VerticesAndIndices, WHITE},
+    pos3d,
+    shapes::{utility, Object, Shape, Vertex, Vertices, VerticesAndIndices, WHITE},
     space::{Coordinate3d, Orientation, VEC_ZERO},
     vector2, vertex,
 };
-use cgmath::{Point3, Vector2};
 
 const CUBE_VERTICES: [[Vertex; 4]; 6] = [
     [
-        vertex!(pos!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+        vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        vertex!(pos!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+        vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        vertex!(pos!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+        vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        vertex!(pos!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+        vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        vertex!(pos!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+        vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
     [
-        vertex!(pos!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+        vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+        vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+        vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+        vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
     ],
 ];
 
@@ -72,8 +71,8 @@ impl Object for Cube<'_> {
             utility::scale(face, self.properties.radius);
         });
 
-        let vertices = cube.into_iter().flatten().collect();
+        let vertices = Vertices(cube.into_iter().flatten().collect());
 
-        self.vertices_and_indices = VerticesAndIndices::new(vertices, CUBE_INDICES.to_vec());
+        self.vertices_and_indices = VerticesAndIndices::new(vertices, CUBE_INDICES.to_vec().into());
     }
 }

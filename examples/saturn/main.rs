@@ -5,7 +5,7 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        l2d::ring::RingInfo,
+        l2d::{ring::RingInfo, square::SquareInfo},
         l3d::{cube::CubeInfo, sphere::SphereInfo},
         utility::{ModelCullMode, ModelTopology},
         Object, ObjectBuilder,
@@ -20,13 +20,30 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
+    let saturn_texture = include_bytes!("../../assets/2k_saturn.jpg");
+    let saturn_ring_textures = include_bytes!("../../assets/2k_saturn_ring_alpha.png");
+
+    let square = ObjectBuilder::default()
+        .properties(SquareInfo::new(
+            Coordinate3d::default(),
+            Orientation::default(),
+            3.,
+            true,
+        ))
+        .texture(saturn_texture)
+        .topology(ModelTopology::TRIANGLE_LIST)
+        .cull_mode(ModelCullMode::NONE)
+        .indexed(true)
+        .build()
+        .unwrap();
+
     let cube = ObjectBuilder::default()
         .properties(CubeInfo::new(
             Coordinate3d::default(),
             Orientation::default(),
             3.,
         ))
-        .texture(include_bytes!("../../assets/2k_saturn.jpg"))
+        .texture(saturn_texture)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)
@@ -41,7 +58,7 @@ fn main() {
             50,
             50,
         ))
-        .texture(include_bytes!("../../assets/2k_saturn.jpg"))
+        .texture(saturn_texture)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)
@@ -56,13 +73,13 @@ fn main() {
             1.,
             50,
         ))
-        .texture(include_bytes!("../../assets/2k_saturn_ring_alpha.png"))
+        .texture(saturn_ring_textures)
         .topology(ModelTopology::TRIANGLE_STRIP)
         .cull_mode(ModelCullMode::NONE)
         .build()
         .unwrap();
 
-    let objects: Vec<Box<dyn Object>> = vec![Box::new(sphere), Box::new(ring)];
+    let objects: Vec<Box<dyn Object>> = vec![Box::new(square), Box::new(sphere), Box::new(ring)];
 
     let debugging = Some(DebugMessageProperties::new(
         MessageLevel::builder().error().verbose().warning(),
