@@ -5,10 +5,10 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        l2d::ring::Ring,
-        l3d::{cube::Cube, sphere::Sphere},
+        l2d::ring::RingInfo,
+        l3d::{cube::CubeInfo, sphere::SphereInfo},
         utility::{ModelCullMode, ModelTopology},
-        Object, ObjectBuilder, Shape,
+        Object, ObjectBuilder,
     },
     space::{Coordinate3d, Orientation},
     time::Time,
@@ -20,45 +20,43 @@ fn main() {
 
     let mut camera = Camera::new(1., 1., 6.);
 
-    let cube: Shape<Cube> = ObjectBuilder::default()
-        .properties(Cube::new(
+    let cube = ObjectBuilder::default()
+        .properties(CubeInfo::new(
             Coordinate3d::default(),
             Orientation::default(),
             3.,
         ))
-        .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+        .texture(include_bytes!("../../assets/2k_saturn.jpg"))
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)
         .build()
         .unwrap();
 
-    let sphere: Shape<Sphere> = ObjectBuilder::default()
-        .properties(Sphere::new(
+    let sphere = ObjectBuilder::default()
+        .properties(SphereInfo::new(
             Coordinate3d::new(2.5, 1., 5.5),
             Orientation::default(),
             0.4,
             50,
             50,
         ))
-        .texture_buffer(Some(include_bytes!("../../assets/2k_saturn.jpg").to_vec()))
+        .texture(include_bytes!("../../assets/2k_saturn.jpg"))
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)
         .build()
         .unwrap();
 
-    let ring: Shape<Ring> = ObjectBuilder::default()
-        .properties(Ring::new(
+    let ring = ObjectBuilder::default()
+        .properties(RingInfo::new(
             Coordinate3d::new(2.5, 1., 5.5),
             Orientation::default(),
             0.5,
             1.,
             50,
         ))
-        .texture_buffer(Some(
-            include_bytes!("../../assets/2k_saturn_ring_alpha.png").to_vec(),
-        ))
+        .texture(include_bytes!("../../assets/2k_saturn_ring_alpha.png"))
         .topology(ModelTopology::TRIANGLE_STRIP)
         .cull_mode(ModelCullMode::NONE)
         .build()

@@ -54,14 +54,16 @@ const CUBE_INDICES: [u16; 36] = [
     20, 21, 22, 20, 22, 23, // back
 ];
 
+pub type Cube<'a> = Shape<'a, CubeInfo>;
+
 #[derive(Default, Debug, Clone, new)]
-pub struct Cube {
+pub struct CubeInfo {
     pub position: Coordinate3d,
     pub orientation: Orientation,
     pub radius: f32,
 }
 
-impl Object for Shape<Cube> {
+impl Object for Cube<'_> {
     fn vertices_and_indices(&mut self) {
         let mut cube = CUBE_VERTICES;
 

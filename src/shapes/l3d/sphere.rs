@@ -6,8 +6,10 @@ use crate::{
 use cgmath::Vector2;
 use std::ops::Mul;
 
+pub type Sphere<'a> = Shape<'a, SphereInfo>;
+
 #[derive(Default, Debug, Clone, Copy, new)]
-pub struct Sphere {
+pub struct SphereInfo {
     pub position: Coordinate3d,
     pub orientation: Orientation,
     pub radius: f32,
@@ -15,7 +17,7 @@ pub struct Sphere {
     pub stack_count: u32,
 }
 
-impl Object for Shape<Sphere> {
+impl Object for Sphere<'_> {
     fn vertices_and_indices(&mut self) {
         let length = 1. / self.properties.radius;
 

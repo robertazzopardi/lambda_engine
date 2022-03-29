@@ -3,8 +3,8 @@ pub mod l3d;
 pub mod utility;
 
 use self::{
-    l2d::ring::Ring,
-    l3d::{cube::Cube, sphere::Sphere},
+    l2d::ring::RingInfo,
+    l3d::{cube::CubeInfo, sphere::SphereInfo},
     utility::{ModelCullMode, ModelTopology},
 };
 use crate::{
@@ -24,50 +24,50 @@ use std::mem::size_of;
 pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
-#[derive(Default, Builder, Debug, Clone)]
-pub struct Compound<T: Default> {
-    base: Shape<T>,
-    child: Vec<Shape<T>>,
-}
+// #[derive(Default, Builder, Debug, Clone)]
+// pub struct Compound<T: Default> {
+//     base: Shape<T>,
+//     child: Vec<Shape<T>>,
+// }
 
 #[derive(Debug, EnumAsInner)]
 pub enum ShapeProperties {
-    Cube(Cube),
-    Sphere(Sphere),
-    Ring(Ring),
+    Cube(CubeInfo),
+    Sphere(SphereInfo),
+    Ring(RingInfo),
 }
 
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(default)]
-pub struct Shape<T: Default> {
+pub struct Shape<'a, T: Default> {
     pub properties: T,
 
-    pub texture_buffer: Option<Vec<u8>>,
+    pub texture: &'a [u8],
     pub indexed: bool,
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
 
     pub(crate) vertices_and_indices: VerticesAndIndices,
-    pub(crate) texture: Option<Texture>,
+    pub(crate) texture_buffer: Option<Texture>,
     pub(crate) graphics_pipeline: Option<GraphicsPipeline>,
     pub(crate) buffers: Option<ModelBuffers>,
 }
 
 #[derive(Default, Clone, Deref, DerefMut)]
-pub struct ObjectBuilder<T: Clone + Default>(ShapeBuilder<T>);
+pub struct ObjectBuilder<'a, T: Clone + Default>(ShapeBuilder<'a, T>);
 
-impl<T: Default> private::Object for Shape<T>
+impl<'a, T: Default> private::Object for Shape<'a, T>
 where
-    Shape<T>: Object,
+    Shape<'a, T>: Object,
 {
     fn buffers(&mut self, model_buffers: ModelBuffers) {
         self.buffers = Some(model_buffers);
     }
 
     fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices) {
-        if let Some(buffer) = &self.texture_buffer {
-            self.texture = Some(texture::Texture::new(
-                buffer,
+        if !self.texture.is_empty() {
+            self.texture_buffer = Some(texture::Texture::new(
+                self.texture,
                 command_pool,
                 instance_devices,
             ));
@@ -83,7 +83,7 @@ where
     }
 
     fn object_texture(&self) -> &Texture {
-        self.texture.as_ref().unwrap()
+        self.texture_buffer.as_ref().unwrap()
     }
 
     fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
@@ -103,7 +103,7 @@ where
         self.graphics_pipeline = Some(GraphicsPipeline::new(
             swap_chain,
             render_pass,
-            &self.texture.unwrap(),
+            &self.texture_buffer.unwrap(),
             self.topology,
             self.cull_mode,
             instance_devices,
@@ -111,7 +111,7 @@ where
     }
 }
 
-impl<T: Default> Shape<T> {}
+impl<'a, T: Default> Shape<'a, T> {}
 
 pub trait Object: private::Object {
     fn vertices_and_indices(&mut self);

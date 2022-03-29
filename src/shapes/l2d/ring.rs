@@ -4,8 +4,10 @@ use crate::{
 };
 use cgmath::{Vector2, Zero};
 
+pub type Ring<'a> = Shape<'a, RingInfo>;
+
 #[derive(Default, Debug, Clone, new)]
-pub struct Ring {
+pub struct RingInfo {
     pub position: Coordinate3d,
     pub orientation: Orientation,
     pub inner_radius: f32,
@@ -13,7 +15,7 @@ pub struct Ring {
     pub sector_count: u32,
 }
 
-impl Object for Shape<Ring> {
+impl Object for Ring<'_> {
     fn vertices_and_indices(&mut self) {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,
