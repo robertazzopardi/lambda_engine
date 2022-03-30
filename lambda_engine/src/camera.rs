@@ -33,7 +33,7 @@ impl Camera {
     }
 
     pub fn calc_matrix(&self, _center: Point3<f32>) -> Matrix4<f32> {
-        let space::Orientation { yaw, pitch, _roll } = self.orientation;
+        let space::Orientation { yaw, pitch, roll } = self.orientation;
         // Matrix4::look_at_rh(self.pos.0, center, Vector3::unit_z())
         Matrix4::look_to_rh(
             *self.pos,

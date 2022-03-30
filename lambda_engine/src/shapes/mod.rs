@@ -150,7 +150,7 @@ pub(crate) mod private {
         pipeline::GraphicsPipeline,
         swap_chain::SwapChain,
         texture::Texture,
-        uniform::UniformBufferObject,
+        uniform_buffer::UniformBufferObject,
         utility::InstanceDevices,
     };
     use ash::vk;

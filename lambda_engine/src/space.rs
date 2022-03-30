@@ -35,7 +35,7 @@ pub struct Coordinate2d(pub(crate) Point2<f32>);
 
 impl Coordinate2d {
     pub fn new(x: f32, y: f32) -> Self {
-        Self(Point2::new(0., 0.))
+        Self(Point2::new(x, y))
     }
 }
 
@@ -99,7 +99,7 @@ impl std::ops::SubAssign<Rad<f32>> for Angle {
 pub struct Orientation {
     pub yaw: Angle,
     pub pitch: Angle,
-    pub _roll: Angle,
+    pub roll: Angle,
 }
 
 #[derive(Default, Debug, PartialEq, Clone, Copy)]

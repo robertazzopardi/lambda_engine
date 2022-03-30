@@ -1,6 +1,7 @@
 use crate::Camera;
 use ash::vk;
 use cgmath::{Deg, Matrix4, Point3, SquareMatrix};
+use nalgebra::Perspective3;
 
 #[derive(Clone, Copy, Debug)]
 pub struct UniformBufferObject {
@@ -21,6 +22,8 @@ impl UniformBufferObject {
 
     pub fn update(&mut self, extent: vk::Extent2D, camera: &mut Camera) {
         let aspect = extent.width as f32 / extent.height as f32;
+
+        // let proj = Perspective3::new(16.0 / 9.0, 3.14 / 4.0, 1.0, 10000.0);
 
         self.model = Matrix4::from_angle_y(Deg(0.));
 

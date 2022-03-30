@@ -1,4 +1,4 @@
-use crate::{camera::Camera, uniform::UniformBufferObject};
+use crate::{camera::Camera, uniform_buffer::UniformBufferObject};
 use ash::vk::Extent2D;
 use std::time::{Duration, Instant};
 

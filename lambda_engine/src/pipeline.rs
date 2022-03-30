@@ -5,7 +5,7 @@ use crate::{
     },
     swap_chain::SwapChain,
     texture::{self, Texture},
-    uniform::UniformBufferObject,
+    uniform_buffer::UniformBufferObject,
     utility::InstanceDevices,
     Devices,
 };

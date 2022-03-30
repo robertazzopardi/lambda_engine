@@ -20,7 +20,7 @@ mod swap_chain;
 mod sync_objects;
 mod texture;
 pub mod time;
-mod uniform;
+mod uniform_buffer;
 mod utility;
 
 use ash::{
@@ -40,7 +40,7 @@ use std::ptr;
 use swap_chain::SwapChain;
 use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
 use time::Time;
-use uniform::UniformBufferObject;
+use uniform_buffer::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
