@@ -66,6 +66,14 @@ impl std::ops::AddAssign<Vector3<f32>> for Coordinate3d {
     }
 }
 
+impl std::ops::AddAssign<Self> for Coordinate3d {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Deref, DerefMut, Neg, From, new)]
 pub struct Angle(pub(crate) Rad<f32>);
 

@@ -19,12 +19,16 @@ pub struct SquareInfo {
 
 impl Object for Square<'_> {
     fn vertices_and_indices(&mut self) {
-        let vertices = Vertices(vec![
+        let mut vertices = Vertices(vec![
             vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
             vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
             vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
             vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
         ]);
+
+        vertices.iter_mut().for_each(|vert| {
+            vert.pos += self.properties.position;
+        });
 
         self.vertices_and_indices =
             VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into());

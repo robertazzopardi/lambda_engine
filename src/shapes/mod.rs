@@ -349,10 +349,10 @@ pub(crate) mod private {
     }
 }
 
-#[derive(new, Clone, Default, Debug, From, Deref)]
+#[derive(new, Clone, Default, Debug, From, Deref, DerefMut)]
 pub struct Vertices(Vec<Vertex>);
 
-#[derive(new, Clone, Default, Debug, From, Deref)]
+#[derive(new, Clone, Default, Debug, From, Deref, DerefMut)]
 pub struct Indices(Vec<u16>);
 
 #[derive(new, Clone, Default, Debug)]
