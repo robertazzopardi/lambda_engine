@@ -1,6 +1,6 @@
 use crate::{
     shapes::{utility, Object, Shape, VerticesAndIndices},
-    space::{Coordinate3d, Orientation},
+    space::{Coordinate3, Orientation},
 };
 use cgmath::{Vector2, Zero};
 
@@ -8,7 +8,7 @@ pub type Ring<'a> = Shape<'a, RingInfo>;
 
 #[derive(Default, Debug, Clone, new)]
 pub struct RingInfo {
-    pub position: Coordinate3d,
+    pub position: Coordinate3,
     pub orientation: Orientation,
     pub inner_radius: f32,
     pub outer_radius: f32,
@@ -36,7 +36,7 @@ impl Object for Ring<'_> {
                 self.properties.outer_radius,
                 angle_step,
                 length,
-                Vector2::zero(),
+                cgmath::Vector2::zero(),
                 &pos,
             ));
             vertices.push(utility::make_point(
@@ -44,7 +44,7 @@ impl Object for Ring<'_> {
                 self.properties.inner_radius,
                 angle_step,
                 length,
-                Vector2::new(1., 1.),
+                cgmath::Vector2::new(1., 1.),
                 &pos,
             ));
         }

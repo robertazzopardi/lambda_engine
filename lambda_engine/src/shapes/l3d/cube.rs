@@ -1,48 +1,48 @@
 use crate::{
     pos3d,
     shapes::{utility, Object, Shape, Vertex, Vertices, VerticesAndIndices, WHITE},
-    space::{Coordinate3d, Orientation, VEC_ZERO},
+    space::{Coordinate3, Orientation, VEC_ZERO},
     vector2, vertex,
 };
 
-const CUBE_VERTICES: [[Vertex; 4]; 6] = [
-    [
-        vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
-    ],
-    [
-        vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
-    ],
-    [
-        vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
-    ],
-    [
-        vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
-    ],
-    [
-        vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
-    ],
-    [
-        vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
-        vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
-        vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
-        vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
-    ],
-];
+// const CUBE_VERTICES: [[Vertex; 4]; 6] = [
+//     [
+//         vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+//         vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+//         vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+//         vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+//     ],
+//     [
+//         vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+//         vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+//         vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+//         vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+//     ],
+//     [
+//         vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+//         vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+//         vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+//         vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+//     ],
+//     [
+//         vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+//         vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+//         vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+//         vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+//     ],
+//     [
+//         vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+//         vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+//         vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+//         vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+//     ],
+//     [
+//         vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+//         vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+//         vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+//         vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+//     ],
+// ];
 
 const CUBE_INDICES: [u16; 36] = [
     0, 1, 2, 2, 3, 0, // top
@@ -57,14 +57,52 @@ pub type Cube<'a> = Shape<'a, CubeInfo>;
 
 #[derive(Default, Debug, Clone, new)]
 pub struct CubeInfo {
-    pub position: Coordinate3d,
+    pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
 }
 
 impl Object for Cube<'_> {
     fn vertices_and_indices(&mut self) {
-        let mut cube = CUBE_VERTICES;
+        // let mut cube = CUBE_VERTICES;
+        let mut cube = [
+            [
+                vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+                vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+                vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+                vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+            ],
+            [
+                vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+                vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+                vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+                vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+            ],
+            [
+                vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+                vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+                vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+                vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+            ],
+            [
+                vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+                vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+                vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+                vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+            ],
+            [
+                vertex!(pos3d!(0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+                vertex!(pos3d!(0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+                vertex!(pos3d!(-0.5, 0.5, -0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+                vertex!(pos3d!(-0.5, 0.5, 0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+            ],
+            [
+                vertex!(pos3d!(0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 0.)),
+                vertex!(pos3d!(0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 0.)),
+                vertex!(pos3d!(-0.5, -0.5, 0.5), WHITE, VEC_ZERO, vector2!(0., 1.)),
+                vertex!(pos3d!(-0.5, -0.5, -0.5), WHITE, VEC_ZERO, vector2!(1., 1.)),
+            ],
+        ];
 
         cube.iter_mut().for_each(|face| {
             utility::calculate_normals(face);

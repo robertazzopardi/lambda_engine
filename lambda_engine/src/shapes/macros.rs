@@ -8,7 +8,7 @@ macro_rules! vector2 {
 #[macro_export]
 macro_rules! pos3d {
     ($a1:expr, $a2:expr, $a3:expr) => {
-        Coordinate3d(cgmath::Point3::new($a1, $a2, $a3))
+        Coordinate3(cgmath::Point3::new($a1, $a2, $a3))
     };
 }
 

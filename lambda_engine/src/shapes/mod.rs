@@ -10,7 +10,7 @@ use self::{
 };
 use crate::{
     pipeline::GraphicsPipeline,
-    space::{Coordinate3d, DirectionVector},
+    space::{Coordinate3, DirectionVector},
     swap_chain::SwapChain,
     texture::{self, Texture},
     utility::InstanceDevices,
@@ -22,7 +22,7 @@ use derive_more::{Deref, DerefMut, From};
 use enum_as_inner::EnumAsInner;
 use std::mem::size_of;
 
-pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
+pub(crate) const WHITE: cgmath::Vector3<f32> = cgmath::Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 // #[derive(Default, Builder, Debug, Clone)]
@@ -394,10 +394,10 @@ impl VerticesAndIndices {
 
 #[derive(Clone, Copy, Debug, new)]
 pub struct Vertex {
-    pub pos: Coordinate3d,
-    pub colour: Vector3<f32>,
+    pub pos: Coordinate3,
+    pub colour: cgmath::Vector3<f32>,
     pub normal: DirectionVector,
-    pub tex_coord: Vector2<f32>,
+    pub tex_coord: cgmath::Vector2<f32>,
 }
 
 #[derive(new, Clone, Copy, Default, Debug)]

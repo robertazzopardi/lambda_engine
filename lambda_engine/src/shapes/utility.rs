@@ -3,7 +3,7 @@ use crate::{
     command_buffer,
     device::Devices,
     memory,
-    space::{Coordinate3d, DirectionVector},
+    space::{Coordinate3, DirectionVector},
     texture,
     utility::InstanceDevices,
 };
@@ -147,15 +147,15 @@ pub(crate) fn make_point(
     radius: f32,
     step: f32,
     length: f32,
-    tex_coord: Vector2<f32>,
-    pos: &Coordinate3d,
+    tex_coord: cgmath::Vector2<f32>,
+    pos: &Coordinate3,
 ) -> Vertex {
     let x = (angle.to_radians().cos() * radius) + pos.x;
     let y = (angle.to_radians().sin() * radius) + pos.y;
 
     *angle += step;
 
-    let pos = Coordinate3d::new(x, y, pos.z);
+    let pos = Coordinate3::new(x, y, pos.z);
 
     Vertex::new(pos, WHITE, pos.mul(length).into(), tex_coord)
 }
