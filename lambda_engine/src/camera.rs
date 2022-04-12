@@ -137,43 +137,42 @@ impl Camera {
 
 #[cfg(test)]
 mod tests {
-    use cgmath::Vector4;
-
     use super::*;
+    use cgmath::Vector4;
 
     #[test]
     fn test_camera_new() {
-        // let camera = Camera::new(0.91, 0.3, 0.7);
+        let camera = Camera::new(0.91, 0.3, 0.7);
 
-        // assert_eq!(camera.pos, Point3::new(0.91, 0.3, 0.7).into());
+        assert_eq!(camera.pos, Point3::new(0.91, 0.3, 0.7).into());
 
-        // let expected_camera = Camera {
-        //     pos: Point3::new(0.91, 0.3, 0.7).into(),
-        //     rotation: space::Rotation::default(),
-        //     orientation: space::Orientation::default(),
-        //     sensitivity: 0.9,
-        //     speed: 0.5,
-        //     scroll: 0.0,
-        //     direction: space::LookDirection::default(),
-        // };
+        let expected_camera = Camera {
+            pos: Point3::new(0.91, 0.3, 0.7).into(),
+            rotation: space::Rotation::default(),
+            orientation: space::Orientation::default(),
+            sensitivity: 0.9,
+            speed: 0.5,
+            scroll: 0.0,
+            direction: space::LookDirection::default(),
+        };
 
-        // assert_eq!(expected_camera, camera);
+        assert_eq!(expected_camera, camera);
     }
 
     #[test]
     fn test_camera_calc_matric() {
-        // let camera = Camera::new(5., 5., 5.);
+        let camera = Camera::new(5., 5., 5.);
 
-        // let matrix = camera.calc_matrix(Point3::new(0., 0., 0.));
+        let matrix = camera.calc_matrix(Point3::new(0., 0., 0.));
 
-        // let expected_matrix = Matrix4 {
-        //     x: Vector4::new(0.0, 0.0, -1.0, 0.0),
-        //     y: Vector4::new(0.0, 1.0, -0.0, 0.0),
-        //     z: Vector4::new(1.0, 0.0, -0.0, 0.0),
-        //     w: Vector4::new(-5.0, -5.0, 5.0, 1.0),
-        // };
+        let expected_matrix = Matrix4 {
+            x: Vector4::new(0.0, 0.0, -1.0, 0.0),
+            y: Vector4::new(0.0, 1.0, -0.0, 0.0),
+            z: Vector4::new(1.0, 0.0, -0.0, 0.0),
+            w: Vector4::new(-5.0, -5.0, 5.0, 1.0),
+        };
 
-        // assert_eq!(expected_matrix, matrix)
+        assert_eq!(expected_matrix, matrix)
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::{camera, Camera};
 use ash::vk;
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix};
+use cgmath::{Matrix4, Point3, SquareMatrix};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UniformBufferObject {

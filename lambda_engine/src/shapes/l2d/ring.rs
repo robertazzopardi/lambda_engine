@@ -2,7 +2,7 @@ use crate::{
     shapes::{utility, Object, Shape, VerticesAndIndices},
     space::{Coordinate3, Orientation},
 };
-use cgmath::{Vector2, Zero};
+use nalgebra::Vector2;
 
 pub type Ring<'a> = Shape<'a, RingInfo>;
 
@@ -36,7 +36,7 @@ impl Object for Ring<'_> {
                 self.properties.outer_radius,
                 angle_step,
                 length,
-                cgmath::Vector2::zero(),
+                Vector2::zeros(),
                 &pos,
             ));
             vertices.push(utility::make_point(
@@ -44,7 +44,7 @@ impl Object for Ring<'_> {
                 self.properties.inner_radius,
                 angle_step,
                 length,
-                cgmath::Vector2::new(1., 1.),
+                Vector2::new(1., 1.),
                 &pos,
             ));
         }
