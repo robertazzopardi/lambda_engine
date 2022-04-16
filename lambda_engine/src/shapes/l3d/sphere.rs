@@ -1,16 +1,16 @@
 use crate::{
     shapes::{utility, Object, Shape, VerticesAndIndices, WHITE},
-    space::{Coordinate3d, Orientation},
+    space::{Coordinate3, Orientation},
     vertex,
 };
-use cgmath::Vector2;
+use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
 pub type Sphere<'a> = Shape<'a, SphereInfo>;
 
 #[derive(Default, Debug, Clone, Copy, new)]
 pub struct SphereInfo {
-    pub position: Coordinate3d,
+    pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
     pub sector_count: u32,
@@ -32,8 +32,7 @@ impl Object for Sphere<'_> {
             let stack_angle = std::f32::consts::FRAC_PI_2 - i as f32 * stack_step;
             let xy = self.properties.radius * stack_angle.cos();
 
-            let mut vec =
-                Coordinate3d::new(0., 0., (self.properties.radius * stack_angle.sin()) + pos.z);
+            let mut vec = Point3::new(0., 0., (self.properties.radius * stack_angle.sin()) + pos.z);
 
             for j in 0..=self.properties.sector_count {
                 let sector_angle = j as f32 * sector_step;
@@ -48,7 +47,7 @@ impl Object for Sphere<'_> {
                     i as f32 / self.properties.stack_count as f32,
                 );
 
-                vertices.push(vertex!(vec, WHITE, normal.into(), tex_coord));
+                vertices.push(vertex!(vec, *WHITE, normal.coords, tex_coord));
             }
         }
 

@@ -5,7 +5,7 @@ use crate::{
     Devices,
 };
 use ash::vk;
-use cgmath::Point2;
+use nalgebra::Point2;
 use std::cmp;
 
 #[derive(Clone, Copy, Default, Debug)]
@@ -122,10 +122,10 @@ fn create_texture_image(
         command_pool,
         devices.logical.queues.graphics,
         image.image,
-        Point2 {
-            x: vk::ImageLayout::UNDEFINED,
-            y: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-        },
+        Point2::new(
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        ),
         mip_levels,
     );
 
@@ -140,10 +140,10 @@ fn create_texture_image(
         vk::Format::R8G8B8A8_SRGB,
         image.image,
         command_pool,
-        Point2 {
-            x: image_dimensions.0.try_into().unwrap(),
-            y: image_dimensions.1.try_into().unwrap(),
-        },
+        Point2::new(
+            image_dimensions.0.try_into().unwrap(),
+            image_dimensions.1.try_into().unwrap(),
+        ),
         mip_levels,
         instance_devices,
     );
@@ -207,7 +207,7 @@ fn transition_image_layout(
     command_pool: vk::CommandPool,
     submit_queue: vk::Queue,
     image: vk::Image,
-    Point2 { x, y }: Point2<vk::ImageLayout>,
+    layouts: Point2<vk::ImageLayout>,
     mip_levels: u32,
 ) {
     let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
@@ -216,6 +216,9 @@ fn transition_image_layout(
     let dst_access_mask;
     let source_stage;
     let destination_stage;
+
+    let x = layouts.coords.data.0[0][0];
+    let y = layouts.coords.data.0[0][1];
 
     if x == vk::ImageLayout::UNDEFINED && y == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
         src_access_mask = vk::AccessFlags::empty();
@@ -349,7 +352,8 @@ fn generate_mip_maps(
             layer_count: 1,
         });
 
-    let Point2 { mut x, mut y } = mip_dimension;
+    let mut x = mip_dimension.coords.data.0[0][0];
+    let mut y = mip_dimension.coords.data.0[0][1];
 
     for i in 1..mip_levels {
         image_barrier.subresource_range.base_mip_level = i - 1;

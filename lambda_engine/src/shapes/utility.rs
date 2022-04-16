@@ -1,14 +1,9 @@
 use super::{Buffer, Indices, Vertex, WHITE};
 use crate::{
-    command_buffer,
-    device::Devices,
-    memory,
-    space::{Coordinate3d, DirectionVector},
-    texture,
-    utility::InstanceDevices,
+    command_buffer, device::Devices, memory, space::Coordinate3, texture, utility::InstanceDevices,
 };
 use ash::vk;
-use cgmath::Vector2;
+use nalgebra::{Point3, Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -120,26 +115,22 @@ where
 
 pub(crate) fn scale(model: &mut [Vertex; 4], radius: f32) {
     model.iter_mut().for_each(|face| {
-        face.pos.0 = face.pos.mul(radius);
+        face.pos = face.pos.mul(radius);
     });
 }
 
 pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
-    let normal = normal(
-        model[0].pos.into(),
-        model[1].pos.into(),
-        model[2].pos.into(),
-    );
+    let normal = normal(model[0].pos, model[1].pos, model[2].pos);
 
     model.iter_mut().for_each(|point| {
-        point.normal = normal;
+        point.normal = normal.coords;
     });
 }
 
-fn normal(p1: DirectionVector, p2: DirectionVector, p3: DirectionVector) -> DirectionVector {
+fn normal(p1: Point3<f32>, p2: Point3<f32>, p3: Point3<f32>) -> Point3<f32> {
     let a = p3.sub(p2);
     let b = p1.sub(p2);
-    DirectionVector(a.cross(*b))
+    Point3::from(a.cross(&b))
 }
 
 pub(crate) fn make_point(
@@ -148,16 +139,16 @@ pub(crate) fn make_point(
     step: f32,
     length: f32,
     tex_coord: Vector2<f32>,
-    pos: &Coordinate3d,
+    pos: &Coordinate3,
 ) -> Vertex {
     let x = (angle.to_radians().cos() * radius) + pos.x;
     let y = (angle.to_radians().sin() * radius) + pos.y;
 
     *angle += step;
 
-    let pos = Coordinate3d::new(x, y, pos.z);
+    let pos = Vector3::new(x, y, pos.z);
 
-    Vertex::new(pos, WHITE, pos.mul(length).into(), tex_coord)
+    Vertex::new(pos.into(), *WHITE, pos.mul(length), tex_coord)
 }
 
 pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Indices {

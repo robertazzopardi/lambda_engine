@@ -10,19 +10,21 @@ use self::{
 };
 use crate::{
     pipeline::GraphicsPipeline,
-    space::{Coordinate3d, DirectionVector},
     swap_chain::SwapChain,
     texture::{self, Texture},
     utility::InstanceDevices,
 };
 use ash::vk;
-use cgmath::{Vector2, Vector3};
 use derive_builder::Builder;
 use derive_more::{Deref, DerefMut, From};
 use enum_as_inner::EnumAsInner;
+use nalgebra::{Point3, Vector2, Vector3};
 use std::mem::size_of;
 
-pub(crate) const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
+lazy_static! {
+    static ref WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
+}
+
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 // #[derive(Default, Builder, Debug, Clone)]
@@ -394,9 +396,9 @@ impl VerticesAndIndices {
 
 #[derive(Clone, Copy, Debug, new)]
 pub struct Vertex {
-    pub pos: Coordinate3d,
+    pub pos: Point3<f32>,
     pub colour: Vector3<f32>,
-    pub normal: DirectionVector,
+    pub normal: Vector3<f32>,
     pub tex_coord: Vector2<f32>,
 }
 
