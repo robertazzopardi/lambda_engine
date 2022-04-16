@@ -127,6 +127,8 @@ impl Vulkan {
 
         let commander = VkCommander::new(command_buffers, command_pool);
 
+        let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
+
         Self {
             commander,
             current_frame: 0,
@@ -142,7 +144,7 @@ impl Vulkan {
             surface_loader,
             swap_chain,
             sync_objects,
-            ubo: UniformBufferObject::new(camera),
+            ubo,
         }
     }
 
@@ -433,7 +435,7 @@ impl Drop for Vulkan {
 
 fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Camera, dt: f32) {
     camera.rotate(dt);
-    ubo.update(extent, camera);
+    ubo.update(&extent, camera);
 }
 
 pub fn run(

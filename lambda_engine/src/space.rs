@@ -1,20 +1,21 @@
 use derive_more::{AddAssign, Deref, DerefMut, From, Neg};
+use nalgebra::{Point2, Point3, Vector3};
 
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
-pub struct Coordinate2d(pub(crate) cgmath::Point2<f32>);
+pub struct Coordinate2d(pub(crate) Point2<f32>);
 
 impl Coordinate2d {
     pub fn new(x: f32, y: f32) -> Self {
-        Self(cgmath::Point2::new(x, y))
+        Self(Point2::new(x, y))
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
-pub struct Coordinate3(pub(crate) cgmath::Point3<f32>);
+pub struct Coordinate3(pub(crate) Point3<f32>);
 
 impl Coordinate3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self(cgmath::Point3::new(x, y, z))
+        Self(Point3::new(x, y, z))
     }
 }
 
@@ -24,8 +25,8 @@ impl Default for Coordinate3 {
     }
 }
 
-impl std::ops::AddAssign<cgmath::Vector3<f32>> for Coordinate3 {
-    fn add_assign(&mut self, rhs: cgmath::Vector3<f32>) {
+impl std::ops::AddAssign<Vector3<f32>> for Coordinate3 {
+    fn add_assign(&mut self, rhs: Vector3<f32>) {
         self.0 += rhs
     }
 }

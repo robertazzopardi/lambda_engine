@@ -5,8 +5,8 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        l2d::{ring::RingInfo, square::SquareInfo},
-        l3d::{cube::CubeInfo, sphere::SphereInfo},
+        l2d::ring::RingInfo,
+        l3d::sphere::SphereInfo,
         utility::{ModelCullMode, ModelTopology},
         Object, ObjectBuilder,
     },

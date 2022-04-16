@@ -1,5 +1,5 @@
-use crate::space::{self, Coordinate3};
-use cgmath::{Matrix4, Point3, Vector3};
+use crate::space;
+use nalgebra::{Matrix4, Point3, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
@@ -8,13 +8,34 @@ use winit::{
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
-pub fn to_rad(deg: f32) -> f32 {
-    deg * (std::f32::consts::PI / 180.)
+pub fn look_to_rh(eye: Vector3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Matrix4<f32> {
+    let f = dir.normalize();
+    let s = f.cross(&up).normalize();
+    let u = s.cross(&f);
+
+    Matrix4::new(
+        s.x,
+        s.y,
+        s.z,
+        -eye.dot(&s),
+        u.x,
+        u.y,
+        u.z,
+        -eye.dot(&u),
+        -f.x,
+        -f.y,
+        -f.z,
+        eye.dot(&f),
+        0.,
+        0.,
+        0.,
+        1.,
+    )
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Camera {
-    pub pos: Coordinate3,
+    pub pos: Vector3<f32>,
     rotation: space::Rotation,
     orientation: space::Orientation,
     sensitivity: f32,
@@ -26,7 +47,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
-            pos: cgmath::Point3::new(x, y, z).into(),
+            pos: Vector3::new(x, y, z),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
             sensitivity: 0.9,
@@ -37,16 +58,12 @@ impl Camera {
     }
 
     pub fn calc_matrix(&self, center: Point3<f32>) -> Matrix4<f32> {
-        let space::Orientation { yaw, pitch, roll } = self.orientation;
-        // nalgebra::Matrix4::look_at_rh(
-        //     &self.pos,
-        //     &nalgebra::Point3::new(yaw.cos(), pitch.sin(), yaw.sin()),
-        //     &nalgebra::Vector3::y_axis(),
-        // )
-        Matrix4::look_to_rh(
-            self.pos.0,
+        let space::Orientation { yaw, pitch, .. } = self.orientation;
+
+        look_to_rh(
+            self.pos,
             Vector3::new(yaw.cos(), pitch.sin(), yaw.sin()),
-            Vector3::unit_y(),
+            Vector3::y(),
         )
     }
 
@@ -105,14 +122,14 @@ impl Camera {
 
         // Movement
         let (yaw_sin, yaw_cos) = self.orientation.yaw.sin_cos();
-        let forward_dir = cgmath::Vector3::new(yaw_cos, 0.0, yaw_sin);
-        let right_dir = cgmath::Vector3::new(-yaw_sin, 0.0, yaw_cos);
+        let forward_dir = Vector3::new(yaw_cos, 0.0, yaw_sin);
+        let right_dir = Vector3::new(-yaw_sin, 0.0, yaw_cos);
         self.pos += forward_dir * (forward - backward) * self.speed * dt;
         self.pos += right_dir * (right - left) * self.speed * dt;
 
         // Zoom
         let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
-        let scroll_dir = cgmath::Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin);
+        let scroll_dir = Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin);
         self.pos += scroll_dir * self.scroll * self.speed * self.sensitivity * dt;
         self.scroll = 0.0;
 
@@ -138,16 +155,15 @@ impl Camera {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cgmath::Vector4;
 
     #[test]
     fn test_camera_new() {
         let camera = Camera::new(0.91, 0.3, 0.7);
 
-        assert_eq!(camera.pos, Point3::new(0.91, 0.3, 0.7).into());
+        assert_eq!(camera.pos, Vector3::new(0.91, 0.3, 0.7));
 
         let expected_camera = Camera {
-            pos: Point3::new(0.91, 0.3, 0.7).into(),
+            pos: Vector3::new(0.91, 0.3, 0.7),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
             sensitivity: 0.9,
@@ -160,17 +176,15 @@ mod tests {
     }
 
     #[test]
-    fn test_camera_calc_matric() {
+    fn test_camera_calc_matrix() {
         let camera = Camera::new(5., 5., 5.);
 
         let matrix = camera.calc_matrix(Point3::new(0., 0., 0.));
 
-        let expected_matrix = Matrix4 {
-            x: Vector4::new(0.0, 0.0, -1.0, 0.0),
-            y: Vector4::new(0.0, 1.0, -0.0, 0.0),
-            z: Vector4::new(1.0, 0.0, -0.0, 0.0),
-            w: Vector4::new(-5.0, -5.0, 5.0, 1.0),
-        };
+        let expected_matrix = Matrix4::new(
+            0.0, 0.0, -1.0, 0.0, 0.0, 1.0, -0.0, 0.0, 1.0, 0.0, -0.0, 0.0, -5.0, -5.0, 5.0, 1.0,
+        )
+        .transpose();
 
         assert_eq!(expected_matrix, matrix)
     }
