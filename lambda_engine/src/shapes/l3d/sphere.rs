@@ -47,7 +47,7 @@ impl Object for Sphere<'_> {
                     i as f32 / self.properties.stack_count as f32,
                 );
 
-                vertices.push(vertex!(vec, *WHITE, normal.coords, tex_coord));
+                vertices.push(vertex!(vec, WHITE, normal.coords, tex_coord));
             }
         }
 

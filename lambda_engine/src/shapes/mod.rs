@@ -21,10 +21,7 @@ use enum_as_inner::EnumAsInner;
 use nalgebra::{Point3, Vector2, Vector3};
 use std::mem::size_of;
 
-lazy_static! {
-    static ref WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
-}
-
+pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 // #[derive(Default, Builder, Debug, Clone)]

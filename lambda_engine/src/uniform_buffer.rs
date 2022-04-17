@@ -1,6 +1,6 @@
 use crate::Camera;
 use ash::vk;
-use nalgebra::{Matrix4, Perspective3, Point3, Vector3};
+use nalgebra::{Matrix4, Perspective3, Vector3};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UniformBufferObject {
@@ -23,7 +23,7 @@ impl UniformBufferObject {
     pub fn update(&mut self, extent: &vk::Extent2D, camera: &Camera) {
         self.model = Matrix4::from_axis_angle(&Vector3::x_axis(), 90.0f32.to_radians());
 
-        self.view = camera.calc_matrix(Point3::new(0., 0., 0.));
+        self.view = camera.calc_matrix();
 
         let aspect = extent.width as f32 / extent.height as f32;
 

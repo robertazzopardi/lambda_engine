@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{Object, Shape, Vertices, VerticesAndIndices, WHITE},
+    shapes::{Object, Shape, Vertex, Vertices, VerticesAndIndices, WHITE},
     space::Orientation,
     vector2, vertex,
 };
@@ -19,31 +19,11 @@ pub struct SquareInfo {
 
 impl Object for Square<'_> {
     fn vertices_and_indices(&mut self) {
-        let mut vertices = Vertices(vec![
-            vertex!(
-                Point3::new(-0.5, -0.5, 0.5),
-                *WHITE,
-                Vector3::zeros(),
-                vector2!(1., 0.)
-            ),
-            vertex!(
-                Point3::new(0.5, -0.5, 0.5),
-                *WHITE,
-                Vector3::zeros(),
-                vector2!(0., 0.)
-            ),
-            vertex!(
-                Point3::new(0.5, 0.5, 0.5),
-                *WHITE,
-                Vector3::zeros(),
-                vector2!(0., 1.)
-            ),
-            vertex!(
-                Point3::new(-0.5, 0.5, 0.5),
-                *WHITE,
-                Vector3::zeros(),
-                vector2!(1., 1.)
-            ),
+        let mut vertices = square_from_vertices(vec![
+            [-0.5, -0.5, 0.5],
+            [0.5, -0.5, 0.5],
+            [0.5, 0.5, 0.5],
+            [-0.5, 0.5, 0.5],
         ]);
 
         vertices.iter_mut().for_each(|vert| {
@@ -53,4 +33,33 @@ impl Object for Square<'_> {
         self.vertices_and_indices =
             VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into());
     }
+}
+
+pub fn square_from_vertices(verts: Vec<[f32; 3]>) -> Vertices {
+    let tex_coord = vec![
+        vector2!(1., 0.),
+        vector2!(0., 0.),
+        vector2!(0., 1.),
+        vector2!(1., 1.),
+    ];
+
+    let mut tex_coords = Vec::new();
+    for _ in 0..(verts.len() / 4) {
+        tex_coords.extend(tex_coord.clone());
+    }
+
+    Vertices(
+        verts
+            .iter()
+            .enumerate()
+            .map(|(index, vert)| {
+                vertex!(
+                    Point3::new(vert[0], vert[1], vert[2]),
+                    WHITE,
+                    Vector3::zeros(),
+                    tex_coords[index]
+                )
+            })
+            .collect::<Vec<Vertex>>(),
+    )
 }

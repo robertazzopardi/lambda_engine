@@ -2,9 +2,9 @@ use derive_more::{AddAssign, Deref, DerefMut, From, Neg};
 use nalgebra::{Point2, Point3, Vector3};
 
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
-pub struct Coordinate2d(pub(crate) Point2<f32>);
+pub struct Coordinate2(pub(crate) Point2<f32>);
 
-impl Coordinate2d {
+impl Coordinate2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self(Point2::new(x, y))
     }

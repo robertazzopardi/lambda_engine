@@ -1,5 +1,5 @@
 use crate::space;
-use nalgebra::{Matrix4, Point3, Vector3};
+use nalgebra::{Matrix4, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
@@ -57,7 +57,7 @@ impl Camera {
         }
     }
 
-    pub fn calc_matrix(&self, center: Point3<f32>) -> Matrix4<f32> {
+    pub fn calc_matrix(&self) -> Matrix4<f32> {
         let space::Orientation { yaw, pitch, .. } = self.orientation;
 
         look_to_rh(
@@ -179,7 +179,7 @@ mod tests {
     fn test_camera_calc_matrix() {
         let camera = Camera::new(5., 5., 5.);
 
-        let matrix = camera.calc_matrix(Point3::new(0., 0., 0.));
+        let matrix = camera.calc_matrix();
 
         let expected_matrix = Matrix4::new(
             0.0, 0.0, -1.0, 0.0, 0.0, 1.0, -0.0, 0.0, 1.0, 0.0, -0.0, 0.0, -5.0, -5.0, 5.0, 1.0,

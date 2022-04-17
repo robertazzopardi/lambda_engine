@@ -20,3 +20,7 @@ winit = "0.26.1"
 [[example]]
 name = "saturn"
 crate-type = ["bin"]
+
+[[example]]
+name = "cube"
+crate-type = ["bin"]

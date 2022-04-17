@@ -113,13 +113,13 @@ where
     buffer
 }
 
-pub(crate) fn scale(model: &mut [Vertex; 4], radius: f32) {
+pub(crate) fn scale(model: &mut [Vertex], radius: f32) {
     model.iter_mut().for_each(|face| {
         face.pos = face.pos.mul(radius);
     });
 }
 
-pub(crate) fn calculate_normals(model: &mut [Vertex; 4]) {
+pub(crate) fn calculate_normals(model: &mut [Vertex]) {
     let normal = normal(model[0].pos, model[1].pos, model[2].pos);
 
     model.iter_mut().for_each(|point| {
@@ -148,7 +148,7 @@ pub(crate) fn make_point(
 
     let pos = Vector3::new(x, y, pos.z);
 
-    Vertex::new(pos.into(), *WHITE, pos.mul(length), tex_coord)
+    Vertex::new(pos.into(), WHITE, pos.mul(length), tex_coord)
 }
 
 pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Indices {
