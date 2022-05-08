@@ -1,7 +1,6 @@
 pub mod l2d;
 pub mod l3d;
 pub mod macros;
-pub mod model;
 pub mod utility;
 
 use self::{
@@ -20,7 +19,7 @@ use derive_builder::Builder;
 use derive_more::{Deref, DerefMut, From};
 use enum_as_inner::EnumAsInner;
 use nalgebra::{Point3, Vector2, Vector3};
-use std::mem::size_of;
+use std::{fs::File, io::Read, mem::size_of};
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
@@ -35,10 +34,11 @@ pub enum ShapeProperties {
 
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(default)]
-pub struct Shape<'a, T: Default> {
+pub struct Shape<T: Default> {
     pub properties: T,
 
-    pub texture: &'a [u8],
+    #[builder(setter(custom))]
+    pub texture: Vec<u8>,
     pub indexed: bool,
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
@@ -49,12 +49,23 @@ pub struct Shape<'a, T: Default> {
     pub(crate) buffers: Option<ModelBuffers>,
 }
 
-#[derive(Default, Clone, Deref, DerefMut)]
-pub struct ObjectBuilder<'a, T: Clone + Default>(ShapeBuilder<'a, T>);
+impl<'a, T: Default> ShapeBuilder<T> {
+    pub fn texture(&mut self, path: &'a str) -> &mut Self {
+        let file = File::open(path);
 
-impl<'a, T: Default> private::Object for Shape<'a, T>
+        if let Ok(mut texture_file) = file {
+            let mut data = Vec::new();
+            texture_file.read_to_end(&mut data).unwrap();
+            self.texture = Some(data);
+        }
+
+        self
+    }
+}
+
+impl<T: Default> private::Object for Shape<T>
 where
-    Shape<'a, T>: Object,
+    Shape<T>: Object,
 {
     fn buffers(&mut self, model_buffers: ModelBuffers) {
         self.buffers = Some(model_buffers);
@@ -63,7 +74,7 @@ where
     fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices) {
         if !self.texture.is_empty() {
             self.texture_buffer = Some(texture::Texture::new(
-                self.texture,
+                &self.texture,
                 command_pool,
                 instance_devices,
             ));
@@ -106,8 +117,6 @@ where
         ));
     }
 }
-
-impl<'a, T: Default> Shape<'a, T> {}
 
 pub trait Object: private::Object {
     fn vertices_and_indices(&mut self);

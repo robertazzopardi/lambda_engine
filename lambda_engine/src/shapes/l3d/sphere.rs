@@ -6,7 +6,7 @@ use crate::{
 use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
-pub type Sphere<'a> = Shape<'a, SphereInfo>;
+pub type Sphere = Shape<SphereInfo>;
 
 #[derive(Default, Debug, Clone, Copy, new)]
 pub struct SphereInfo {
@@ -17,7 +17,7 @@ pub struct SphereInfo {
     pub stack_count: u32,
 }
 
-impl Object for Sphere<'_> {
+impl Object for Sphere {
     fn vertices_and_indices(&mut self) {
         let length = 1. / self.properties.radius;
 

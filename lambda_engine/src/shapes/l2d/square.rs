@@ -7,7 +7,7 @@ use nalgebra::{Point3, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
-pub type Square<'a> = Shape<'a, SquareInfo>;
+pub type Square = Shape<SquareInfo>;
 
 #[derive(Default, Debug, Clone, new)]
 pub struct SquareInfo {
@@ -17,7 +17,7 @@ pub struct SquareInfo {
     pub has_depth: bool,
 }
 
-impl Object for Square<'_> {
+impl Object for Square {
     fn vertices_and_indices(&mut self) {
         let mut vertices = square_from_vertices(vec![
             [-0.5, -0.5, 0.5],

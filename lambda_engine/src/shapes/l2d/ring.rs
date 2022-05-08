@@ -4,7 +4,7 @@ use crate::{
 };
 use nalgebra::Vector2;
 
-pub type Ring<'a> = Shape<'a, RingInfo>;
+pub type Ring = Shape<RingInfo>;
 
 #[derive(Default, Debug, Clone, new)]
 pub struct RingInfo {
@@ -15,7 +15,7 @@ pub struct RingInfo {
     pub sector_count: u32,
 }
 
-impl Object for Ring<'_> {
+impl Object for Ring {
     fn vertices_and_indices(&mut self) {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,

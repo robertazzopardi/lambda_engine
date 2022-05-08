@@ -1,21 +1,27 @@
-use super::{Indices, Object, Shape, Vertices, VerticesAndIndices, WHITE};
-use crate::vertex;
+use crate::{
+    shapes::{Indices, Object, Shape, Vertices, VerticesAndIndices, WHITE},
+    space::{Coordinate3, Orientation},
+    vertex,
+};
 use nalgebra::{Point3, Vector2, Vector3};
 
-pub type Model<'a> = Shape<'a, ModelInfo<'a>>;
+pub type Model<'a> = Shape<ModelInfo<'a>>;
 
 #[derive(Default, Debug, Clone, Copy, new)]
 pub struct ModelInfo<'a> {
+    pub position: Coordinate3,
+    pub orientation: Orientation,
+    pub radius: f32,
     model_path: &'a str,
 }
 
 impl Object for Model<'_> {
     fn vertices_and_indices(&mut self) {
-        let vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
+        let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
 
-        // vertices.iter_mut().for_each(|vert| {
-        //     vert.pos += self.properties.position.coords;
-        // });
+        vertices_and_indices.vertices.iter_mut().for_each(|vert| {
+            vert.pos += self.properties.position.coords;
+        });
 
         self.vertices_and_indices = vertices_and_indices;
     }

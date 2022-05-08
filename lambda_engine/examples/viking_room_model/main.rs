@@ -4,24 +4,33 @@ use lambda_engine::{
     camera::Camera,
     display::Display,
     shapes::{
-        model::ModelInfo,
+        l3d::model::ModelInfo,
         utility::{ModelCullMode, ModelTopology},
-        Object, ObjectBuilder,
+        Object, ShapeBuilder,
     },
+    space::{Coordinate3, Orientation},
     time::Time,
     Vulkan,
 };
 
-const CUBE_MODEL: &str = "./lambda_engine/examples/assets/models/cube.obj";
+const VIKING_MODEL: &str =
+    "./lambda_engine/examples/assets/models/viking_room_model/viking_room.obj";
+const VIKING_MODEL_TEXTURE: &str =
+    "./lambda_engine/examples/assets/models/viking_room_model/viking_room.png";
 
 fn main() {
     let display = Display::new(1280, 720);
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let cube_model = ObjectBuilder::default()
-        .properties(ModelInfo::new(CUBE_MODEL))
-        .texture(include_bytes!("../assets/textures/2k_saturn.jpg"))
+    let cube_model = ShapeBuilder::default()
+        .properties(ModelInfo::new(
+            Coordinate3::default(),
+            Orientation::default(),
+            0.5,
+            VIKING_MODEL,
+        ))
+        .texture(VIKING_MODEL_TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)

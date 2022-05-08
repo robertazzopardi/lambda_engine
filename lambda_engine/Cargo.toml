@@ -8,15 +8,17 @@ include = ["src/**/*"]
 ash = "0.37.0"
 ash-window = "0.10.0"
 derive-new = "0.5.9"
-derive_builder = "0.11.1"
+derive_builder = "0.11.2"
 derive_more = "0.99.17"
 enum-as-inner = "0.4.0"
-image = "0.24.1"
+image = "0.24.2"
 lazy_static = "1.4.0"
 memoffset = "0.6.5"
-nalgebra = "0.30.1"
+nalgebra = "0.31.0"
 tobj = "3.2.2"
 winit = "0.26.1"
+
+# Shapes
 
 [[example]]
 name = "saturn"
@@ -26,6 +28,12 @@ crate-type = ["bin"]
 name = "cube"
 crate-type = ["bin"]
 
+# Models
+
 [[example]]
-name = "model"
+name = "cube_model"
+crate-type = ["bin"]
+
+[[example]]
+name = "viking_room_model"
 crate-type = ["bin"]

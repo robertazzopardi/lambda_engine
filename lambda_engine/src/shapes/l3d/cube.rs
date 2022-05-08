@@ -49,7 +49,7 @@ const CUBE_INDICES: [u16; 36] = [
     20, 21, 22, 20, 22, 23, // back
 ];
 
-pub type Cube<'a> = Shape<'a, CubeInfo>;
+pub type Cube = Shape<CubeInfo>;
 
 #[derive(Default, Debug, Clone, new)]
 pub struct CubeInfo {
@@ -58,7 +58,7 @@ pub struct CubeInfo {
     pub radius: f32,
 }
 
-impl Object for Cube<'_> {
+impl Object for Cube {
     fn vertices_and_indices(&mut self) {
         let mut vertices = CUBE_VERTICES.clone();
 

@@ -8,24 +8,24 @@ use lambda_engine::{
         l2d::ring::RingInfo,
         l3d::sphere::SphereInfo,
         utility::{ModelCullMode, ModelTopology},
-        Object, ObjectBuilder,
+        Object, ShapeBuilder,
     },
     space::{Coordinate3, Orientation},
     time::Time,
     Vulkan,
 };
 
+const SATURN_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
+const RING_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn_ring_alpha.png";
+
 fn main() {
     let display = Display::new(1280, 720);
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let saturn_texture = include_bytes!("../assets/textures/2k_saturn.jpg");
-    let saturn_ring_textures = include_bytes!("../assets/textures/2k_saturn_ring_alpha.png");
-
     let sections = 50;
 
-    let sphere = ObjectBuilder::default()
+    let sphere = ShapeBuilder::default()
         .properties(SphereInfo::new(
             Coordinate3::default(),
             Orientation::default(),
@@ -33,14 +33,14 @@ fn main() {
             sections,
             sections,
         ))
-        .texture(saturn_texture)
+        .texture(SATURN_TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)
         .build()
         .unwrap();
 
-    let ring = ObjectBuilder::default()
+    let ring = ShapeBuilder::default()
         .properties(RingInfo::new(
             Coordinate3::default(),
             Orientation::default(),
@@ -48,7 +48,7 @@ fn main() {
             1.,
             sections,
         ))
-        .texture(saturn_ring_textures)
+        .texture(RING_TEXTURE)
         .topology(ModelTopology::TRIANGLE_STRIP)
         .cull_mode(ModelCullMode::NONE)
         .build()

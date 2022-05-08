@@ -4,7 +4,7 @@ use lambda_engine::{
     camera::Camera,
     display::Display,
     shapes::{
-        l3d::cube::CubeInfo,
+        l3d::model::ModelInfo,
         utility::{ModelCullMode, ModelTopology},
         Object, ShapeBuilder,
     },
@@ -13,27 +13,29 @@ use lambda_engine::{
     Vulkan,
 };
 
-const TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
+const CUBE_MODEL: &str = "./lambda_engine/examples/assets/models/cube_model/cube.obj";
+const SATURN_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
 
 fn main() {
     let display = Display::new(1280, 720);
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let cube = ShapeBuilder::default()
-        .properties(CubeInfo::new(
+    let cube_model = ShapeBuilder::default()
+        .properties(ModelInfo::new(
             Coordinate3::default(),
             Orientation::default(),
             0.5,
+            CUBE_MODEL,
         ))
-        .texture(TEXTURE)
+        .texture(SATURN_TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed(true)
         .build()
         .unwrap();
 
-    let objects: Vec<Box<dyn Object>> = vec![Box::new(cube)];
+    let objects: Vec<Box<dyn Object>> = vec![Box::new(cube_model)];
 
     let vulkan = Vulkan::new(&display.window, &mut camera, objects, None);
 
