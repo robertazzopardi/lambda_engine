@@ -3,8 +3,8 @@ extern crate winit;
 #[macro_use]
 extern crate derive_new;
 extern crate derive_builder;
-// #[macro_use]
-// extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
 pub mod camera;
 mod command_buffer;

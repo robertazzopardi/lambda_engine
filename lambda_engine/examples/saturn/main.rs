@@ -20,8 +20,8 @@ fn main() {
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let saturn_texture = include_bytes!("../assets/2k_saturn.jpg");
-    let saturn_ring_textures = include_bytes!("../assets/2k_saturn_ring_alpha.png");
+    let saturn_texture = include_bytes!("../assets/textures/2k_saturn.jpg");
+    let saturn_ring_textures = include_bytes!("../assets/textures/2k_saturn_ring_alpha.png");
 
     let sections = 50;
 

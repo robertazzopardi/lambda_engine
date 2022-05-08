@@ -1,6 +1,7 @@
 pub mod l2d;
 pub mod l3d;
 pub mod macros;
+pub mod model;
 pub mod utility;
 
 use self::{
@@ -23,12 +24,6 @@ use std::mem::size_of;
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
-
-// #[derive(Default, Builder, Debug, Clone)]
-// pub struct Compound<T: Default> {
-//     base: Shape<T>,
-//     child: Vec<Shape<T>>,
-// }
 
 #[derive(Debug, EnumAsInner)]
 pub enum ShapeProperties {
