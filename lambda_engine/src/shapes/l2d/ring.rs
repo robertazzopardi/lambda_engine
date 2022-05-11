@@ -51,9 +51,9 @@ impl Object for Ring {
             ));
         }
 
-        self.vertices_and_indices = VerticesAndIndices::new(
+        self.vertices_and_indices = Some(VerticesAndIndices::new(
             vertices.into(),
             utility::spherical_indices(self.properties.sector_count, 2),
-        );
+        ));
     }
 }

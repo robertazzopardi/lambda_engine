@@ -25,7 +25,7 @@ impl Object for Model<'_> {
             vert.pos += self.properties.position.coords;
         });
 
-        self.vertices_and_indices = vertices_and_indices;
+        self.vertices_and_indices = Some(vertices_and_indices);
     }
 }
 

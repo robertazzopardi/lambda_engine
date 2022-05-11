@@ -33,7 +33,7 @@ impl Object for Square {
         });
 
         self.vertices_and_indices =
-            VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into());
+            Some(VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into()));
     }
 }
 

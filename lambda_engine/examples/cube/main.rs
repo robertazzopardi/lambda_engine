@@ -6,7 +6,7 @@ use lambda_engine::{
     shapes::{
         l3d::cube::CubeInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
-        Object, ShapeBuilder,
+        ShapeBuilder, Shapes,
     },
     time::Time,
     Vulkan,
@@ -28,13 +28,11 @@ fn main() {
         .build()
         .unwrap();
 
-    let objects: Vec<Box<dyn Object>> = vec![Box::new(cube)];
+    let objects: Shapes = vec![cube];
 
     let vulkan = Vulkan::new(&display.window, &mut camera, objects, None);
 
-    let mouse_pressed = false;
-
     let time = Time::new(60.);
 
-    lambda_engine::run(vulkan, display, time, camera, mouse_pressed)
+    lambda_engine::run(vulkan, display, time, camera)
 }

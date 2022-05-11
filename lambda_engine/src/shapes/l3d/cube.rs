@@ -69,6 +69,9 @@ impl Object for Cube {
             utility::scale(face, self.properties.radius);
         });
 
-        self.vertices_and_indices = VerticesAndIndices::new(vertices, CUBE_INDICES.to_vec().into());
+        self.vertices_and_indices = Some(VerticesAndIndices::new(
+            vertices,
+            CUBE_INDICES.to_vec().into(),
+        ));
     }
 }

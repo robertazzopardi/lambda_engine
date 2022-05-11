@@ -37,7 +37,7 @@ use device::Devices;
 use display::Display;
 use frame_buffer::FrameBuffers;
 use resource::Resources;
-use shapes::Object;
+use shapes::Shapes;
 use std::ptr;
 use swap_chain::SwapChain;
 use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
@@ -54,7 +54,7 @@ pub struct Vulkan {
     frame_buffers: FrameBuffers,
     instance: Instance,
     is_frame_buffer_resized: bool,
-    models: Vec<Box<dyn Object>>,
+    models: Shapes,
     render_pass: vk::RenderPass,
     resources: Resources,
     surface: vk::SurfaceKHR,
@@ -68,7 +68,7 @@ impl Vulkan {
     pub fn new(
         window: &Window,
         camera: &mut Camera,
-        models: Vec<Box<dyn Object>>,
+        models: Shapes,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
         let entry_instance = EntryInstance::new(window);
@@ -438,13 +438,9 @@ fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Ca
     ubo.update(&extent, camera);
 }
 
-pub fn run(
-    mut vulkan: Vulkan,
-    display: Display,
-    mut time: Time,
-    mut camera: Camera,
-    mut mouse_pressed: bool,
-) {
+pub fn run(mut vulkan: Vulkan, display: Display, mut time: Time, mut camera: Camera) {
+    let mut mouse_pressed = false;
+
     display.event_loop.run(move |event, _, control_flow| {
         time.tick();
 

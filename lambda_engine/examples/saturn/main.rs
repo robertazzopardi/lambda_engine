@@ -8,7 +8,7 @@ use lambda_engine::{
         l2d::ring::RingInfoBuilder,
         l3d::sphere::SphereInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
-        Object, ShapeBuilder,
+        ShapeBuilder, Shapes,
     },
     time::Time,
     Vulkan,
@@ -55,7 +55,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let objects: Vec<Box<dyn Object>> = vec![Box::new(sphere), Box::new(ring)];
+    let objects: Shapes = vec![sphere, ring];
 
     let debugging = Some(DebugMessageProperties::new(
         MessageLevel::builder().error().verbose().warning(),
@@ -64,9 +64,7 @@ fn main() {
 
     let vulkan = Vulkan::new(&display.window, &mut camera, objects, debugging);
 
-    let mouse_pressed = false;
-
     let time = Time::new(60.);
 
-    lambda_engine::run(vulkan, display, time, camera, mouse_pressed)
+    lambda_engine::run(vulkan, display, time, camera)
 }

@@ -15,11 +15,13 @@ use crate::{
     utility::InstanceDevices,
 };
 use ash::vk;
-use derive_builder::Builder;
+use derive_builder::{Builder, UninitializedFieldError};
 use derive_more::{Deref, DerefMut, From};
 use enum_as_inner::EnumAsInner;
 use nalgebra::{Point3, Vector2, Vector3};
 use std::{fs::File, io::Read, mem::size_of};
+
+pub type Shapes = Vec<Box<dyn Object>>;
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
@@ -33,8 +35,8 @@ pub enum ShapeProperties {
 }
 
 #[derive(Default, Builder, Debug, Clone)]
-#[builder(default)]
-pub struct Shape<T: Default> {
+#[builder(build_fn(skip))]
+pub struct Shape<T: Default + Clone> {
     pub properties: T,
 
     #[builder(setter(custom))]
@@ -43,13 +45,13 @@ pub struct Shape<T: Default> {
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
 
-    pub(crate) vertices_and_indices: VerticesAndIndices,
+    pub(crate) vertices_and_indices: Option<VerticesAndIndices>,
     pub(crate) texture_buffer: Option<Texture>,
     pub(crate) graphics_pipeline: Option<GraphicsPipeline>,
     pub(crate) buffers: Option<ModelBuffers>,
 }
 
-impl<'a, T: Default> ShapeBuilder<T> {
+impl<'a, T: Default + Clone> ShapeBuilder<T> {
     pub fn texture(&mut self, path: &'a str) -> &mut Self {
         let file = File::open(path);
 
@@ -61,9 +63,31 @@ impl<'a, T: Default> ShapeBuilder<T> {
 
         self
     }
+
+    pub fn build(&self) -> Result<Box<Shape<T>>, ShapeBuilderError> {
+        Ok(Box::new(Shape {
+            properties: self
+                .properties
+                .as_ref()
+                .ok_or_else(|| ShapeBuilderError::from(UninitializedFieldError::new("properties")))?
+                .clone(),
+            texture: self
+                .texture
+                .as_ref()
+                .ok_or_else(|| ShapeBuilderError::from(UninitializedFieldError::new("texture")))?
+                .clone(),
+            indexed: self.indexed.unwrap_or_default(),
+            topology: self.topology.unwrap_or_default(),
+            cull_mode: self.cull_mode.unwrap_or_default(),
+            vertices_and_indices: None,
+            texture_buffer: None,
+            graphics_pipeline: None,
+            buffers: None,
+        }))
+    }
 }
 
-impl<T: Default> private::Object for Shape<T>
+impl<T: Default + Clone> private::Object for Shape<T>
 where
     Shape<T>: Object,
 {
@@ -94,7 +118,7 @@ where
     }
 
     fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
-        &self.vertices_and_indices
+        self.vertices_and_indices.as_ref().unwrap()
     }
 
     fn is_indexed(&self) -> bool {
