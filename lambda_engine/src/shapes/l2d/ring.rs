@@ -2,11 +2,13 @@ use crate::{
     shapes::{utility, Object, Shape, VerticesAndIndices},
     space::{Coordinate3, Orientation},
 };
+use derive_builder::Builder;
 use nalgebra::Vector2;
 
 pub type Ring = Shape<RingInfo>;
 
-#[derive(Default, Debug, Clone, new)]
+#[derive(Builder, Default, Debug, Clone, new)]
+#[builder(default)]
 pub struct RingInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,

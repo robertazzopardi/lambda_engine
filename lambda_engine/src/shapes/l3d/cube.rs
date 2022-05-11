@@ -4,6 +4,7 @@ use crate::{
     },
     space::{Coordinate3, Orientation},
 };
+use derive_builder::Builder;
 
 lazy_static! {
     static ref CUBE_VERTICES: Vertices = square_from_vertices(vec![
@@ -51,7 +52,8 @@ const CUBE_INDICES: [u16; 36] = [
 
 pub type Cube = Shape<CubeInfo>;
 
-#[derive(Default, Debug, Clone, new)]
+#[derive(Builder, Default, Debug, Clone, new)]
+#[builder(default)]
 pub struct CubeInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,

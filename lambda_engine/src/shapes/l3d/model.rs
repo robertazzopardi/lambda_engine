@@ -3,11 +3,13 @@ use crate::{
     space::{Coordinate3, Orientation},
     vertex,
 };
+use derive_builder::Builder;
 use nalgebra::{Point3, Vector2, Vector3};
 
 pub type Model<'a> = Shape<ModelInfo<'a>>;
 
-#[derive(Default, Debug, Clone, Copy, new)]
+#[derive(Builder, Default, Debug, Clone, Copy, new)]
+#[builder(default)]
 pub struct ModelInfo<'a> {
     pub position: Coordinate3,
     pub orientation: Orientation,

@@ -4,11 +4,10 @@ use lambda_engine::{
     camera::Camera,
     display::Display,
     shapes::{
-        l3d::model::ModelInfo,
+        l3d::model::ModelInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
         Object, ShapeBuilder,
     },
-    space::{Coordinate3, Orientation},
     time::Time,
     Vulkan,
 };
@@ -24,12 +23,13 @@ fn main() {
     let mut camera = Camera::new(2., 1., 0.);
 
     let cube_model = ShapeBuilder::default()
-        .properties(ModelInfo::new(
-            Coordinate3::default(),
-            Orientation::default(),
-            0.5,
-            VIKING_MODEL,
-        ))
+        .properties(
+            ModelInfoBuilder::default()
+                .radius(0.5)
+                .model_path(VIKING_MODEL)
+                .build()
+                .unwrap(),
+        )
         .texture(VIKING_MODEL_TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)

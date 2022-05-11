@@ -3,12 +3,14 @@ use crate::{
     space::{Coordinate3, Orientation},
     vertex,
 };
+use derive_builder::Builder;
 use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
 pub type Sphere = Shape<SphereInfo>;
 
-#[derive(Default, Debug, Clone, Copy, new)]
+#[derive(Builder, Default, Debug, Clone, Copy, new)]
+#[builder(default)]
 pub struct SphereInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,

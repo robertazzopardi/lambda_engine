@@ -5,12 +5,11 @@ use lambda_engine::{
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
     shapes::{
-        l2d::ring::RingInfo,
-        l3d::sphere::SphereInfo,
+        l2d::ring::RingInfoBuilder,
+        l3d::sphere::SphereInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
         Object, ShapeBuilder,
     },
-    space::{Coordinate3, Orientation},
     time::Time,
     Vulkan,
 };
@@ -26,13 +25,14 @@ fn main() {
     let sections = 50;
 
     let sphere = ShapeBuilder::default()
-        .properties(SphereInfo::new(
-            Coordinate3::default(),
-            Orientation::default(),
-            0.4,
-            sections,
-            sections,
-        ))
+        .properties(
+            SphereInfoBuilder::default()
+                .radius(0.4)
+                .sector_count(sections)
+                .stack_count(sections)
+                .build()
+                .unwrap(),
+        )
         .texture(SATURN_TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
@@ -41,13 +41,14 @@ fn main() {
         .unwrap();
 
     let ring = ShapeBuilder::default()
-        .properties(RingInfo::new(
-            Coordinate3::default(),
-            Orientation::default(),
-            0.5,
-            1.,
-            sections,
-        ))
+        .properties(
+            RingInfoBuilder::default()
+                .inner_radius(0.5)
+                .outer_radius(1.)
+                .sector_count(sections)
+                .build()
+                .unwrap(),
+        )
         .texture(RING_TEXTURE)
         .topology(ModelTopology::TRIANGLE_STRIP)
         .cull_mode(ModelCullMode::NONE)

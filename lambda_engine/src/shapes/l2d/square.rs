@@ -3,13 +3,15 @@ use crate::{
     space::Orientation,
     vector2, vertex,
 };
+use derive_builder::Builder;
 use nalgebra::{Point3, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
 pub type Square = Shape<SquareInfo>;
 
-#[derive(Default, Debug, Clone, new)]
+#[derive(Builder, Default, Debug, Clone, new)]
+#[builder(default)]
 pub struct SquareInfo {
     pub position: Point3<f32>,
     pub orientation: Orientation,

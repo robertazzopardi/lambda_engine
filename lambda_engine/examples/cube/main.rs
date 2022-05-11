@@ -4,11 +4,10 @@ use lambda_engine::{
     camera::Camera,
     display::Display,
     shapes::{
-        l3d::cube::CubeInfo,
+        l3d::cube::CubeInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
         Object, ShapeBuilder,
     },
-    space::{Coordinate3, Orientation},
     time::Time,
     Vulkan,
 };
@@ -21,11 +20,7 @@ fn main() {
     let mut camera = Camera::new(2., 1., 0.);
 
     let cube = ShapeBuilder::default()
-        .properties(CubeInfo::new(
-            Coordinate3::default(),
-            Orientation::default(),
-            0.5,
-        ))
+        .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
         .texture(TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
