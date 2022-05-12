@@ -1,5 +1,5 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, shapes::Object, swap_chain::SwapChain,
+    device, frame_buffer::FrameBuffers, object::Object, swap_chain::SwapChain,
     utility::InstanceDevices, Devices,
 };
 use ash::{extensions::khr::Surface, vk};

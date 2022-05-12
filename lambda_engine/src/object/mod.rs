@@ -3,11 +3,7 @@ pub mod l3d;
 pub mod macros;
 pub mod utility;
 
-use self::{
-    l2d::{ring::RingInfo, square::SquareInfo},
-    l3d::{cube::CubeInfo, sphere::SphereInfo},
-    utility::{ModelCullMode, ModelTopology},
-};
+use self::utility::{ModelCullMode, ModelTopology};
 use crate::{
     pipeline::GraphicsPipeline,
     swap_chain::SwapChain,
@@ -17,7 +13,6 @@ use crate::{
 use ash::vk;
 use derive_builder::{Builder, UninitializedFieldError};
 use derive_more::{Deref, DerefMut, From};
-use enum_as_inner::EnumAsInner;
 use nalgebra::{Point3, Vector2, Vector3};
 use std::{fs::File, io::Read, mem::size_of};
 
@@ -25,14 +20,6 @@ pub type Shapes = Vec<Box<dyn Object>>;
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
-
-#[derive(Debug, EnumAsInner)]
-pub enum ShapeProperties {
-    Cube(CubeInfo),
-    Sphere(SphereInfo),
-    Ring(RingInfo),
-    Square(SquareInfo),
-}
 
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(build_fn(skip))]

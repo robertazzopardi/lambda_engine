@@ -4,14 +4,14 @@ use lambda_engine::{
     camera::Camera,
     debug::{DebugMessageProperties, MessageLevel, MessageType},
     display::Display,
-    shapes::{
+    object::{
         l2d::ring::RingInfoBuilder,
         l3d::sphere::SphereInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
         ShapeBuilder, Shapes,
     },
     time::Time,
-    Vulkan,
+    Engine,
 };
 
 const SATURN_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
@@ -62,7 +62,7 @@ fn main() {
         MessageType::builder().performance().validation(),
     ));
 
-    let vulkan = Vulkan::new(&display.window, &mut camera, objects, debugging);
+    let vulkan = Engine::new(&display.window, &mut camera, objects, debugging);
 
     let time = Time::new(60.);
 

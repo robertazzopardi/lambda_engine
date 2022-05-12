@@ -3,13 +3,13 @@ extern crate lambda_engine;
 use lambda_engine::{
     camera::Camera,
     display::Display,
-    shapes::{
+    object::{
         l3d::cube::CubeInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
         ShapeBuilder, Shapes,
     },
     time::Time,
-    Vulkan,
+    Engine,
 };
 
 const TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
@@ -30,7 +30,7 @@ fn main() {
 
     let objects: Shapes = vec![cube];
 
-    let vulkan = Vulkan::new(&display.window, &mut camera, objects, None);
+    let vulkan = Engine::new(&display.window, &mut camera, objects, None);
 
     let time = Time::new(60.);
 
