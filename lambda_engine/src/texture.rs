@@ -1,6 +1,6 @@
 use crate::{
     command_buffer, memory,
-    shapes::Buffer,
+    object::Buffer,
     utility::{self, Image, ImageInfo, InstanceDevices},
     Devices,
 };

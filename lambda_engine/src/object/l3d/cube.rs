@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{
+    object::{
         l2d::square::square_from_vertices, utility, Object, Shape, Vertices, VerticesAndIndices,
     },
     space::{Coordinate3, Orientation},

@@ -3,13 +3,13 @@ extern crate lambda_engine;
 use lambda_engine::{
     camera::Camera,
     display::Display,
-    shapes::{
+    object::{
         l3d::model::ModelInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
         ShapeBuilder, Shapes,
     },
     time::Time,
-    Vulkan,
+    Engine,
 };
 
 const VIKING_MODEL: &str =
@@ -38,7 +38,7 @@ fn main() {
 
     let objects: Shapes = vec![cube_model];
 
-    let vulkan = Vulkan::new(&display.window, &mut camera, objects, None);
+    let vulkan = Engine::new(&display.window, &mut camera, objects, None);
 
     let time = Time::new(60.);
 

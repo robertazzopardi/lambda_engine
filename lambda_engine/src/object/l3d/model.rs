@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{Indices, Object, Shape, Vertices, VerticesAndIndices, WHITE},
+    object::{Indices, Object, Shape, Vertices, VerticesAndIndices, WHITE},
     space::{Coordinate3, Orientation},
     vertex,
 };

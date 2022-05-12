@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{utility, Object, Shape, VerticesAndIndices},
+    object::{utility, Object, Shape, VerticesAndIndices},
     space::{Coordinate3, Orientation},
 };
 use derive_builder::Builder;

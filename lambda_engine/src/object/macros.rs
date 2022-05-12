@@ -15,7 +15,7 @@ macro_rules! pos3d {
 #[macro_export]
 macro_rules! vertex {
     ($pos:expr, $col:expr, $norm:expr, $tex:expr) => {
-        crate::shapes::Vertex {
+        crate::object::Vertex {
             pos: $pos,
             colour: $col,
             normal: $norm,

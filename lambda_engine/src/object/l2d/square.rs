@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{Object, Shape, Vertex, Vertices, VerticesAndIndices, WHITE},
+    object::{Object, Shape, Vertex, Vertices, VerticesAndIndices, WHITE},
     space::Orientation,
     vector2, vertex,
 };
@@ -32,8 +32,10 @@ impl Object for Square {
             vert.pos += self.properties.position.coords;
         });
 
-        self.vertices_and_indices =
-            Some(VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into()));
+        self.vertices_and_indices = Some(VerticesAndIndices::new(
+            vertices,
+            SQUARE_INDICES.to_vec().into(),
+        ));
     }
 }
 

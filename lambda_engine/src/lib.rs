@@ -13,10 +13,10 @@ mod device;
 pub mod display;
 mod frame_buffer;
 mod memory;
+pub mod object;
 mod pipeline;
 mod render;
 mod resource;
-pub mod shapes;
 pub mod space;
 mod swap_chain;
 mod sync_objects;
@@ -36,8 +36,8 @@ use debug::{Debug, DebugMessageProperties};
 use device::Devices;
 use display::Display;
 use frame_buffer::FrameBuffers;
+use object::Shapes;
 use resource::Resources;
-use shapes::Shapes;
 use std::ptr;
 use swap_chain::SwapChain;
 use sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT};
@@ -46,7 +46,7 @@ use uniform_buffer::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
-pub struct Vulkan {
+pub struct Engine {
     commander: VkCommander,
     current_frame: usize,
     debugger: Option<Debug>,
@@ -64,7 +64,7 @@ pub struct Vulkan {
     ubo: UniformBufferObject,
 }
 
-impl Vulkan {
+impl Engine {
     pub fn new(
         window: &Window,
         camera: &mut Camera,
@@ -383,7 +383,7 @@ impl Vulkan {
     }
 }
 
-impl Drop for Vulkan {
+impl Drop for Engine {
     fn drop(&mut self) {
         unsafe {
             self.devices.logical.device.device_wait_idle().unwrap();
@@ -438,7 +438,7 @@ fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Ca
     ubo.update(&extent, camera);
 }
 
-pub fn run(mut vulkan: Vulkan, display: Display, mut time: Time, mut camera: Camera) {
+pub fn run(mut vulkan: Engine, display: Display, mut time: Time, mut camera: Camera) {
     let mut mouse_pressed = false;
 
     display.event_loop.run(move |event, _, control_flow| {

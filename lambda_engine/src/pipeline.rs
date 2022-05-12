@@ -1,5 +1,5 @@
 use crate::{
-    shapes::{
+    object::{
         utility::{ModelCullMode, ModelTopology},
         Buffer, Vertex,
     },
