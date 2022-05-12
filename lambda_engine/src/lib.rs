@@ -62,6 +62,7 @@ pub struct Engine {
     swap_chain: SwapChain,
     sync_objects: SyncObjects,
     ubo: UniformBufferObject,
+    time: Time,
 }
 
 impl Engine {
@@ -129,6 +130,8 @@ impl Engine {
 
         let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
 
+        let time = Time::new(60.);
+
         Self {
             commander,
             current_frame: 0,
@@ -145,6 +148,7 @@ impl Engine {
             swap_chain,
             sync_objects,
             ubo,
+            time,
         }
     }
 
@@ -438,11 +442,11 @@ fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Ca
     ubo.update(&extent, camera);
 }
 
-pub fn run(mut vulkan: Engine, display: Display, mut time: Time, mut camera: Camera) {
+pub fn run(mut engine: Engine, display: Display, mut camera: Camera) {
     let mut mouse_pressed = false;
 
     display.event_loop.run(move |event, _, control_flow| {
-        time.tick();
+        engine.time.tick();
 
         display::handle_inputs(
             control_flow,
@@ -452,13 +456,13 @@ pub fn run(mut vulkan: Engine, display: Display, mut time: Time, mut camera: Cam
             &mut mouse_pressed,
         );
 
-        time.step(
+        engine.time.step(
             update_state,
             &mut camera,
-            &mut vulkan.ubo,
-            vulkan.swap_chain.extent,
+            &mut engine.ubo,
+            engine.swap_chain.extent,
         );
 
-        unsafe { vulkan.render(&display.window, &mut camera) };
+        unsafe { engine.render(&display.window, &mut camera) };
     });
 }

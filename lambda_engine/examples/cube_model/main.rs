@@ -8,7 +8,6 @@ use lambda_engine::{
         utility::{ModelCullMode, ModelTopology},
         ObjectBuilder, Shapes,
     },
-    time::Time,
     Engine,
 };
 
@@ -37,9 +36,7 @@ fn main() {
 
     let objects: Shapes = vec![cube_model];
 
-    let vulkan = Engine::new(&display.window, &mut camera, objects, None);
+    let engine = Engine::new(&display.window, &mut camera, objects, None);
 
-    let time = Time::new(60.);
-
-    lambda_engine::run(vulkan, display, time, camera)
+    lambda_engine::run(engine, display, camera)
 }

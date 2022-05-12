@@ -10,7 +10,6 @@ use lambda_engine::{
         utility::{ModelCullMode, ModelTopology},
         ObjectBuilder, Shapes,
     },
-    time::Time,
     Engine,
 };
 
@@ -62,9 +61,7 @@ fn main() {
         MessageType::builder().performance().validation(),
     ));
 
-    let vulkan = Engine::new(&display.window, &mut camera, objects, debugging);
+    let engine = Engine::new(&display.window, &mut camera, objects, debugging);
 
-    let time = Time::new(60.);
-
-    lambda_engine::run(vulkan, display, time, camera)
+    lambda_engine::run(engine, display, camera)
 }
