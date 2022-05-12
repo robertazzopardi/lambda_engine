@@ -1,5 +1,5 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, object::Object, swap_chain::SwapChain,
+    device, frame_buffer::FrameBuffers, object::InternalObject, swap_chain::SwapChain,
     utility::InstanceDevices, Devices,
 };
 use ash::{extensions::khr::Surface, vk};
@@ -43,7 +43,7 @@ pub(crate) fn create_command_buffers(
     devices: &Devices,
     render_pass: vk::RenderPass,
     frame_buffers: &FrameBuffers,
-    models: &[Box<dyn Object>],
+    models: &[Box<dyn InternalObject>],
 ) -> CommandBuffers {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)

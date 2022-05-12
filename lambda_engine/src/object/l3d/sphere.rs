@@ -1,5 +1,5 @@
 use crate::{
-    object::{utility, Object, Shape, VerticesAndIndices, WHITE},
+    object::{utility, InternalObject, Object, VerticesAndIndices, WHITE},
     space::{Coordinate3, Orientation},
     vertex,
 };
@@ -7,7 +7,7 @@ use derive_builder::Builder;
 use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
-pub type Sphere = Shape<SphereInfo>;
+pub type Sphere = Object<SphereInfo>;
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
 #[builder(default)]
@@ -19,7 +19,7 @@ pub struct SphereInfo {
     pub stack_count: u32,
 }
 
-impl Object for Sphere {
+impl InternalObject for Sphere {
     fn vertices_and_indices(&mut self) {
         let length = 1. / self.properties.radius;
 

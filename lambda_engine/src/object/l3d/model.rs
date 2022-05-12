@@ -1,12 +1,12 @@
 use crate::{
-    object::{Indices, Object, Shape, Vertices, VerticesAndIndices, WHITE},
+    object::{Indices, InternalObject, Object, Vertices, VerticesAndIndices, WHITE},
     space::{Coordinate3, Orientation},
     vertex,
 };
 use derive_builder::Builder;
 use nalgebra::{Point3, Vector2, Vector3};
 
-pub type Model<'a> = Shape<ModelInfo<'a>>;
+pub type Model<'a> = Object<ModelInfo<'a>>;
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
 #[builder(default)]
@@ -17,7 +17,7 @@ pub struct ModelInfo<'a> {
     model_path: &'a str,
 }
 
-impl Object for Model<'_> {
+impl InternalObject for Model<'_> {
     fn vertices_and_indices(&mut self) {
         let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
 

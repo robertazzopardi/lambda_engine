@@ -16,14 +16,14 @@ use derive_more::{Deref, DerefMut, From};
 use nalgebra::{Point3, Vector2, Vector3};
 use std::{fs::File, io::Read, mem::size_of};
 
-pub type Shapes = Vec<Box<dyn Object>>;
+pub type Shapes = Vec<Box<dyn InternalObject>>;
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(build_fn(skip))]
-pub struct Shape<T: Default + Clone> {
+pub struct Object<T: Default + Clone> {
     pub properties: T,
 
     #[builder(setter(custom))]
@@ -38,7 +38,7 @@ pub struct Shape<T: Default + Clone> {
     pub(crate) buffers: Option<ModelBuffers>,
 }
 
-impl<'a, T: Default + Clone> ShapeBuilder<T> {
+impl<'a, T: Default + Clone> ObjectBuilder<T> {
     pub fn texture(&mut self, path: &'a str) -> &mut Self {
         let file = File::open(path);
 
@@ -51,17 +51,19 @@ impl<'a, T: Default + Clone> ShapeBuilder<T> {
         self
     }
 
-    pub fn build(&self) -> Result<Box<Shape<T>>, ShapeBuilderError> {
-        Ok(Box::new(Shape {
+    pub fn build(&self) -> Result<Box<Object<T>>, ObjectBuilderError> {
+        Ok(Box::new(Object {
             properties: self
                 .properties
                 .as_ref()
-                .ok_or_else(|| ShapeBuilderError::from(UninitializedFieldError::new("properties")))?
+                .ok_or_else(|| {
+                    ObjectBuilderError::from(UninitializedFieldError::new("properties"))
+                })?
                 .clone(),
             texture: self
                 .texture
                 .as_ref()
-                .ok_or_else(|| ShapeBuilderError::from(UninitializedFieldError::new("texture")))?
+                .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("texture")))?
                 .clone(),
             indexed: self.indexed.unwrap_or_default(),
             topology: self.topology.unwrap_or_default(),
@@ -74,9 +76,9 @@ impl<'a, T: Default + Clone> ShapeBuilder<T> {
     }
 }
 
-impl<T: Default + Clone> private::Object for Shape<T>
+impl<T: Default + Clone> private::InternalObject for Object<T>
 where
-    Shape<T>: Object,
+    Object<T>: InternalObject,
 {
     fn buffers(&mut self, model_buffers: ModelBuffers) {
         self.buffers = Some(model_buffers);
@@ -129,7 +131,7 @@ where
     }
 }
 
-pub trait Object: private::Object {
+pub trait InternalObject: private::InternalObject {
     fn vertices_and_indices(&mut self);
 
     fn construct(
@@ -169,7 +171,7 @@ pub(crate) mod private {
     };
     use ash::vk;
 
-    pub trait Object {
+    pub trait InternalObject {
         fn buffers(&mut self, model_buffers: ModelBuffers);
         fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices);
 

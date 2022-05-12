@@ -1,6 +1,7 @@
 use crate::{
     object::{
-        l2d::square::square_from_vertices, utility, Object, Shape, Vertices, VerticesAndIndices,
+        l2d::square::square_from_vertices, utility, InternalObject, Object, Vertices,
+        VerticesAndIndices,
     },
     space::{Coordinate3, Orientation},
 };
@@ -50,7 +51,7 @@ const CUBE_INDICES: [u16; 36] = [
     20, 21, 22, 20, 22, 23, // back
 ];
 
-pub type Cube = Shape<CubeInfo>;
+pub type Cube = Object<CubeInfo>;
 
 #[derive(Builder, Default, Debug, Clone, new)]
 #[builder(default)]
@@ -60,7 +61,7 @@ pub struct CubeInfo {
     pub radius: f32,
 }
 
-impl Object for Cube {
+impl InternalObject for Cube {
     fn vertices_and_indices(&mut self) {
         let mut vertices = CUBE_VERTICES.clone();
 

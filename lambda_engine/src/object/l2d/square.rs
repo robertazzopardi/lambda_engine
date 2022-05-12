@@ -1,5 +1,5 @@
 use crate::{
-    object::{Object, Shape, Vertex, Vertices, VerticesAndIndices, WHITE},
+    object::{InternalObject, Object, Vertex, Vertices, VerticesAndIndices, WHITE},
     space::Orientation,
     vector2, vertex,
 };
@@ -8,7 +8,7 @@ use nalgebra::{Point3, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
-pub type Square = Shape<SquareInfo>;
+pub type Square = Object<SquareInfo>;
 
 #[derive(Builder, Default, Debug, Clone, new)]
 #[builder(default)]
@@ -19,7 +19,7 @@ pub struct SquareInfo {
     pub has_depth: bool,
 }
 
-impl Object for Square {
+impl InternalObject for Square {
     fn vertices_and_indices(&mut self) {
         let mut vertices = square_from_vertices(vec![
             [-0.5, -0.5, 0.5],

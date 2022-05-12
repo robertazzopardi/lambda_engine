@@ -6,7 +6,7 @@ use lambda_engine::{
     object::{
         l3d::cube::CubeInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
-        ShapeBuilder, Shapes,
+        ObjectBuilder, Shapes,
     },
     time::Time,
     Engine,
@@ -19,7 +19,7 @@ fn main() {
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let cube = ShapeBuilder::default()
+    let cube = ObjectBuilder::default()
         .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
         .texture(TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)

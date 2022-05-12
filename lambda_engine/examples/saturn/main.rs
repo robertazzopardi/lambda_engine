@@ -8,7 +8,7 @@ use lambda_engine::{
         l2d::ring::RingInfoBuilder,
         l3d::sphere::SphereInfoBuilder,
         utility::{ModelCullMode, ModelTopology},
-        ShapeBuilder, Shapes,
+        ObjectBuilder, Shapes,
     },
     time::Time,
     Engine,
@@ -24,7 +24,7 @@ fn main() {
 
     let sections = 50;
 
-    let sphere = ShapeBuilder::default()
+    let sphere = ObjectBuilder::default()
         .properties(
             SphereInfoBuilder::default()
                 .radius(0.4)
@@ -40,7 +40,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let ring = ShapeBuilder::default()
+    let ring = ObjectBuilder::default()
         .properties(
             RingInfoBuilder::default()
                 .inner_radius(0.5)
