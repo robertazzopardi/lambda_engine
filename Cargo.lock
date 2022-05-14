@@ -663,7 +663,6 @@ dependencies = [
  "derive_builder",
  "derive_more",
  "image",
- "lazy_static",
  "memoffset",
  "nalgebra",
  "tobj",

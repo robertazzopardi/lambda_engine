@@ -1,46 +1,43 @@
 use crate::{
     object::{
-        l2d::square::square_from_vertices, utility, InternalObject, Object, Vertices,
-        VerticesAndIndices,
+        l2d::square::square_from_vertices, utility, InternalObject, Object, VerticesAndIndices,
     },
     space::{Coordinate3, Orientation},
 };
 use derive_builder::Builder;
 
-lazy_static! {
-    static ref CUBE_VERTICES: Vertices = square_from_vertices(vec![
-        // face 1
-        [-0.5, -0.5, 0.5],
-        [0.5, -0.5, 0.5],
-        [0.5, 0.5, 0.5],
-        [-0.5, 0.5, 0.5],
-        // face 2
-        [-0.5, 0.5, -0.5],
-        [0.5, 0.5, -0.5],
-        [0.5, -0.5, -0.5],
-        [-0.5, -0.5, -0.5],
-        // face 3
-        [-0.5, 0.5, 0.5],
-        [-0.5, 0.5, -0.5],
-        [-0.5, -0.5, -0.5],
-        [-0.5, -0.5, 0.5],
-        // face 4
-        [0.5, -0.5, 0.5],
-        [0.5, -0.5, -0.5],
-        [0.5, 0.5, -0.5],
-        [0.5, 0.5, 0.5],
-        // face 5
-        [0.5, 0.5, 0.5],
-        [0.5, 0.5, -0.5],
-        [-0.5, 0.5, -0.5],
-        [-0.5, 0.5, 0.5],
-        // face 6
-        [0.5, -0.5, -0.5],
-        [0.5, -0.5, 0.5],
-        [-0.5, -0.5, 0.5],
-        [-0.5, -0.5, -0.5],
-    ]);
-}
+const CUBE_VERTICES: [[f32; 3]; 24] = [
+    // face 1
+    [-0.5, -0.5, 0.5],
+    [0.5, -0.5, 0.5],
+    [0.5, 0.5, 0.5],
+    [-0.5, 0.5, 0.5],
+    // face 2
+    [-0.5, 0.5, -0.5],
+    [0.5, 0.5, -0.5],
+    [0.5, -0.5, -0.5],
+    [-0.5, -0.5, -0.5],
+    // face 3
+    [-0.5, 0.5, 0.5],
+    [-0.5, 0.5, -0.5],
+    [-0.5, -0.5, -0.5],
+    [-0.5, -0.5, 0.5],
+    // face 4
+    [0.5, -0.5, 0.5],
+    [0.5, -0.5, -0.5],
+    [0.5, 0.5, -0.5],
+    [0.5, 0.5, 0.5],
+    // face 5
+    [0.5, 0.5, 0.5],
+    [0.5, 0.5, -0.5],
+    [-0.5, 0.5, -0.5],
+    [-0.5, 0.5, 0.5],
+    // face 6
+    [0.5, -0.5, -0.5],
+    [0.5, -0.5, 0.5],
+    [-0.5, -0.5, 0.5],
+    [-0.5, -0.5, -0.5],
+];
 
 const CUBE_INDICES: [u16; 36] = [
     0, 1, 2, 2, 3, 0, // top
@@ -63,7 +60,7 @@ pub struct CubeInfo {
 
 impl InternalObject for Cube {
     fn vertices_and_indices(&mut self) {
-        let mut vertices = CUBE_VERTICES.clone();
+        let mut vertices = square_from_vertices(&CUBE_VERTICES.clone());
 
         vertices.chunks_mut(4).for_each(|face| {
             utility::calculate_normals(face);

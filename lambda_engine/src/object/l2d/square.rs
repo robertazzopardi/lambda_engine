@@ -21,7 +21,7 @@ pub struct SquareInfo {
 
 impl InternalObject for Square {
     fn vertices_and_indices(&mut self) {
-        let mut vertices = square_from_vertices(vec![
+        let mut vertices = square_from_vertices(&[
             [-0.5, -0.5, 0.5],
             [0.5, -0.5, 0.5],
             [0.5, 0.5, 0.5],
@@ -39,7 +39,7 @@ impl InternalObject for Square {
     }
 }
 
-pub fn square_from_vertices(verts: Vec<[f32; 3]>) -> Vertices {
+pub fn square_from_vertices(verts: &[[f32; 3]]) -> Vertices {
     let tex_coord = vec![
         vector2!(1., 0.),
         vector2!(0., 0.),
