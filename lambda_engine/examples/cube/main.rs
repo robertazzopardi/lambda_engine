@@ -1,5 +1,3 @@
-extern crate lambda_engine;
-
 use lambda_engine::{
     camera::Camera,
     display::Display,
