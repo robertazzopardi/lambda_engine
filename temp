@@ -1,0 +1,3 @@
+#ifndef light_texture_VERT_SHADER
+#define light_texture_VERT_SHADER
+

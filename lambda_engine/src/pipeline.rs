@@ -183,12 +183,12 @@ fn create_pipeline_and_layout(
 
     let vert_shader_module = create_shader_module(
         devices,
-        "/Users/rob/_CODE/C/vulkan-tmp/src/shaders/light_texture/vert.spv",
+        "./lambda_engine/src/shaders/light_texture/vert.spv",
     );
 
     let frag_shader_module = create_shader_module(
         devices,
-        "/Users/rob/_CODE/C/vulkan-tmp/src/shaders/light_texture/frag.spv",
+        "./lambda_engine/src/shaders/light_texture/frag.spv",
     );
 
     let shader_stages = [
