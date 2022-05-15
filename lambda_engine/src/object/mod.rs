@@ -5,6 +5,7 @@ pub mod utility;
 
 use self::utility::{ModelCullMode, ModelTopology};
 use crate::{
+    device::{Devices, LogicalDeviceFeatures},
     pipeline::GraphicsPipeline,
     swap_chain::SwapChain,
     texture::{self, Texture},
@@ -16,7 +17,8 @@ use derive_more::{Deref, DerefMut, From};
 use nalgebra::{Point3, Vector2, Vector3};
 use std::{fs::File, io::Read, mem::size_of};
 
-pub type Shapes = Vec<Box<dyn InternalObject>>;
+pub type Shape = Box<dyn InternalObject>;
+pub type Shapes = Vec<Shape>;
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
@@ -94,22 +96,6 @@ where
         }
     }
 
-    fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
-        self.graphics_pipeline.as_ref().unwrap()
-    }
-
-    fn object_buffers(&self) -> &ModelBuffers {
-        self.buffers.as_ref().unwrap()
-    }
-
-    fn object_texture(&self) -> &Texture {
-        self.texture_buffer.as_ref().unwrap()
-    }
-
-    fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
-        self.vertices_and_indices.as_ref().unwrap()
-    }
-
     fn is_indexed(&self) -> bool {
         self.indexed
     }
@@ -129,12 +115,28 @@ where
             instance_devices,
         ));
     }
+
+    fn object_graphics_pipeline(&self) -> &GraphicsPipeline {
+        self.graphics_pipeline.as_ref().unwrap()
+    }
+
+    fn object_buffers(&self) -> &ModelBuffers {
+        self.buffers.as_ref().unwrap()
+    }
+
+    fn object_texture(&self) -> &Texture {
+        self.texture_buffer.as_ref().unwrap()
+    }
+
+    fn object_vertices_and_indices(&self) -> &VerticesAndIndices {
+        self.vertices_and_indices.as_ref().unwrap()
+    }
 }
 
 pub trait InternalObject: private::InternalObject {
     fn vertices_and_indices(&mut self);
 
-    fn construct(
+    fn build(
         &mut self,
         command_pool: vk::CommandPool,
         command_buffer_count: u32,
@@ -146,7 +148,8 @@ pub trait InternalObject: private::InternalObject {
 
         self.vertices_and_indices();
 
-        let model_buffers = self.object_vertices_and_indices().create_buffers(
+        let model_buffers = ModelBuffers::new(
+            self.object_vertices_and_indices(),
             command_pool,
             command_buffer_count,
             instance_devices,
@@ -161,12 +164,7 @@ pub trait InternalObject: private::InternalObject {
 pub(crate) mod private {
     use super::{ModelBuffers, VerticesAndIndices};
     use crate::{
-        device::{Devices, LogicalDeviceFeatures},
-        memory,
-        pipeline::GraphicsPipeline,
-        swap_chain::SwapChain,
-        texture::Texture,
-        uniform_buffer::UniformBufferObject,
+        pipeline::GraphicsPipeline, swap_chain::SwapChain, texture::Texture,
         utility::InstanceDevices,
     };
     use ash::vk;
@@ -199,170 +197,150 @@ pub(crate) mod private {
         ) {
             unimplemented!()
         }
-
-        /// # Safety
-        ///
-        ///
-        unsafe fn destroy(&self, logical: &LogicalDeviceFeatures) {
-            let object_texture = self.object_texture();
-
-            logical.device.destroy_sampler(object_texture.sampler, None);
-
-            logical
-                .device
-                .destroy_image_view(object_texture.image_view, None);
-
-            logical
-                .device
-                .destroy_image(object_texture.image.image, None);
-
-            logical
-                .device
-                .free_memory(object_texture.image.memory, None);
-
-            logical.device.destroy_descriptor_set_layout(
-                self.object_graphics_pipeline()
-                    .descriptor_set
-                    .descriptor_set_layout,
-                None,
-            );
-
-            let object_buffers = self.object_buffers();
-
-            logical
-                .device
-                .destroy_buffer(object_buffers.vertex.buffer, None);
-
-            logical
-                .device
-                .free_memory(object_buffers.vertex.memory, None);
-
-            logical
-                .device
-                .destroy_buffer(object_buffers.index.buffer, None);
-
-            logical
-                .device
-                .free_memory(object_buffers.index.memory, None);
-        }
-
-        /// # Safety
-        ///
-        /// Expand on safety of this function
-        unsafe fn bind_index_and_vertex_buffers(
-            &self,
-            devices: &Devices,
-            command_buffer: vk::CommandBuffer,
-            offsets: &[vk::DeviceSize],
-            index: usize,
-        ) {
-            let object_graphics_pipeline = self.object_graphics_pipeline();
-
-            devices.logical.device.cmd_bind_pipeline(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                object_graphics_pipeline.features.pipeline,
-            );
-
-            devices.logical.device.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                object_graphics_pipeline.features.layout,
-                0,
-                std::slice::from_ref(
-                    &object_graphics_pipeline.descriptor_set.descriptor_sets[index],
-                ),
-                &[],
-            );
-
-            let object_buffers = self.object_buffers();
-
-            let vertex_buffers = [object_buffers.vertex.buffer];
-
-            devices.logical.device.cmd_bind_vertex_buffers(
-                command_buffer,
-                0,
-                &vertex_buffers,
-                offsets,
-            );
-
-            let object_and_vertices_and_indices = self.object_vertices_and_indices();
-
-            devices.logical.device.cmd_draw(
-                command_buffer,
-                object_and_vertices_and_indices.vertices.len() as u32,
-                1,
-                0,
-                0,
-            );
-
-            if self.is_indexed() {
-                devices.logical.device.cmd_bind_index_buffer(
-                    command_buffer,
-                    object_buffers.index.buffer,
-                    0,
-                    vk::IndexType::UINT16,
-                );
-
-                devices.logical.device.cmd_draw_indexed(
-                    command_buffer,
-                    object_and_vertices_and_indices.indices.len() as u32,
-                    1,
-                    0,
-                    0,
-                    0,
-                );
-            }
-        }
-
-        fn map_memory(
-            &self,
-            logical: &LogicalDeviceFeatures,
-            current_image: usize,
-            buffer_size: u64,
-            ubos: &[UniformBufferObject; 1],
-        ) {
-            memory::map_memory(
-                &logical.device,
-                self.object_graphics_pipeline()
-                    .descriptor_set
-                    .uniform_buffers[current_image]
-                    .memory,
-                buffer_size,
-                ubos,
-            );
-        }
-
-        /// # Safety
-        ///
-        ///
-        unsafe fn recreate_drop(&self, logical: &LogicalDeviceFeatures, swap_chain: &SwapChain) {
-            let object_graphics_pipeline = self.object_graphics_pipeline();
-
-            logical
-                .device
-                .destroy_pipeline(object_graphics_pipeline.features.pipeline, None);
-            logical
-                .device
-                .destroy_pipeline_layout(object_graphics_pipeline.features.layout, None);
-
-            logical.device.destroy_descriptor_pool(
-                object_graphics_pipeline.descriptor_set.descriptor_pool,
-                None,
-            );
-
-            for i in 0..swap_chain.images.len() {
-                logical.device.destroy_buffer(
-                    object_graphics_pipeline.descriptor_set.uniform_buffers[i].buffer,
-                    None,
-                );
-                logical.device.free_memory(
-                    object_graphics_pipeline.descriptor_set.uniform_buffers[i].memory,
-                    None,
-                );
-            }
-        }
     }
+}
+
+/// # Safety
+///
+/// Expand on safety of this function
+pub(crate) unsafe fn bind_index_and_vertex_buffers(
+    object: &Shape,
+    devices: &Devices,
+    command_buffer: vk::CommandBuffer,
+    offsets: &[vk::DeviceSize],
+    index: usize,
+) {
+    let object_graphics_pipeline = object.object_graphics_pipeline();
+
+    devices.logical.device.cmd_bind_pipeline(
+        command_buffer,
+        vk::PipelineBindPoint::GRAPHICS,
+        object_graphics_pipeline.features.pipeline,
+    );
+
+    devices.logical.device.cmd_bind_descriptor_sets(
+        command_buffer,
+        vk::PipelineBindPoint::GRAPHICS,
+        object_graphics_pipeline.features.layout,
+        0,
+        std::slice::from_ref(&object_graphics_pipeline.descriptor_set.descriptor_sets[index]),
+        &[],
+    );
+
+    let object_buffers = object.object_buffers();
+
+    let vertex_buffers = [object_buffers.vertex.buffer];
+
+    devices
+        .logical
+        .device
+        .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
+
+    let object_and_vertices_and_indices = object.object_vertices_and_indices();
+
+    devices.logical.device.cmd_draw(
+        command_buffer,
+        object_and_vertices_and_indices.vertices.len() as u32,
+        1,
+        0,
+        0,
+    );
+
+    if object.is_indexed() {
+        devices.logical.device.cmd_bind_index_buffer(
+            command_buffer,
+            object_buffers.index.buffer,
+            0,
+            vk::IndexType::UINT16,
+        );
+
+        devices.logical.device.cmd_draw_indexed(
+            command_buffer,
+            object_and_vertices_and_indices.indices.len() as u32,
+            1,
+            0,
+            0,
+            0,
+        );
+    }
+}
+
+/// # Safety
+///
+///
+pub(crate) unsafe fn recreate_drop(
+    graphics_pipeline: &GraphicsPipeline,
+    logical: &LogicalDeviceFeatures,
+    swap_chain: &SwapChain,
+) {
+    logical
+        .device
+        .destroy_pipeline(graphics_pipeline.features.pipeline, None);
+    logical
+        .device
+        .destroy_pipeline_layout(graphics_pipeline.features.layout, None);
+
+    logical
+        .device
+        .destroy_descriptor_pool(graphics_pipeline.descriptor_set.descriptor_pool, None);
+
+    for i in 0..swap_chain.images.len() {
+        logical.device.destroy_buffer(
+            graphics_pipeline.descriptor_set.uniform_buffers[i].buffer,
+            None,
+        );
+        logical.device.free_memory(
+            graphics_pipeline.descriptor_set.uniform_buffers[i].memory,
+            None,
+        );
+    }
+}
+
+/// # Safety
+///
+///
+pub(crate) unsafe fn destroy(object: &Shape, logical: &LogicalDeviceFeatures) {
+    let object_texture = object.object_texture();
+
+    logical.device.destroy_sampler(object_texture.sampler, None);
+
+    logical
+        .device
+        .destroy_image_view(object_texture.image_view, None);
+
+    logical
+        .device
+        .destroy_image(object_texture.image.image, None);
+
+    logical
+        .device
+        .free_memory(object_texture.image.memory, None);
+
+    logical.device.destroy_descriptor_set_layout(
+        object
+            .object_graphics_pipeline()
+            .descriptor_set
+            .descriptor_set_layout,
+        None,
+    );
+
+    let object_buffers = object.object_buffers();
+
+    logical
+        .device
+        .destroy_buffer(object_buffers.vertex.buffer, None);
+
+    logical
+        .device
+        .free_memory(object_buffers.vertex.memory, None);
+
+    logical
+        .device
+        .destroy_buffer(object_buffers.index.buffer, None);
+
+    logical
+        .device
+        .free_memory(object_buffers.index.memory, None);
 }
 
 #[derive(new, Clone, Default, Debug, From, Deref, DerefMut)]
@@ -375,37 +353,6 @@ pub struct Indices(Vec<u16>);
 pub struct VerticesAndIndices {
     vertices: Vertices,
     indices: Indices,
-}
-
-impl VerticesAndIndices {
-    pub fn create_buffers(
-        &self,
-        command_pool: ash::vk::CommandPool,
-        command_buffer_count: u32,
-        instance_devices: &crate::utility::InstanceDevices,
-    ) -> ModelBuffers {
-        let vertex = utility::create_vertex_index_buffer(
-            (size_of::<Vertex>() * self.vertices.len())
-                .try_into()
-                .unwrap(),
-            &self.vertices,
-            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
-            command_pool,
-            command_buffer_count,
-            instance_devices,
-        );
-
-        let index = utility::create_vertex_index_buffer(
-            (size_of::<u16>() * self.indices.len()).try_into().unwrap(),
-            &self.indices,
-            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
-            command_pool,
-            command_buffer_count,
-            instance_devices,
-        );
-
-        ModelBuffers::new(vertex, index)
-    }
 }
 
 #[derive(Clone, Copy, Debug, new)]
@@ -422,8 +369,41 @@ pub struct Buffer {
     pub memory: vk::DeviceMemory,
 }
 
-#[derive(new, Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct ModelBuffers {
     pub vertex: Buffer,
     pub index: Buffer,
+}
+
+impl ModelBuffers {
+    fn new(
+        vertices_and_indices: &VerticesAndIndices,
+        command_pool: ash::vk::CommandPool,
+        command_buffer_count: u32,
+        instance_devices: &crate::utility::InstanceDevices,
+    ) -> Self {
+        let vertex = utility::create_vertex_index_buffer(
+            (size_of::<Vertex>() * vertices_and_indices.vertices.len())
+                .try_into()
+                .unwrap(),
+            &vertices_and_indices.vertices,
+            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
+            command_pool,
+            command_buffer_count,
+            instance_devices,
+        );
+
+        let index = utility::create_vertex_index_buffer(
+            (size_of::<u16>() * vertices_and_indices.indices.len())
+                .try_into()
+                .unwrap(),
+            &vertices_and_indices.indices,
+            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
+            command_pool,
+            command_buffer_count,
+            instance_devices,
+        );
+
+        ModelBuffers { vertex, index }
+    }
 }

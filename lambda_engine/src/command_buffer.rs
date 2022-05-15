@@ -1,6 +1,10 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, object::InternalObject, swap_chain::SwapChain,
-    utility::InstanceDevices, Devices,
+    device,
+    frame_buffer::FrameBuffers,
+    object::{self, InternalObject},
+    swap_chain::SwapChain,
+    utility::InstanceDevices,
+    Devices,
 };
 use ash::{extensions::khr::Surface, vk};
 use derive_more::{Deref, From};
@@ -130,7 +134,13 @@ pub(crate) fn create_command_buffers(
             );
 
             models.iter().for_each(|model| {
-                model.bind_index_and_vertex_buffers(devices, command_buffers[i], &offsets, i);
+                object::bind_index_and_vertex_buffers(
+                    model,
+                    devices,
+                    command_buffers[i],
+                    &offsets,
+                    i,
+                );
             });
 
             devices

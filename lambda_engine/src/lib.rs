@@ -106,7 +106,7 @@ impl Engine {
         let mut models = models;
 
         models.iter_mut().for_each(|property| {
-            property.construct(
+            property.build(
                 command_pool,
                 swap_chain_len,
                 &swap_chain,
@@ -233,9 +233,13 @@ impl Engine {
                 .device
                 .free_command_buffers(self.commander.pool, &self.commander.buffers);
 
-            self.models
-                .iter()
-                .for_each(|object| object.recreate_drop(&self.devices.logical, &self.swap_chain));
+            self.models.iter().for_each(|object| {
+                object::recreate_drop(
+                    object.object_graphics_pipeline(),
+                    &self.devices.logical,
+                    &self.swap_chain,
+                )
+            });
 
             self.devices
                 .logical
@@ -271,7 +275,16 @@ impl Engine {
         let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
 
         self.models.iter().for_each(|model| {
-            model.map_memory(&self.devices.logical, current_image, buffer_size, &ubos);
+            memory::map_memory(
+                &self.devices.logical.device,
+                model
+                    .object_graphics_pipeline()
+                    .descriptor_set
+                    .uniform_buffers[current_image]
+                    .memory,
+                buffer_size,
+                &ubos,
+            );
         });
     }
 
@@ -393,7 +406,7 @@ impl Drop for Engine {
             self.cleanup_swap_chain();
 
             self.models.iter().for_each(|model| {
-                model.destroy(&self.devices.logical);
+                object::destroy(model, &self.devices.logical);
             });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
