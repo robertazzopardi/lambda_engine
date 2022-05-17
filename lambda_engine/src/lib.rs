@@ -65,11 +65,13 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(
-        window: &Window,
+        display: &Display,
         camera: &mut Camera,
         models: Shapes,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
+        let window = &display.window;
+
         let entry_instance = EntryInstance::new(window);
 
         let debugger =

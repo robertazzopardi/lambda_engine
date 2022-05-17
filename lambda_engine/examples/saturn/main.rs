@@ -1,7 +1,7 @@
 use lambda_engine::{
     camera::Camera,
     debug::{DebugMessageProperties, MessageLevel, MessageType},
-    display::Display,
+    display::{Display, Resolution},
     object::{
         l2d::ring::RingInfoBuilder,
         l3d::sphere::SphereInfoBuilder,
@@ -15,7 +15,7 @@ const SATURN_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn
 const RING_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn_ring_alpha.png";
 
 fn main() {
-    let display = Display::new(1280, 720);
+    let display = Display::new(Resolution::ResHD);
 
     let mut camera = Camera::new(2., 1., 0.);
 
@@ -32,7 +32,6 @@ fn main() {
         )
         .texture(SATURN_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
         .indexed()
         .build()
@@ -61,7 +60,7 @@ fn main() {
         MessageType::builder().performance().validation(),
     ));
 
-    let engine = Engine::new(&display.window, &mut camera, objects, debugging);
+    let engine = Engine::new(&display, &mut camera, objects, debugging);
 
     lambda_engine::run(engine, display, camera)
 }

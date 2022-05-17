@@ -1,9 +1,9 @@
 use lambda_engine::{
     camera::Camera,
-    display::Display,
+    display::{Display, Resolution},
     object::{
         l3d::model::ModelInfoBuilder,
-        utility::{ModelCullMode, ModelTopology, ShaderType},
+        utility::{ModelCullMode, ShaderType},
         ObjectBuilder, Shapes,
     },
     Engine,
@@ -15,7 +15,7 @@ const VIKING_MODEL_TEXTURE: &str =
     "./lambda_engine/examples/assets/models/viking_room_model/viking_room.png";
 
 fn main() {
-    let display = Display::new(1280, 720);
+    let display = Display::new(Resolution::ResHD);
 
     let mut camera = Camera::new(2., 1., 0.);
 
@@ -29,14 +29,13 @@ fn main() {
         )
         .texture(VIKING_MODEL_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::NONE)
         .build()
         .unwrap();
 
     let objects: Shapes = vec![cube_model];
 
-    let engine = Engine::new(&display.window, &mut camera, objects, None);
+    let engine = Engine::new(&display, &mut camera, objects, None);
 
     lambda_engine::run(engine, display, camera)
 }

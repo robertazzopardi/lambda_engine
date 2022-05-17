@@ -70,7 +70,5 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
         }
     }
 
-    dbg!(vertices.clone(), indices.clone());
-
     VerticesAndIndices::new(vertices, indices)
 }

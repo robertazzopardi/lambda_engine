@@ -1,17 +1,20 @@
-use super::{Buffer, Indices, Vertex, WHITE};
+use super::{Buffer, Indices, Vertex, Vertices, WHITE};
 use crate::{
     command_buffer, device::Devices, memory, space::Coordinate3, texture, utility::InstanceDevices,
 };
 use ash::vk;
 use nalgebra::{Point3, Vector2, Vector3};
-use std::ops::{Mul, Sub};
+use std::{
+    collections::HashMap,
+    ops::{Mul, Sub},
+};
 
 const LIGHT: &str = "light";
 const LIGHT_TEXTURE: &str = "light_texture";
 const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct ModelTopology(pub(crate) vk::PrimitiveTopology);
 
 type VkTop = vk::PrimitiveTopology;
@@ -28,6 +31,12 @@ impl ModelTopology {
     pub const TRIANGLE_LIST_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_LIST_WITH_ADJACENCY);
     pub const TRIANGLE_STRIP: Self = Self(VkTop::TRIANGLE_STRIP);
     pub const TRIANGLE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_STRIP_WITH_ADJACENCY);
+}
+
+impl Default for ModelTopology {
+    fn default() -> Self {
+        Self::TRIANGLE_LIST
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -179,6 +188,24 @@ pub(crate) fn make_point(
     let pos = Vector3::new(x, y, pos.z);
 
     Vertex::new(pos.into(), WHITE, pos.mul(length), tex_coord)
+}
+
+pub(crate) fn calculate_indices(vertices: &Vertices) -> Indices {
+    let mut unique_vertices: HashMap<String, u16> = HashMap::new();
+    let mut indices = Vec::new();
+    let mut v = Vec::new();
+    vertices.iter().for_each(|vertex| {
+        let vertex_hash = &format!("{:p}", vertex);
+
+        if !unique_vertices.contains_key(vertex_hash) {
+            unique_vertices.insert(vertex_hash.to_string(), v.len() as u16);
+            v.push(vertex);
+        }
+
+        indices.push(unique_vertices[vertex_hash]);
+    });
+
+    indices.into()
 }
 
 pub(crate) fn spherical_indices(sector_count: u32, stack_count: u32) -> Indices {

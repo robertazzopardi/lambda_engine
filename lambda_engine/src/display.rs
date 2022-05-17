@@ -7,16 +7,49 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+#[derive(Clone, Copy, Debug)]
+pub enum Resolution {
+    ResSD,
+    ResHD,
+    ResFullHD,
+    ResQHD,
+    Res2K,
+    Res4K,
+    Res8K,
+}
+
+impl Resolution {
+    fn size(w: u32, h: u32) -> LogicalSize<u32> {
+        LogicalSize::new(w, h)
+    }
+}
+
+impl From<Resolution> for LogicalSize<u32> {
+    fn from(res: Resolution) -> Self {
+        match res {
+            Resolution::ResSD => LogicalSize::new(640, 480),
+            Resolution::ResHD => LogicalSize::new(1_280, 720),
+            Resolution::ResFullHD => LogicalSize::new(1_920, 1_080),
+            Resolution::ResQHD => LogicalSize::new(2_560, 1_440),
+            Resolution::Res2K => LogicalSize::new(2_048, 1_080),
+            Resolution::Res4K => LogicalSize::new(3_840, 2_160),
+            Resolution::Res8K => LogicalSize::new(7_680, 4_320),
+        }
+    }
+}
+
 pub struct Display {
-    pub window: Window,
-    pub event_loop: EventLoop<()>,
+    pub(crate) window: Window,
+    pub(crate) event_loop: EventLoop<()>,
 }
 
 impl Display {
-    pub fn new(w: u32, h: u32) -> Self {
+    pub fn new(res: Resolution) -> Self {
         let event_loop = EventLoop::new();
+
+        let logical_size: LogicalSize<u32> = res.into();
         let window = WindowBuilder::new()
-            .with_inner_size(LogicalSize::new(w, h))
+            .with_inner_size(logical_size)
             .build(&event_loop)
             .unwrap();
 
