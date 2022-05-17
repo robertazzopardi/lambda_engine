@@ -6,6 +6,11 @@ use ash::vk;
 use nalgebra::{Point3, Vector2, Vector3};
 use std::ops::{Mul, Sub};
 
+const LIGHT: &str = "light";
+const LIGHT_TEXTURE: &str = "light_texture";
+const TEXTURE: &str = "texture";
+const VERTEX: &str = "vertex";
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ModelTopology(pub(crate) vk::PrimitiveTopology);
 
@@ -35,6 +40,31 @@ impl ModelCullMode {
     pub const FRONT: Self = Self(VkCull::FRONT);
     pub const FRONT_AND_BACK: Self = Self(VkCull::FRONT_AND_BACK);
     pub const NONE: Self = Self(VkCull::NONE);
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ShaderType {
+    Light,
+    LightTexture,
+    Texture,
+    Vertex,
+}
+
+impl Default for ShaderType {
+    fn default() -> Self {
+        Self::Light
+    }
+}
+
+impl From<ShaderType> for &str {
+    fn from(texture_type: ShaderType) -> Self {
+        match texture_type {
+            ShaderType::Light => LIGHT,
+            ShaderType::LightTexture => LIGHT_TEXTURE,
+            ShaderType::Texture => TEXTURE,
+            ShaderType::Vertex => VERTEX,
+        }
+    }
 }
 
 fn copy_buffer(

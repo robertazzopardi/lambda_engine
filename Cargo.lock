@@ -665,6 +665,7 @@ dependencies = [
  "image",
  "memoffset",
  "nalgebra",
+ "smallvec",
  "tobj",
  "winit",
 ]

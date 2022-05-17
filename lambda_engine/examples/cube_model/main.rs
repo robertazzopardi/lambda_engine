@@ -3,7 +3,7 @@ use lambda_engine::{
     display::Display,
     object::{
         l3d::model::ModelInfoBuilder,
-        utility::{ModelCullMode, ModelTopology},
+        utility::{ModelCullMode, ModelTopology, ShaderType},
         ObjectBuilder, Shapes,
     },
     Engine,
@@ -20,15 +20,16 @@ fn main() {
     let cube_model = ObjectBuilder::default()
         .properties(
             ModelInfoBuilder::default()
-                .radius(0.5)
+                .radius(0.3)
                 .model_path(CUBE_MODEL)
                 .build()
                 .unwrap(),
         )
         .texture(SATURN_TEXTURE)
+        .shader(ShaderType::LightTexture)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
-        .indexed(true)
+        .indexed()
         .build()
         .unwrap();
 

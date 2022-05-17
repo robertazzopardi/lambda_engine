@@ -1,5 +1,5 @@
 use crate::{
-    object::{Indices, InternalObject, Object, Vertices, VerticesAndIndices, WHITE},
+    object::{utility, Indices, InternalObject, Object, Vertices, VerticesAndIndices, WHITE},
     space::{Coordinate3, Orientation},
     vertex,
 };
@@ -21,9 +21,16 @@ impl InternalObject for Model<'_> {
     fn vertices_and_indices(&mut self) {
         let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
 
-        vertices_and_indices.vertices.iter_mut().for_each(|vert| {
-            vert.pos += self.properties.position.coords;
-        });
+        // vertices_and_indices.vertices.iter_mut().for_each(|vert| {
+        //     vert.pos += self.properties.position.coords;
+        // });
+
+        vertices_and_indices
+            .vertices
+            .chunks_mut(4)
+            .for_each(|face| {
+                utility::scale(face, self.properties.radius);
+            });
 
         self.vertices_and_indices = Some(vertices_and_indices);
     }
@@ -62,6 +69,8 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
             indices.push(*index as u16);
         }
     }
+
+    dbg!(vertices.clone(), indices.clone());
 
     VerticesAndIndices::new(vertices, indices)
 }

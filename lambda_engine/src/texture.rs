@@ -22,7 +22,12 @@ impl Texture {
         instance_devices: &InstanceDevices,
     ) -> Self {
         let image = create_texture_image(image_buffer, command_pool, instance_devices);
-        let image_view = create_texture_image_view(instance_devices.devices, &image);
+        let image_view = utility::create_image_view(
+            &image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageAspectFlags::COLOR,
+            instance_devices.devices,
+        );
         let sampler = create_texture_sampler(image.mip_levels, instance_devices);
 
         Self {
@@ -31,15 +36,6 @@ impl Texture {
             sampler,
         }
     }
-}
-
-fn create_texture_image_view(devices: &Devices, image: &Image) -> vk::ImageView {
-    utility::create_image_view(
-        image,
-        vk::Format::R8G8B8A8_SRGB,
-        vk::ImageAspectFlags::COLOR,
-        devices,
-    )
 }
 
 fn create_texture_sampler(

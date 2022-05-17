@@ -3,7 +3,7 @@ pub mod l3d;
 pub mod macros;
 pub mod utility;
 
-use self::utility::{ModelCullMode, ModelTopology};
+use self::utility::{ModelCullMode, ModelTopology, ShaderType};
 use crate::{
     device::{Devices, LogicalDeviceFeatures},
     pipeline::GraphicsPipeline,
@@ -29,10 +29,12 @@ pub struct Object<T: Default + Clone> {
     pub properties: T,
 
     #[builder(setter(custom))]
-    pub texture: Vec<u8>,
+    pub texture: Option<Vec<u8>>,
+    #[builder(setter(custom))]
     pub indexed: bool,
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
+    pub shader: ShaderType,
 
     pub(crate) vertices_and_indices: Option<VerticesAndIndices>,
     pub(crate) texture_buffer: Option<Texture>,
@@ -47,9 +49,14 @@ impl<'a, T: Default + Clone> ObjectBuilder<T> {
         if let Ok(mut texture_file) = file {
             let mut data = Vec::new();
             texture_file.read_to_end(&mut data).unwrap();
-            self.texture = Some(data);
+            self.texture = Some(Some(data));
         }
 
+        self
+    }
+
+    pub fn indexed(&mut self) -> &mut Self {
+        self.indexed = Some(true);
         self
     }
 
@@ -60,18 +67,19 @@ impl<'a, T: Default + Clone> ObjectBuilder<T> {
             .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("properties")))?
             .clone();
 
-        let texture = self
-            .texture
-            .as_ref()
-            .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("texture")))?
-            .clone();
+        // let texture = self
+        //     .texture
+        //     .as_ref()
+        //     .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("texture")))?
+        //     .clone();
 
         Ok(Box::new(Object {
             properties,
-            texture,
+            texture: self.texture.clone().unwrap_or(None),
             indexed: self.indexed.unwrap_or_default(),
             topology: self.topology.unwrap_or_default(),
             cull_mode: self.cull_mode.unwrap_or_default(),
+            shader: self.shader.unwrap_or_default(),
             vertices_and_indices: None,
             texture_buffer: None,
             graphics_pipeline: None,
@@ -89,12 +97,14 @@ where
     }
 
     fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices) {
-        if !self.texture.is_empty() {
-            self.texture_buffer = Some(texture::Texture::new(
-                &self.texture,
-                command_pool,
-                instance_devices,
-            ));
+        if let Some(texture) = self.texture.clone() {
+            if !texture.is_empty() {
+                self.texture_buffer = Some(texture::Texture::new(
+                    &texture,
+                    command_pool,
+                    instance_devices,
+                ));
+            }
         }
     }
 
@@ -111,10 +121,11 @@ where
         self.graphics_pipeline = Some(GraphicsPipeline::new(
             swap_chain,
             render_pass,
-            &self.texture_buffer.unwrap(),
+            &self.texture_buffer,
             self.topology,
             self.cull_mode,
             instance_devices,
+            self.shader,
         ));
     }
 

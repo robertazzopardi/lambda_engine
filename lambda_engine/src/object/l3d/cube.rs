@@ -5,48 +5,57 @@ use crate::{
     space::{Coordinate3, Orientation},
 };
 use derive_builder::Builder;
+use std::collections::HashMap;
 
-const CUBE_VERTICES: [[f32; 3]; 24] = [
-    // face 1
-    [-0.5, -0.5, 0.5],
-    [0.5, -0.5, 0.5],
-    [0.5, 0.5, 0.5],
-    [-0.5, 0.5, 0.5],
-    // face 2
-    [-0.5, 0.5, -0.5],
-    [0.5, 0.5, -0.5],
-    [0.5, -0.5, -0.5],
-    [-0.5, -0.5, -0.5],
-    // face 3
-    [-0.5, 0.5, 0.5],
-    [-0.5, 0.5, -0.5],
-    [-0.5, -0.5, -0.5],
-    [-0.5, -0.5, 0.5],
-    // face 4
-    [0.5, -0.5, 0.5],
-    [0.5, -0.5, -0.5],
-    [0.5, 0.5, -0.5],
-    [0.5, 0.5, 0.5],
-    // face 5
-    [0.5, 0.5, 0.5],
-    [0.5, 0.5, -0.5],
-    [-0.5, 0.5, -0.5],
-    [-0.5, 0.5, 0.5],
-    // face 6
-    [0.5, -0.5, -0.5],
-    [0.5, -0.5, 0.5],
-    [-0.5, -0.5, 0.5],
-    [-0.5, -0.5, -0.5],
+const CUBE_VERTICES: [[f32; 3]; 36] = [
+    [1.0, 1.0, -1.0],
+    [-1.0, 1.0, -1.0],
+    [-1.0, 1.0, 1.0],
+    [1.0, 1.0, -1.0],
+    [-1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0],
+    [1.0, -1.0, 1.0],
+    [1.0, 1.0, 1.0],
+    [-1.0, 1.0, 1.0],
+    [1.0, -1.0, 1.0],
+    [-1.0, 1.0, 1.0],
+    [-1.0, -1.0, 1.0],
+    [-1.0, -1.0, 1.0],
+    [-1.0, 1.0, 1.0],
+    [-1.0, 1.0, -1.0],
+    [-1.0, -1.0, 1.0],
+    [-1.0, 1.0, -1.0],
+    [-1.0, -1.0, -1.0],
+    [-1.0, -1.0, -1.0],
+    [1.0, -1.0, -1.0],
+    [1.0, -1.0, 1.0],
+    [-1.0, -1.0, -1.0],
+    [1.0, -1.0, 1.0],
+    [-1.0, -1.0, 1.0],
+    [1.0, -1.0, -1.0],
+    [1.0, 1.0, -1.0],
+    [1.0, 1.0, 1.0],
+    [1.0, -1.0, -1.0],
+    [1.0, 1.0, 1.0],
+    [1.0, -1.0, 1.0],
+    [-1.0, -1.0, -1.0],
+    [-1.0, 1.0, -1.0],
+    [1.0, 1.0, -1.0],
+    [-1.0, -1.0, -1.0],
+    [1.0, 1.0, -1.0],
+    [1.0, -1.0, -1.0],
 ];
 
-const CUBE_INDICES: [u16; 36] = [
-    0, 1, 2, 2, 3, 0, // top
-    4, 5, 6, 6, 7, 4, // bottom
-    8, 9, 10, 8, 10, 11, // right
-    12, 13, 14, 12, 14, 15, // left
-    16, 17, 18, 16, 18, 19, // front
-    20, 21, 22, 20, 22, 23, // back
-];
+// const CUBE_INDICES: [u16; 36] = [
+//     // 0, 1, 2, 2, 3, 0, // top
+//     // 4, 5, 6, 6, 7, 4, // bottom
+//     // 8, 9, 10, 8, 10, 11, // right
+//     // 12, 13, 14, 12, 14, 15, // left
+//     // 16, 17, 18, 16, 18, 19, // front
+//     // 20, 21, 22, 20, 22, 23, // back
+//     0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15, 16, 17, 18, 16,
+//     18, 19, 20, 21, 22, 20, 22, 23,
+// ];
 
 pub type Cube = Object<CubeInfo>;
 
@@ -62,6 +71,20 @@ impl InternalObject for Cube {
     fn vertices_and_indices(&mut self) {
         let mut vertices = square_from_vertices(&CUBE_VERTICES.clone());
 
+        let mut unique_vertices: HashMap<String, u16> = HashMap::new();
+        let mut indices = Vec::new();
+        let mut v = Vec::new();
+        vertices.iter().for_each(|vertex| {
+            let vertex_hash = &format!("{:p}", vertex);
+
+            if !unique_vertices.contains_key(vertex_hash) {
+                unique_vertices.insert(vertex_hash.to_string(), v.len() as u16);
+                v.push(vertex);
+            }
+
+            indices.push(unique_vertices[vertex_hash]);
+        });
+
         vertices.chunks_mut(4).for_each(|face| {
             utility::calculate_normals(face);
             utility::scale(face, self.properties.radius);
@@ -69,7 +92,8 @@ impl InternalObject for Cube {
 
         self.vertices_and_indices = Some(VerticesAndIndices::new(
             vertices,
-            CUBE_INDICES.to_vec().into(),
+            // CUBE_INDICES.to_vec().into(),
+            indices.into(),
         ));
     }
 }

@@ -5,7 +5,7 @@ use lambda_engine::{
     object::{
         l2d::ring::RingInfoBuilder,
         l3d::sphere::SphereInfoBuilder,
-        utility::{ModelCullMode, ModelTopology},
+        utility::{ModelCullMode, ModelTopology, ShaderType},
         ObjectBuilder, Shapes,
     },
     Engine,
@@ -31,9 +31,10 @@ fn main() {
                 .unwrap(),
         )
         .texture(SATURN_TEXTURE)
+        .shader(ShaderType::LightTexture)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
-        .indexed(true)
+        .indexed()
         .build()
         .unwrap();
 
@@ -47,6 +48,7 @@ fn main() {
                 .unwrap(),
         )
         .texture(RING_TEXTURE)
+        .shader(ShaderType::LightTexture)
         .topology(ModelTopology::TRIANGLE_STRIP)
         .cull_mode(ModelCullMode::NONE)
         .build()

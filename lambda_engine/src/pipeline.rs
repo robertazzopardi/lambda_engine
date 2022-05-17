@@ -1,6 +1,6 @@
 use crate::{
     object::{
-        utility::{ModelCullMode, ModelTopology},
+        utility::{ModelCullMode, ModelTopology, ShaderType},
         Buffer, Vertex,
     },
     swap_chain::SwapChain,
@@ -11,6 +11,7 @@ use crate::{
 };
 use ash::vk;
 use memoffset::offset_of;
+use smallvec::{smallvec, SmallVec};
 use std::{ffi::CString, mem};
 
 #[derive(Clone, Default, Debug)]
@@ -37,10 +38,11 @@ impl GraphicsPipeline {
     pub fn new(
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
-        texture: &Texture,
+        texture: &Option<Texture>,
         topology: ModelTopology,
         cull_mode: ModelCullMode,
         instance_devices: &InstanceDevices,
+        shader_type: ShaderType,
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
 
@@ -53,6 +55,7 @@ impl GraphicsPipeline {
             render_pass,
             topology,
             cull_mode,
+            shader_type,
         );
 
         let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
@@ -178,17 +181,20 @@ fn create_pipeline_and_layout(
     render_pass: vk::RenderPass,
     topology: ModelTopology,
     cull_mode: ModelCullMode,
+    shader_type: ShaderType,
 ) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 
+    let shader_folder: &str = shader_type.into();
+
     let vert_shader_module = create_shader_module(
         devices,
-        "./lambda_engine/src/shaders/light_texture/vert.spv",
+        &format!("./lambda_engine/src/shaders/{}/vert.spv", shader_folder),
     );
 
     let frag_shader_module = create_shader_module(
         devices,
-        "./lambda_engine/src/shaders/light_texture/frag.spv",
+        &format!("./lambda_engine/src/shaders/{}/frag.spv", shader_folder),
     );
 
     let shader_stages = [
@@ -379,7 +385,7 @@ fn create_descriptor_sets(
     descriptor_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
     swap_chain_image_count: u32,
-    texture: &Texture,
+    texture: &Option<Texture>,
     uniform_buffers: &[Buffer],
 ) -> Vec<vk::DescriptorSet> {
     let layouts = vec![descriptor_layout; swap_chain_image_count as usize];
@@ -391,11 +397,17 @@ fn create_descriptor_sets(
         ..Default::default()
     };
 
-    let image_info = vk::DescriptorImageInfo {
+    // let image_info = vk::DescriptorImageInfo {
+    //     sampler: texture.unwrap().sampler,
+    //     image_view: texture.unwrap().image_view,
+    //     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+    // };
+
+    let image_info = texture.as_ref().map(|texture| vk::DescriptorImageInfo {
         sampler: texture.sampler,
         image_view: texture.image_view,
         image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    };
+    });
 
     unsafe {
         let descriptor_sets = devices
@@ -405,30 +417,31 @@ fn create_descriptor_sets(
             .expect("Failed to allocate descriptor sets!");
 
         for i in 0..swap_chain_image_count as usize {
-            let buffer_info = vk::DescriptorBufferInfo {
-                buffer: uniform_buffers[i].buffer,
-                offset: 0,
-                range: mem::size_of::<UniformBufferObject>() as u64,
-            };
+            let buffer_info = vk::DescriptorBufferInfo::builder()
+                .buffer(uniform_buffers[i].buffer)
+                .offset(0)
+                .range(mem::size_of::<UniformBufferObject>() as u64);
 
-            let descriptor_writes = [
-                vk::WriteDescriptorSet {
+            let mut descriptor_writes: SmallVec<[vk::WriteDescriptorSet; 2]> =
+                smallvec![vk::WriteDescriptorSet {
                     dst_set: descriptor_sets[i],
                     dst_binding: 0,
                     descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                    p_buffer_info: std::slice::from_ref(&buffer_info).as_ptr(),
+                    p_buffer_info: std::slice::from_ref(&buffer_info.build()).as_ptr(),
                     descriptor_count: 1,
                     ..Default::default()
-                },
-                vk::WriteDescriptorSet {
+                }];
+
+            if let Some(image_info) = image_info {
+                descriptor_writes.push(vk::WriteDescriptorSet {
                     dst_set: descriptor_sets[i],
                     dst_binding: 1,
                     descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                     p_image_info: std::slice::from_ref(&image_info).as_ptr(),
                     descriptor_count: 1,
                     ..Default::default()
-                },
-            ];
+                })
+            }
 
             devices
                 .logical

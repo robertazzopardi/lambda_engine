@@ -3,25 +3,23 @@ use lambda_engine::{
     display::Display,
     object::{
         l3d::cube::CubeInfoBuilder,
-        utility::{ModelCullMode, ModelTopology},
+        utility::{ModelCullMode, ModelTopology, ShaderType},
         ObjectBuilder, Shapes,
     },
     Engine,
 };
 
-const TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
-
 fn main() {
     let display = Display::new(1280, 720);
 
-    let mut camera = Camera::new(2., 1., 0.);
+    let mut camera = Camera::new(-2., 1., 0.);
 
     let cube = ObjectBuilder::default()
         .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
-        .texture(TEXTURE)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::BACK)
-        .indexed(true)
+        .shader(ShaderType::Vertex)
+        .indexed()
         .build()
         .unwrap();
 

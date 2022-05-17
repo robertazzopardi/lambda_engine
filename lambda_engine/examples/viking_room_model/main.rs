@@ -3,7 +3,7 @@ use lambda_engine::{
     display::Display,
     object::{
         l3d::model::ModelInfoBuilder,
-        utility::{ModelCullMode, ModelTopology},
+        utility::{ModelCullMode, ModelTopology, ShaderType},
         ObjectBuilder, Shapes,
     },
     Engine,
@@ -28,6 +28,7 @@ fn main() {
                 .unwrap(),
         )
         .texture(VIKING_MODEL_TEXTURE)
+        .shader(ShaderType::LightTexture)
         .topology(ModelTopology::TRIANGLE_LIST)
         .cull_mode(ModelCullMode::NONE)
         .build()
