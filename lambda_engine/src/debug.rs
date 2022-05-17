@@ -4,6 +4,7 @@ use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;
 
+#[derive(Clone)]
 pub(crate) struct Debug {
     pub messenger: vk::DebugUtilsMessengerEXT,
     pub utils: DebugUtils,

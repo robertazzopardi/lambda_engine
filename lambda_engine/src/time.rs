@@ -6,7 +6,7 @@ fn calculate_fps(fps: f64) -> f64 {
     (1000. / fps) / 1000.
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Time {
     delta: Duration,
     elapsed: Duration,
@@ -31,17 +31,11 @@ impl Time {
         self.accumulator += frame_time;
     }
 
-    pub fn step<F>(
-        &mut self,
-        update_state: F,
-        camera: &mut Camera,
-        ubo: &mut UniformBufferObject,
-        extent: Extent2D,
-    ) where
-        F: Fn(&mut UniformBufferObject, Extent2D, &mut Camera, f32),
-    {
+    pub fn step(&mut self, camera: &mut Camera, ubo: &mut UniformBufferObject, extent: Extent2D) {
         while self.accumulator >= self.delta {
-            update_state(ubo, extent, camera, self.delta.as_secs_f32());
+            camera.rotate(self.delta.as_secs_f32());
+            ubo.update(&extent, camera);
+
             self.accumulator -= self.delta;
             self.elapsed += self.delta;
 

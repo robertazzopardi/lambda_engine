@@ -26,5 +26,5 @@ fn main() {
 
     let engine = Engine::new(&display, &mut camera, objects, None);
 
-    lambda_engine::run(engine, display, camera)
+    engine.run(display, camera);
 }

@@ -23,11 +23,7 @@ pub mod time;
 mod uniform_buffer;
 mod utility;
 
-use ash::{
-    extensions::khr::Surface,
-    vk::{self, Extent2D},
-    Instance,
-};
+use ash::{extensions::khr::Surface, vk, Instance};
 use camera::Camera;
 use command_buffer::VkCommander;
 use debug::{Debug, DebugMessageProperties};
@@ -398,6 +394,27 @@ impl Engine {
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
+
+    pub fn run(mut self, display: Display, mut camera: Camera) {
+        let mut mouse_pressed = false;
+
+        display.event_loop.run(move |event, _, control_flow| {
+            self.time.tick();
+
+            display::handle_inputs(
+                control_flow,
+                event,
+                &display.window,
+                &mut camera,
+                &mut mouse_pressed,
+            );
+
+            self.time
+                .step(&mut camera, &mut self.ubo, self.swap_chain.extent);
+
+            unsafe { self.render(&display.window, &mut camera) };
+        });
+    }
 }
 
 impl Drop for Engine {
@@ -448,34 +465,4 @@ impl Drop for Engine {
             self.instance.destroy_instance(None);
         }
     }
-}
-
-fn update_state(ubo: &mut UniformBufferObject, extent: Extent2D, camera: &mut Camera, dt: f32) {
-    camera.rotate(dt);
-    ubo.update(&extent, camera);
-}
-
-pub fn run(mut engine: Engine, display: Display, mut camera: Camera) {
-    let mut mouse_pressed = false;
-
-    display.event_loop.run(move |event, _, control_flow| {
-        engine.time.tick();
-
-        display::handle_inputs(
-            control_flow,
-            event,
-            &display.window,
-            &mut camera,
-            &mut mouse_pressed,
-        );
-
-        engine.time.step(
-            update_state,
-            &mut camera,
-            &mut engine.ubo,
-            engine.swap_chain.extent,
-        );
-
-        unsafe { engine.render(&display.window, &mut camera) };
-    });
 }

@@ -62,5 +62,5 @@ fn main() {
 
     let engine = Engine::new(&display, &mut camera, objects, debugging);
 
-    lambda_engine::run(engine, display, camera)
+    engine.run(display, camera)
 }

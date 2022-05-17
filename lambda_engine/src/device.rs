@@ -35,6 +35,7 @@ impl QueueFamilyIndices {
     }
 }
 
+#[derive(Clone)]
 pub struct Devices {
     pub physical: PhysicalDeviceProperties,
     pub logical: LogicalDeviceFeatures,
