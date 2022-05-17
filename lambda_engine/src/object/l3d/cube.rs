@@ -1,6 +1,8 @@
 use crate::{
     object::{
-        l2d::square::square_from_vertices, utility::{self, calculate_indices}, InternalObject, Object, VerticesAndIndices,
+        l2d::square::square_from_vertices,
+        utility::{self, calculate_indices},
+        InternalObject, Object, VerticesAndIndices,
     },
     space::{Coordinate3, Orientation},
 };
@@ -57,7 +59,7 @@ pub struct CubeInfo {
 
 impl InternalObject for Cube {
     fn vertices_and_indices(&mut self) {
-        let mut vertices = square_from_vertices(&CUBE_VERTICES.clone());
+        let mut vertices = square_from_vertices(&CUBE_VERTICES);
 
         vertices.chunks_mut(4).for_each(|face| {
             utility::calculate_normals(face);

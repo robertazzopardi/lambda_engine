@@ -27,6 +27,10 @@ crate-type = ["bin"]
 name = "cube"
 crate-type = ["bin"]
 
+[[example]]
+name = "square"
+crate-type = ["bin"]
+
 # Models
 
 [[example]]

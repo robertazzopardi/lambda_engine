@@ -1,5 +1,8 @@
 use crate::{
-    object::{utility, Indices, InternalObject, Object, Vertices, VerticesAndIndices, WHITE},
+    object::{
+        utility::{self, calculate_indices},
+        InternalObject, Object, Vertices, VerticesAndIndices, WHITE,
+    },
     space::{Coordinate3, Orientation},
     vertex,
 };
@@ -41,7 +44,6 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
         tobj::load_obj(model_path, &tobj::GPU_LOAD_OPTIONS).expect("Failed to OBJ load file");
 
     let mut vertices = Vertices(Vec::new());
-    let mut indices = Indices(Vec::new());
 
     for model in models {
         let mesh = &model.mesh;
@@ -66,9 +68,10 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
             let vertex = vertex!(pos, WHITE, normal, texcoord);
 
             vertices.push(vertex);
-            indices.push(*index as u16);
         }
     }
+
+    let indices = calculate_indices(&vertices);
 
     VerticesAndIndices::new(vertices, indices)
 }

@@ -1,5 +1,8 @@
 use crate::{
-    object::{utility, InternalObject, Object, VerticesAndIndices, WHITE},
+    object::{
+        utility::{self},
+        InternalObject, Object, Vertices, VerticesAndIndices, WHITE,
+    },
     space::{Coordinate3, Orientation},
     vertex,
 };
@@ -28,7 +31,7 @@ impl InternalObject for Sphere {
 
         let pos = self.properties.position;
 
-        let mut vertices = Vec::new();
+        let mut vertices = Vertices::default();
 
         for i in 0..=self.properties.stack_count {
             let stack_angle = std::f32::consts::FRAC_PI_2 - i as f32 * stack_step;
@@ -54,7 +57,7 @@ impl InternalObject for Sphere {
         }
 
         self.vertices_and_indices = Some(VerticesAndIndices::new(
-            vertices.into(),
+            vertices,
             utility::spherical_indices(self.properties.sector_count, self.properties.stack_count),
         ));
     }

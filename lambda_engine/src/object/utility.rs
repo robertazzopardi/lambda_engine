@@ -194,6 +194,7 @@ pub(crate) fn calculate_indices(vertices: &Vertices) -> Indices {
     let mut unique_vertices: HashMap<String, u16> = HashMap::new();
     let mut indices = Vec::new();
     let mut v = Vec::new();
+
     vertices.iter().for_each(|vertex| {
         let vertex_hash = &format!("{:p}", vertex);
 
