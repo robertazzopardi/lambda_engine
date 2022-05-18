@@ -21,7 +21,7 @@ pub struct ModelInfo<'a> {
 }
 
 impl InternalObject for Model<'_> {
-    fn vertices_and_indices(&mut self) {
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
 
         // vertices_and_indices.vertices.iter_mut().for_each(|vert| {
@@ -36,6 +36,7 @@ impl InternalObject for Model<'_> {
             });
 
         self.vertices_and_indices = Some(vertices_and_indices);
+        self.vertices_and_indices.as_ref().unwrap()
     }
 }
 
@@ -43,12 +44,10 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
     let (models, _materials) =
         tobj::load_obj(model_path, &tobj::GPU_LOAD_OPTIONS).expect("Failed to OBJ load file");
 
-    let mut vertices = Vertices(Vec::new());
+    let mut vertices = Vertices::default();
 
-    for model in models {
-        let mesh = &model.mesh;
-
-        for index in mesh.indices.iter() {
+    models.into_iter().for_each(|tobj::Model { mesh, .. }| {
+        mesh.indices.iter().for_each(|index| {
             let i = *index as usize;
 
             let pos = Point3::new(
@@ -68,8 +67,8 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
             let vertex = vertex!(pos, WHITE, normal, texcoord);
 
             vertices.push(vertex);
-        }
-    }
+        });
+    });
 
     let indices = calculate_indices(&vertices);
 

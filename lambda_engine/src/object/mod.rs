@@ -8,7 +8,7 @@ use crate::{
     device::{Devices, LogicalDeviceFeatures},
     pipeline::GraphicsPipeline,
     swap_chain::SwapChain,
-    texture::{self, Texture},
+    texture::Texture,
     utility::InstanceDevices,
 };
 use ash::vk;
@@ -67,12 +67,6 @@ impl<'a, T: Default + Clone> ObjectBuilder<T> {
             .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("properties")))?
             .clone();
 
-        // let texture = self
-        //     .texture
-        //     .as_ref()
-        //     .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("texture")))?
-        //     .clone();
-
         Ok(Box::new(Object {
             properties,
             texture: self.texture.clone().unwrap_or(None),
@@ -98,13 +92,7 @@ where
 
     fn texture(&mut self, command_pool: vk::CommandPool, instance_devices: &InstanceDevices) {
         if let Some(texture) = self.texture.clone() {
-            if !texture.is_empty() {
-                self.texture_buffer = Some(texture::Texture::new(
-                    &texture,
-                    command_pool,
-                    instance_devices,
-                ));
-            }
+            self.texture_buffer = Some(Texture::new(&texture, command_pool, instance_devices));
         }
     }
 
@@ -114,9 +102,9 @@ where
 
     fn graphics_pipeline(
         &mut self,
-        swap_chain: &crate::swap_chain::SwapChain,
-        render_pass: ash::vk::RenderPass,
-        instance_devices: &crate::utility::InstanceDevices,
+        swap_chain: &SwapChain,
+        render_pass: vk::RenderPass,
+        instance_devices: &InstanceDevices,
     ) {
         self.graphics_pipeline = Some(GraphicsPipeline::new(
             swap_chain,
@@ -147,7 +135,7 @@ where
 }
 
 pub trait InternalObject: private::InternalObject {
-    fn vertices_and_indices(&mut self);
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices;
 
     fn build(
         &mut self,
@@ -159,10 +147,10 @@ pub trait InternalObject: private::InternalObject {
     ) {
         self.texture(command_pool, instance_devices);
 
-        self.vertices_and_indices();
+        let vertices_and_indices = self.vertices_and_indices();
 
         let model_buffers = ModelBuffers::new(
-            self.object_vertices_and_indices(),
+            vertices_and_indices,
             command_pool,
             command_buffer_count,
             instance_devices,
@@ -201,12 +189,7 @@ pub(crate) mod private {
         fn is_indexed(&self) -> bool {
             unimplemented!()
         }
-        fn graphics_pipeline(
-            &mut self,
-            _: &SwapChain,
-            _: ash::vk::RenderPass,
-            _: &InstanceDevices,
-        ) {
+        fn graphics_pipeline(&mut self, _: &SwapChain, _: vk::RenderPass, _: &InstanceDevices) {
             unimplemented!()
         }
     }

@@ -14,41 +14,72 @@ const LIGHT_TEXTURE: &str = "light_texture";
 const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
 
-#[derive(Clone, Copy, Debug)]
-pub struct ModelTopology(pub(crate) vk::PrimitiveTopology);
-
 type VkTop = vk::PrimitiveTopology;
 
-impl ModelTopology {
-    pub const LINE_LIST: Self = Self(VkTop::LINE_LIST);
-    pub const LINE_LIST_WITH_ADJACENCY: Self = Self(VkTop::LINE_LIST_WITH_ADJACENCY);
-    pub const LINE_STRIP: Self = Self(VkTop::LINE_STRIP);
-    pub const LINE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::LINE_STRIP_WITH_ADJACENCY);
-    pub const PATCH_LIST: Self = Self(VkTop::PATCH_LIST);
-    pub const POINT_LIST: Self = Self(VkTop::POINT_LIST);
-    pub const TRIANGLE_FAN: Self = Self(VkTop::TRIANGLE_FAN);
-    pub const TRIANGLE_LIST: Self = Self(VkTop::TRIANGLE_LIST);
-    pub const TRIANGLE_LIST_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_LIST_WITH_ADJACENCY);
-    pub const TRIANGLE_STRIP: Self = Self(VkTop::TRIANGLE_STRIP);
-    pub const TRIANGLE_STRIP_WITH_ADJACENCY: Self = Self(VkTop::TRIANGLE_STRIP_WITH_ADJACENCY);
+#[derive(Clone, Copy, Debug)]
+pub enum ModelTopology {
+    LineList,
+    LineListWithAdjacency,
+    LineStrip,
+    LineStripWithAdjacency,
+    PatchList,
+    PointList,
+    TriangleFan,
+    TriangleList,
+    TriangleListWithAdjacency,
+    TriangleStrip,
+    TriangleStripWithAdjacency,
+}
+
+impl From<ModelTopology> for VkTop {
+    fn from(model_topology: ModelTopology) -> Self {
+        match model_topology {
+            ModelTopology::LineList => VkTop::LINE_LIST,
+            ModelTopology::LineListWithAdjacency => VkTop::LINE_LIST_WITH_ADJACENCY,
+            ModelTopology::LineStrip => VkTop::LINE_STRIP,
+            ModelTopology::LineStripWithAdjacency => VkTop::LINE_STRIP_WITH_ADJACENCY,
+            ModelTopology::PatchList => VkTop::PATCH_LIST,
+            ModelTopology::PointList => VkTop::POINT_LIST,
+            ModelTopology::TriangleFan => VkTop::TRIANGLE_FAN,
+            ModelTopology::TriangleList => VkTop::TRIANGLE_LIST,
+            ModelTopology::TriangleListWithAdjacency => VkTop::TRIANGLE_LIST_WITH_ADJACENCY,
+            ModelTopology::TriangleStrip => VkTop::TRIANGLE_STRIP,
+            ModelTopology::TriangleStripWithAdjacency => VkTop::TRIANGLE_STRIP_WITH_ADJACENCY,
+        }
+    }
 }
 
 impl Default for ModelTopology {
     fn default() -> Self {
-        Self::TRIANGLE_LIST
+        Self::TriangleList
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ModelCullMode(pub(crate) vk::CullModeFlags);
+#[derive(Clone, Copy, Debug)]
+pub enum ModelCullMode {
+    Back,
+    Front,
+    FrontAndBack,
+    None,
+}
 
 type VkCull = vk::CullModeFlags;
 
-impl ModelCullMode {
-    pub const BACK: Self = Self(VkCull::BACK);
-    pub const FRONT: Self = Self(VkCull::FRONT);
-    pub const FRONT_AND_BACK: Self = Self(VkCull::FRONT_AND_BACK);
-    pub const NONE: Self = Self(VkCull::NONE);
+impl From<ModelCullMode> for VkCull {
+    fn from(model_cull_model: ModelCullMode) -> Self {
+        match model_cull_model {
+            ModelCullMode::Back => VkCull::BACK,
+            ModelCullMode::Front => VkCull::FRONT,
+            ModelCullMode::FrontAndBack => VkCull::FRONT_AND_BACK,
+            ModelCullMode::None => VkCull::NONE,
+        }
+    }
+}
+
+impl Default for ModelCullMode {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

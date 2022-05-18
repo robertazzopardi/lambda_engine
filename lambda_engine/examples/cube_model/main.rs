@@ -27,7 +27,7 @@ fn main() {
         )
         .texture(SATURN_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::BACK)
+        .cull_mode(ModelCullMode::Back)
         .indexed()
         .build()
         .unwrap();

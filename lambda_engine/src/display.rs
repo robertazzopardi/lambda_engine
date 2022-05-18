@@ -1,5 +1,4 @@
-use crate::{utility::EntryInstance, Camera};
-use ash::vk;
+use crate::Camera;
 use winit::{
     dpi::LogicalSize,
     event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
@@ -54,16 +53,6 @@ impl Display {
             .unwrap();
 
         Self { event_loop, window }
-    }
-}
-
-pub(crate) fn create_surface(
-    EntryInstance { entry, instance }: &EntryInstance,
-    window: &Window,
-) -> vk::SurfaceKHR {
-    unsafe {
-        ash_window::create_surface(entry, instance, window, None)
-            .expect("Failed to create window surface!")
     }
 }
 

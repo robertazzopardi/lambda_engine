@@ -20,7 +20,7 @@ pub struct SquareInfo {
 }
 
 impl InternalObject for Square {
-    fn vertices_and_indices(&mut self) {
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let mut vertices = square_from_vertices(&[
             [-0.5, -0.5, 0.5],
             [0.5, -0.5, 0.5],
@@ -36,10 +36,11 @@ impl InternalObject for Square {
             vertices,
             SQUARE_INDICES.to_vec().into(),
         ));
+        self.vertices_and_indices.as_ref().unwrap()
     }
 }
 
-pub fn square_from_vertices(verts: &[[f32; 3]]) -> Vertices {
+pub fn square_from_vertices(vertices: &[[f32; 3]]) -> Vertices {
     let tex_coord = vec![
         vector2!(1., 0.),
         vector2!(0., 0.),
@@ -48,12 +49,12 @@ pub fn square_from_vertices(verts: &[[f32; 3]]) -> Vertices {
     ];
 
     let mut tex_coords = Vec::new();
-    for _ in 0..(verts.len() / 4) {
+    for _ in 0..(vertices.len() / 4) {
         tex_coords.extend(tex_coord.clone());
     }
 
     Vertices(
-        verts
+        vertices
             .iter()
             .enumerate()
             .map(|(index, vert)| {

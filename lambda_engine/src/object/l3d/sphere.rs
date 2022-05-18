@@ -23,7 +23,7 @@ pub struct SphereInfo {
 }
 
 impl InternalObject for Sphere {
-    fn vertices_and_indices(&mut self) {
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let length = 1. / self.properties.radius;
 
         let sector_step = 2. * std::f32::consts::PI / self.properties.sector_count as f32;
@@ -60,5 +60,6 @@ impl InternalObject for Sphere {
             vertices,
             utility::spherical_indices(self.properties.sector_count, self.properties.stack_count),
         ));
+        self.vertices_and_indices.as_ref().unwrap()
     }
 }

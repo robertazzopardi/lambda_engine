@@ -58,7 +58,7 @@ pub struct CubeInfo {
 }
 
 impl InternalObject for Cube {
-    fn vertices_and_indices(&mut self) {
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let mut vertices = square_from_vertices(&CUBE_VERTICES);
 
         vertices.chunks_mut(4).for_each(|face| {
@@ -69,5 +69,6 @@ impl InternalObject for Cube {
         let indices = calculate_indices(&vertices);
 
         self.vertices_and_indices = Some(VerticesAndIndices::new(vertices, indices));
+        self.vertices_and_indices.as_ref().unwrap()
     }
 }

@@ -32,7 +32,7 @@ fn main() {
         )
         .texture(SATURN_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::BACK)
+        .cull_mode(ModelCullMode::Back)
         .indexed()
         .build()
         .unwrap();
@@ -48,8 +48,8 @@ fn main() {
         )
         .texture(RING_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .topology(ModelTopology::TRIANGLE_STRIP)
-        .cull_mode(ModelCullMode::NONE)
+        .topology(ModelTopology::TriangleStrip)
+        .cull_mode(ModelCullMode::None)
         .build()
         .unwrap();
 

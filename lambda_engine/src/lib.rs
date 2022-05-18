@@ -73,7 +73,15 @@ impl Engine {
         let debugger =
             debugging.map(|debug_properties| debug::debugger(&entry_instance, debug_properties));
 
-        let surface = display::create_surface(&entry_instance, window);
+        let surface = unsafe {
+            ash_window::create_surface(
+                &entry_instance.entry,
+                &entry_instance.instance,
+                window,
+                None,
+            )
+            .expect("Failed to create window surface!")
+        };
 
         let surface_loader = Surface::new(&entry_instance.entry, &entry_instance.instance);
 

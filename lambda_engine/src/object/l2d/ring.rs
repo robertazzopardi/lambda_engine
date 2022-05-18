@@ -18,7 +18,7 @@ pub struct RingInfo {
 }
 
 impl InternalObject for Ring {
-    fn vertices_and_indices(&mut self) {
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,
             "Ring inner radius mut be smaller or equal to its outer radius"
@@ -55,5 +55,7 @@ impl InternalObject for Ring {
             vertices.into(),
             utility::spherical_indices(self.properties.sector_count, 2),
         ));
+
+        self.vertices_and_indices.as_ref().unwrap()
     }
 }

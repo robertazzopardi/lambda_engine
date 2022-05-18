@@ -16,7 +16,7 @@ fn main() {
 
     let cube = ObjectBuilder::default()
         .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
-        .cull_mode(ModelCullMode::BACK)
+        .cull_mode(ModelCullMode::Back)
         .shader(ShaderType::Vertex)
         .indexed()
         .build()

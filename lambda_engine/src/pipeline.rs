@@ -247,7 +247,7 @@ fn create_pipeline_and_layout(
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(topology.0)
+        .topology(topology.into())
         .primitive_restart_enable(false);
 
     let view_port = vk::Viewport::builder()
@@ -274,7 +274,7 @@ fn create_pipeline_and_layout(
         // .polygon_mode(vk::PolygonMode::POINT)
         // .polygon_mode(vk::PolygonMode::FILL_RECTANGLE_NV)
         .line_width(1.)
-        .cull_mode(cull_mode.0)
+        .cull_mode(cull_mode.into())
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 

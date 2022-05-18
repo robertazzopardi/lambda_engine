@@ -29,7 +29,7 @@ fn main() {
         )
         .texture(VIKING_MODEL_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::NONE)
+        .cull_mode(ModelCullMode::None)
         .build()
         .unwrap();
 
