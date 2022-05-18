@@ -40,6 +40,10 @@ use uniform_buffer::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
+pub mod prelude {
+    pub use crate::{};
+}
+
 pub struct Engine {
     commander: VkCommander,
     current_frame: usize,

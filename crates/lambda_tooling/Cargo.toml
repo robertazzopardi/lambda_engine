@@ -1,0 +1,4 @@
+[package]
+name = "lambda_tooling"
+version = "0.0.0"
+edition = "2021"

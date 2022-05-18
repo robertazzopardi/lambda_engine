@@ -1,6 +1,6 @@
 GLSLC=$(VULKAN_SDK)/macOS/bin/glslc
 
-SRC		:= lambda_engine/src
+SRC		:= crates/lambda_internal/src
 
 ifeq ($(OS),Windows_NT)
 SOURCEDIRS	:= $(SRC)

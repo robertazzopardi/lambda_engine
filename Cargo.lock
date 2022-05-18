@@ -657,6 +657,13 @@ dependencies = [
 name = "lambda_engine"
 version = "0.1.0"
 dependencies = [
+ "lambda_internal",
+]
+
+[[package]]
+name = "lambda_internal"
+version = "0.1.0"
+dependencies = [
  "ash",
  "ash-window",
  "derive-new",
@@ -669,6 +676,14 @@ dependencies = [
  "tobj",
  "winit",
 ]
+
+[[package]]
+name = "lambda_object"
+version = "0.0.1"
+
+[[package]]
+name = "lambda_tooling"
+version = "0.0.0"
 
 [[package]]
 name = "lazy_static"

@@ -9,8 +9,8 @@ use lambda_engine::{
     Engine,
 };
 
-const CUBE_MODEL: &str = "./lambda_engine/examples/assets/models/cube_model/cube.obj";
-const SATURN_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
+const VIKING_MODEL: &str = "./examples/assets/models/viking_room_model/viking_room.obj";
+const VIKING_MODEL_TEXTURE: &str = "./examples/assets/models/viking_room_model/viking_room.png";
 
 fn main() {
     let display = Display::new(Resolution::ResHD);
@@ -20,15 +20,14 @@ fn main() {
     let cube_model = ObjectBuilder::default()
         .properties(
             ModelInfoBuilder::default()
-                .radius(0.3)
-                .model_path(CUBE_MODEL)
+                .radius(0.5)
+                .model_path(VIKING_MODEL)
                 .build()
                 .unwrap(),
         )
-        .texture(SATURN_TEXTURE)
+        .texture(VIKING_MODEL_TEXTURE)
         .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::Back)
-        .indexed()
+        .cull_mode(ModelCullMode::None)
         .build()
         .unwrap();
 

@@ -11,8 +11,8 @@ use lambda_engine::{
     Engine,
 };
 
-const SATURN_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn.jpg";
-const RING_TEXTURE: &str = "./lambda_engine/examples/assets/textures/2k_saturn_ring_alpha.png";
+const SATURN_TEXTURE: &str = "./examples/assets/textures/2k_saturn.jpg";
+const RING_TEXTURE: &str = "./examples/assets/textures/2k_saturn_ring_alpha.png";
 
 fn main() {
     let display = Display::new(Resolution::ResHD);

@@ -1,9 +1,45 @@
-[workspace]
-members = [ "lambda_*" ]
+[package]
+name = "lambda_engine"
+version = "0.1.0"
+edition = "2021"
+categories = ["game-engines", "graphics", "gui", "rendering"]
+description = "A simple vulkan based game engine"
+exclude = ["examples/assets/**/*", ".github/**/*", "crates/**/*"]
+homepage = "https://github.com/robertazzopardi/lambda_engine"
+keywords = ["game", "engine", "gamedev", "graphics"]
+license = "MIT"
+readme = "README.md"
+include = ["src/**/*"]
+repository = "https://github.com/robertazzopardi/lambda_engine"
 
-[profile.release]
-strip = true
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
+[workspace]
+members = ["crates/*"]
+
+[dependencies]
+lambda_internal = { path = "crates/lambda_internal", default-features = false }
+
+# Examples
+
+## 3D
+
+[[example]]
+name = "saturn"
+crate-type = ["bin"]
+
+[[example]]
+name = "cube"
+crate-type = ["bin"]
+
+[[example]]
+name = "square"
+crate-type = ["bin"]
+
+## Models
+
+[[example]]
+name = "cube_model"
+crate-type = ["bin"]
+
+[[example]]
+name = "viking_room_model"
+crate-type = ["bin"]
