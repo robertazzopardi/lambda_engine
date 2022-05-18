@@ -1,3 +1,4 @@
+use lambda_engine::prelude::*;
 use lambda_engine::{
     camera::Camera,
     display::{Display, Resolution},
@@ -6,7 +7,6 @@ use lambda_engine::{
         utility::{ModelCullMode, ShaderType},
         ObjectBuilder, Shapes,
     },
-    Engine,
 };
 
 const VIKING_MODEL: &str = "./examples/assets/models/viking_room_model/viking_room.obj";

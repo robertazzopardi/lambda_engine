@@ -1,3 +1,4 @@
+use lambda_engine::prelude::*;
 use lambda_engine::{
     camera::Camera,
     debug::{DebugMessageProperties, MessageLevel, MessageType},
@@ -8,7 +9,6 @@ use lambda_engine::{
         utility::{ModelCullMode, ModelTopology, ShaderType},
         ObjectBuilder, Shapes,
     },
-    Engine,
 };
 
 const SATURN_TEXTURE: &str = "./examples/assets/textures/2k_saturn.jpg";

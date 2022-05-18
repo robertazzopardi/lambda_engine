@@ -1,6 +1,6 @@
 use crate::{
+    swap_chain::SwapChain,
     utility::{self, Image, ImageInfo, InstanceDevices},
-    SwapChain,
 };
 use ash::vk;
 

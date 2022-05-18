@@ -1,10 +1,9 @@
 use crate::{
-    device,
+    device::{self, Devices},
     frame_buffer::FrameBuffers,
     object::{self, InternalObject},
     swap_chain::SwapChain,
     utility::InstanceDevices,
-    Devices,
 };
 use ash::{extensions::khr::Surface, vk};
 use derive_more::{Deref, From};

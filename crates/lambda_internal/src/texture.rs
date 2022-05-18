@@ -1,8 +1,9 @@
 use crate::{
-    command_buffer, memory,
+    command_buffer,
+    device::Devices,
+    memory,
     object::Buffer,
     utility::{self, Image, ImageInfo, InstanceDevices},
-    Devices,
 };
 use ash::vk;
 use nalgebra::Point2;

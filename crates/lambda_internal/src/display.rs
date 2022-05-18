@@ -1,4 +1,4 @@
-use crate::Camera;
+use crate::camera::Camera;
 use winit::{
     dpi::LogicalSize,
     event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},

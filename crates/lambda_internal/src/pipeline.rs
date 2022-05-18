@@ -1,4 +1,5 @@
 use crate::{
+    device::Devices,
     object::{
         utility::{ModelCullMode, ModelTopology, ShaderType},
         Buffer, Vertex,
@@ -7,7 +8,6 @@ use crate::{
     texture::{self, Texture},
     uniform_buffer::UniformBufferObject,
     utility::InstanceDevices,
-    Devices,
 };
 use ash::vk;
 use memoffset::offset_of;

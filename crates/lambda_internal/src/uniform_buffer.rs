@@ -1,4 +1,4 @@
-use crate::Camera;
+use crate::camera::Camera;
 use ash::vk;
 use nalgebra::{Matrix4, Perspective3, Vector3};
 
@@ -21,7 +21,7 @@ impl UniformBufferObject {
     }
 
     pub fn update(&mut self, extent: &vk::Extent2D, camera: &Camera) {
-        self.model = Matrix4::from_axis_angle(&Vector3::x_axis(), 90.0f32.to_radians());
+        self.model = Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians());
 
         self.view = camera.calc_matrix();
 
