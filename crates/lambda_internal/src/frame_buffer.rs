@@ -1,6 +1,6 @@
 use crate::{resource::Resources, swap_chain::SwapChain};
 use ash::{vk, Device};
-use derive_more::{From, Deref};
+use derive_more::{Deref, From};
 
 #[derive(new, Debug, From, Deref)]
 pub struct FrameBuffers(pub(crate) Vec<vk::Framebuffer>);

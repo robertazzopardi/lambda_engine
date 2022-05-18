@@ -189,12 +189,18 @@ fn create_pipeline_and_layout(
 
     let vert_shader_module = create_shader_module(
         devices,
-        &format!("./crates/lambda_internal/src/shaders/{}/vert.spv", shader_folder),
+        &format!(
+            "./crates/lambda_internal/src/shaders/{}/vert.spv",
+            shader_folder
+        ),
     );
 
     let frag_shader_module = create_shader_module(
         devices,
-        &format!("./crates/lambda_internal/src/shaders/{}/frag.spv", shader_folder),
+        &format!(
+            "./crates/lambda_internal/src/shaders/{}/frag.spv",
+            shader_folder
+        ),
     );
 
     let shader_stages = [

@@ -41,7 +41,7 @@ use utility::{EntryInstance, InstanceDevices};
 use winit::window::Window;
 
 pub mod prelude {
-    pub use crate::{};
+    pub use crate::Engine;
 }
 
 pub struct Engine {

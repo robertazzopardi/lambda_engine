@@ -1,3 +1,3 @@
 pub mod cube;
-pub mod sphere;
 pub mod model;
+pub mod sphere;

@@ -43,3 +43,7 @@ crate-type = ["bin"]
 [[example]]
 name = "viking_room_model"
 crate-type = ["bin"]
+
+[[example]]
+name = "monkey_model"
+crate-type = ["bin"]
