@@ -39,8 +39,8 @@ impl From<Resolution> for LogicalSize<u32> {
 
 #[derive(Debug)]
 pub struct Display {
-    pub(crate) window: Window,
-    pub(crate) event_loop: EventLoop<()>,
+    pub window: Window,
+    pub event_loop: EventLoop<()>,
 }
 
 impl Display {

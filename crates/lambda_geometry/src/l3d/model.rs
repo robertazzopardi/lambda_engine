@@ -1,6 +1,6 @@
 use crate::{
     utility::{self, calculate_indices},
-    InternalObject, Object, VerticesAndIndices, WHITE,
+    Geometry, InternalGeometry, VerticesAndIndices, WHITE,
 };
 use derive_builder::Builder;
 use lambda_space::{
@@ -9,7 +9,7 @@ use lambda_space::{
 };
 use nalgebra::{Point3, Vector2, Vector3};
 
-pub type Model<'a> = Object<ModelInfo<'a>>;
+pub type Model<'a> = Geometry<ModelInfo<'a>>;
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
 #[builder(default)]
@@ -20,7 +20,7 @@ pub struct ModelInfo<'a> {
     model_path: &'a str,
 }
 
-impl InternalObject for Model<'_> {
+impl InternalGeometry for Model<'_> {
     fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
 

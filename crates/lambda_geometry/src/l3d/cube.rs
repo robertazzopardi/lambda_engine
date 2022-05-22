@@ -1,7 +1,7 @@
 use crate::{
     l2d::square::square_from_vertices,
     utility::{self, calculate_indices},
-    InternalObject, Object, VerticesAndIndices,
+    Geometry, InternalGeometry, VerticesAndIndices,
 };
 use derive_builder::Builder;
 use lambda_space::space::{Coordinate3, Orientation};
@@ -45,7 +45,7 @@ const CUBE_VERTICES: [[f32; 3]; 36] = [
     [1.0, -1.0, -1.0],
 ];
 
-pub type Cube = Object<CubeInfo>;
+pub type Cube = Geometry<CubeInfo>;
 
 #[derive(Builder, Default, Debug, Clone, new)]
 #[builder(default)]
@@ -55,7 +55,7 @@ pub struct CubeInfo {
     pub radius: f32,
 }
 
-impl InternalObject for Cube {
+impl InternalGeometry for Cube {
     fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let mut vertices = square_from_vertices(&CUBE_VERTICES);
 

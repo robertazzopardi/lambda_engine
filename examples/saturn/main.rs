@@ -10,7 +10,7 @@ fn main() {
 
     let sections = 50;
 
-    let sphere = ObjectBuilder::default()
+    let sphere = GeometryBuilder::default()
         .properties(
             SphereInfoBuilder::default()
                 .radius(0.4)
@@ -26,7 +26,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let ring = ObjectBuilder::default()
+    let ring = GeometryBuilder::default()
         .properties(
             RingInfoBuilder::default()
                 .inner_radius(0.5)

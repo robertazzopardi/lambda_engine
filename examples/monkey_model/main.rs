@@ -8,7 +8,7 @@ fn main() {
 
     let mut camera = Camera::new(2., 0., 0.);
 
-    let cube_model = ObjectBuilder::default()
+    let cube_model = GeometryBuilder::default()
         .properties(
             ModelInfoBuilder::default()
                 .radius(0.3)

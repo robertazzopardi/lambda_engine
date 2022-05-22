@@ -1,9 +1,9 @@
-use crate::{utility, InternalObject, Object, VerticesAndIndices};
+use crate::{utility, Geometry, InternalGeometry, VerticesAndIndices};
 use derive_builder::Builder;
 use lambda_space::space::{Coordinate3, Orientation};
 use nalgebra::Vector2;
 
-pub type Ring = Object<RingInfo>;
+pub type Ring = Geometry<RingInfo>;
 
 #[derive(Builder, Default, Debug, Clone, new)]
 #[builder(default)]
@@ -15,7 +15,7 @@ pub struct RingInfo {
     pub sector_count: u32,
 }
 
-impl InternalObject for Ring {
+impl InternalGeometry for Ring {
     fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,

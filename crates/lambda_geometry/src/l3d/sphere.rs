@@ -1,4 +1,4 @@
-use crate::{utility::spherical_indices, InternalObject, Object, VerticesAndIndices, WHITE};
+use crate::{utility::spherical_indices, Geometry, InternalGeometry, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
 use lambda_space::{
     space::{Coordinate3, Orientation, Vertices},
@@ -7,7 +7,7 @@ use lambda_space::{
 use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
-pub type Sphere = Object<SphereInfo>;
+pub type Sphere = Geometry<SphereInfo>;
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
 #[builder(default)]
@@ -19,7 +19,7 @@ pub struct SphereInfo {
     pub stack_count: u32,
 }
 
-impl InternalObject for Sphere {
+impl InternalGeometry for Sphere {
     fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
         let length = 1. / self.properties.radius;
 

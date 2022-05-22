@@ -5,7 +5,7 @@ fn main() {
 
     let mut camera = Camera::new(-2., 1., 0.);
 
-    let cube = ObjectBuilder::default()
+    let cube = GeometryBuilder::default()
         .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
         .cull_mode(ModelCullMode::Back)
         .shader(ShaderType::Vertex)

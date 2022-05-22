@@ -21,11 +21,11 @@ pub mod prelude {
     pub use crate::{
         l2d::{ring::RingInfoBuilder, square::SquareInfoBuilder},
         l3d::{cube::CubeInfoBuilder, model::ModelInfoBuilder, sphere::SphereInfoBuilder},
-        ObjectBuilder, Shape, Shapes,
+        GeometryBuilder, Shape, Shapes,
     };
 }
 
-pub type Shape = Box<dyn InternalObject>;
+pub type Shape = Box<dyn InternalGeometry>;
 pub type Shapes = Vec<Shape>;
 
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
@@ -33,7 +33,7 @@ pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(build_fn(skip))]
-pub struct Object<T: Default + Clone> {
+pub struct Geometry<T: Default + Clone> {
     pub properties: T,
 
     #[builder(setter(custom))]
@@ -47,7 +47,7 @@ pub struct Object<T: Default + Clone> {
     pub vulkan_object: VulkanObject,
 }
 
-impl<'a, T: Default + Clone> ObjectBuilder<T> {
+impl<'a, T: Default + Clone> GeometryBuilder<T> {
     pub fn texture(&mut self, path: &'a str) -> &mut Self {
         let file = File::open(path);
 
@@ -65,14 +65,14 @@ impl<'a, T: Default + Clone> ObjectBuilder<T> {
         self
     }
 
-    pub fn build(&self) -> Result<Box<Object<T>>, ObjectBuilderError> {
+    pub fn build(&self) -> Result<Box<Geometry<T>>, GeometryBuilderError> {
         let properties = self
             .properties
             .as_ref()
-            .ok_or_else(|| ObjectBuilderError::from(UninitializedFieldError::new("properties")))?
+            .ok_or_else(|| GeometryBuilderError::from(UninitializedFieldError::new("properties")))?
             .clone();
 
-        let mut res = Box::new(Object {
+        let mut res = Box::new(Geometry {
             properties,
             texture: self.texture.clone().unwrap_or(None),
             indexed: self.indexed.unwrap_or_default(),
@@ -88,9 +88,9 @@ impl<'a, T: Default + Clone> ObjectBuilder<T> {
     }
 }
 
-impl<T: Default + Clone> private::InternalObject for Object<T>
+impl<T: Default + Clone> private::InternalGeometry for Geometry<T>
 where
-    Object<T>: InternalObject,
+    Geometry<T>: InternalGeometry,
 {
     fn buffers(&mut self, model_buffers: ModelBuffers) {
         self.vulkan_object.buffers = Some(model_buffers);
@@ -129,7 +129,7 @@ where
     }
 }
 
-pub trait InternalObject: private::InternalObject {
+pub trait InternalGeometry: private::InternalGeometry {
     fn vertices_and_indices(&mut self) -> &VerticesAndIndices;
 
     fn build(
@@ -163,7 +163,7 @@ pub(crate) mod private {
         utility::InstanceDevices, RenderPass, VulkanObject,
     };
 
-    pub trait InternalObject {
+    pub trait InternalGeometry {
         fn vulkan_object(&self) -> &VulkanObject;
 
         fn buffers(&mut self, _: ModelBuffers);

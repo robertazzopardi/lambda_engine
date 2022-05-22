@@ -5,14 +5,9 @@ edition = "2021"
 include = ["src/**/*"]
 
 [dependencies]
-ash-window = "0.10.0"
-derive-new = "0.5.9"
-derive_builder = "0.11.2"
-derive_more = "0.99.17"
-memoffset = "0.6.5"
-nalgebra = "0.31.0"
-smallvec = "1.8.0"
 winit = "0.26.1"
+nalgebra = "0.31.0"
 lambda_geometry = { path = "../lambda_geometry" }
 lambda_vulkan = { path = "../lambda_vulkan" }
 lambda_camera = { path = "../lambda_camera" }
+lambda_window = { path = "../lambda_window" }

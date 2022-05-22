@@ -137,16 +137,14 @@ fn create_logical_device(
     let queue_family = find_queue_family(instance, *device, surface_loader, surface);
 
     unsafe {
-        let logical_device = instance
+        let device = instance
             .create_device(*device, &device_create_info, None)
             .unwrap();
 
-        let graphics_queue =
-            logical_device.get_device_queue(queue_family.graphics_family.unwrap(), 0);
-        let present_queue =
-            logical_device.get_device_queue(queue_family.present_family.unwrap(), 0);
+        let graphics_queue = device.get_device_queue(queue_family.graphics_family.unwrap(), 0);
+        let present_queue = device.get_device_queue(queue_family.present_family.unwrap(), 0);
 
-        LogicalDeviceFeatures::new(logical_device, Queues::new(present_queue, graphics_queue))
+        LogicalDeviceFeatures::new(device, Queues::new(present_queue, graphics_queue))
     }
 }
 
@@ -234,26 +232,20 @@ fn get_max_usable_sample_count(
 ///
 pub unsafe fn recreate_drop(
     graphics_pipeline: &GraphicsPipeline,
-    logical: &LogicalDeviceFeatures,
+    device: &Device,
     swap_chain: &SwapChain,
 ) {
-    logical
-        .device
-        .destroy_pipeline(graphics_pipeline.features.pipeline, None);
-    logical
-        .device
-        .destroy_pipeline_layout(graphics_pipeline.features.layout, None);
+    device.destroy_pipeline(graphics_pipeline.features.pipeline, None);
+    device.destroy_pipeline_layout(graphics_pipeline.features.layout, None);
 
-    logical
-        .device
-        .destroy_descriptor_pool(graphics_pipeline.descriptor_set.descriptor_pool, None);
+    device.destroy_descriptor_pool(graphics_pipeline.descriptor_set.descriptor_pool, None);
 
     for i in 0..swap_chain.images.len() {
-        logical.device.destroy_buffer(
+        device.destroy_buffer(
             graphics_pipeline.descriptor_set.uniform_buffers[i].buffer,
             None,
         );
-        logical.device.free_memory(
+        device.free_memory(
             graphics_pipeline.descriptor_set.uniform_buffers[i].memory,
             None,
         );
@@ -263,25 +255,16 @@ pub unsafe fn recreate_drop(
 /// # Safety
 ///
 ///
-pub unsafe fn destroy(object: &VulkanObject, logical: &LogicalDeviceFeatures) {
+pub unsafe fn destroy(object: &VulkanObject, device: &Device) {
     // let object_texture = object.object_texture();
-    let object_texture = object.texture_buffer.unwrap();
+    if let Some(object_texture) = object.texture_buffer {
+        device.destroy_sampler(object_texture.sampler, None);
+        device.destroy_image_view(object_texture.image_view, None);
+        device.destroy_image(object_texture.image.image, None);
+        device.free_memory(object_texture.image.memory, None);
+    }
 
-    logical.device.destroy_sampler(object_texture.sampler, None);
-
-    logical
-        .device
-        .destroy_image_view(object_texture.image_view, None);
-
-    logical
-        .device
-        .destroy_image(object_texture.image.image, None);
-
-    logical
-        .device
-        .free_memory(object_texture.image.memory, None);
-
-    logical.device.destroy_descriptor_set_layout(
+    device.destroy_descriptor_set_layout(
         object
             .graphics_pipeline
             .as_ref()
@@ -293,19 +276,9 @@ pub unsafe fn destroy(object: &VulkanObject, logical: &LogicalDeviceFeatures) {
 
     let object_buffers = object.buffers.unwrap();
 
-    logical
-        .device
-        .destroy_buffer(object_buffers.vertex.buffer, None);
+    device.destroy_buffer(object_buffers.vertex.buffer, None);
+    device.free_memory(object_buffers.vertex.memory, None);
 
-    logical
-        .device
-        .free_memory(object_buffers.vertex.memory, None);
-
-    logical
-        .device
-        .destroy_buffer(object_buffers.index.buffer, None);
-
-    logical
-        .device
-        .free_memory(object_buffers.index.memory, None);
+    device.destroy_buffer(object_buffers.index.buffer, None);
+    device.free_memory(object_buffers.index.memory, None);
 }

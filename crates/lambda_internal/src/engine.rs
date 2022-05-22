@@ -1,7 +1,4 @@
-use crate::{
-    display::{self, Display},
-    time::Time,
-};
+use crate::time::Time;
 use lambda_camera::camera::Camera;
 use lambda_geometry::Shapes;
 use lambda_vulkan::{
@@ -17,6 +14,7 @@ use lambda_vulkan::{
     utility::{EntryInstance, InstanceDevices},
     Vulkan, WindowSize,
 };
+use lambda_window::window::{self, Display};
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub struct Engine {
@@ -34,22 +32,16 @@ impl Engine {
         models: Shapes,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
-        let window = &display.window;
-
-        let entry_instance = EntryInstance::new(window);
+        let entry_instance = EntryInstance::new(&display.window);
 
         let debugger =
             debugging.map(|debug_properties| debug::debugger(&entry_instance, debug_properties));
 
-        let surface = unsafe {
-            ash_window::create_surface(
-                &entry_instance.entry,
-                &entry_instance.instance,
-                window,
-                None,
-            )
-            .expect("Failed to create window surface!")
-        };
+        let surface = lambda_window::create_surface(
+            &display.window,
+            &entry_instance.instance,
+            &entry_instance.entry,
+        );
 
         let surface_loader = create_surface(&entry_instance);
 
@@ -57,7 +49,8 @@ impl Engine {
 
         let instance_devices = InstanceDevices::new(entry_instance.instance, devices);
 
-        let swap_chain = SwapChain::new(&instance_devices, surface, &surface_loader, window);
+        let swap_chain =
+            SwapChain::new(&instance_devices, surface, &surface_loader, &display.window);
 
         let render_pass = renderer::create_render_pass(&instance_devices, &swap_chain);
 
@@ -135,7 +128,7 @@ impl Engine {
         display.event_loop.run_return(|event, _, control_flow| {
             self.time.tick();
 
-            display::handle_inputs(
+            window::handle_inputs(
                 control_flow,
                 event,
                 &display.window,
@@ -149,6 +142,7 @@ impl Engine {
                 &WindowSize(self.vulkan.swap_chain.extent),
             );
 
+            // not efficient but for now works
             let mut vulkan_objects = Vec::new();
             self.models
                 .iter()
@@ -170,70 +164,39 @@ impl Engine {
 
 impl Drop for Engine {
     fn drop(&mut self) {
+        let device = &self.vulkan.instance_devices.devices.logical.device;
+
         unsafe {
-            self.vulkan
-                .instance_devices
-                .devices
-                .logical
-                .device
-                .device_wait_idle()
-                .unwrap();
+            device.device_wait_idle().unwrap();
 
             let mut vulkan_objects = Vec::new();
             self.models
                 .iter()
                 .for_each(|model| vulkan_objects.push(model.vulkan_object()));
-            swap_chain::cleanup_swap_chain(&mut self.vulkan, &vulkan_objects);
+
+            swap_chain::cleanup_swap_chain(&self.vulkan, &vulkan_objects);
 
             self.models.iter().for_each(|model| {
-                device::destroy(
-                    model.vulkan_object(),
-                    &self.vulkan.instance_devices.devices.logical,
-                );
+                device::destroy(model.vulkan_object(), device);
             });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
-                self.vulkan
-                    .instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .destroy_semaphore(
-                        self.vulkan.sync_objects.image_available_semaphores[i],
-                        None,
-                    );
-                self.vulkan
-                    .instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .destroy_semaphore(
-                        self.vulkan.sync_objects.render_finished_semaphores[i],
-                        None,
-                    );
-                self.vulkan
-                    .instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .destroy_fence(self.vulkan.sync_objects.in_flight_fences[i], None);
+                device.destroy_semaphore(
+                    self.vulkan.sync_objects.image_available_semaphores[i],
+                    None,
+                );
+                device.destroy_semaphore(
+                    self.vulkan.sync_objects.render_finished_semaphores[i],
+                    None,
+                );
+                device.destroy_fence(self.vulkan.sync_objects.in_flight_fences[i], None);
             }
 
-            self.vulkan
-                .instance_devices
-                .devices
-                .logical
-                .device
-                .destroy_command_pool(*self.vulkan.commander.pool, None);
+            device.destroy_command_pool(*self.vulkan.commander.pool, None);
 
             println!("here");
 
-            self.vulkan
-                .instance_devices
-                .devices
-                .logical
-                .device
-                .destroy_device(None);
+            device.destroy_device(None);
 
             if debug::enable_validation_layers() {
                 if let Some(debugger) = &self.vulkan.debugger {

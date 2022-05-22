@@ -155,66 +155,28 @@ fn create_image_views(
     swap_chain_image_views
 }
 
-pub fn cleanup_swap_chain(vulkan: &mut Vulkan, vulkan_objects: &[&VulkanObject]) {
-    unsafe {
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .destroy_image_view(vulkan.resources.colour.view, None);
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .destroy_image(vulkan.resources.colour.image.image, None);
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .free_memory(vulkan.resources.colour.image.memory, None);
+pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[&VulkanObject]) {
+    let device = &vulkan.instance_devices.devices.logical.device;
 
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .destroy_image_view(vulkan.resources.depth.view, None);
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .destroy_image(vulkan.resources.depth.image.image, None);
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .free_memory(vulkan.resources.depth.image.memory, None);
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .free_command_buffers(*vulkan.commander.pool, &vulkan.commander.buffers);
+    unsafe {
+        device.destroy_image_view(vulkan.resources.colour.view, None);
+        device.destroy_image(vulkan.resources.colour.image.image, None);
+        device.free_memory(vulkan.resources.colour.image.memory, None);
+
+        device.destroy_image_view(vulkan.resources.depth.view, None);
+        device.destroy_image(vulkan.resources.depth.image.image, None);
+        device.free_memory(vulkan.resources.depth.image.memory, None);
+        device.free_command_buffers(*vulkan.commander.pool, &vulkan.commander.buffers);
 
         vulkan_objects.iter().for_each(|object| {
             device::recreate_drop(
                 object.graphics_pipeline.as_ref().unwrap(),
-                &vulkan.instance_devices.devices.logical,
+                &vulkan.instance_devices.devices.logical.device,
                 &vulkan.swap_chain,
             )
         });
 
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
-            .destroy_render_pass(vulkan.render_pass.0, None);
+        device.destroy_render_pass(vulkan.render_pass.0, None);
 
         vulkan
             .swap_chain
@@ -222,19 +184,8 @@ pub fn cleanup_swap_chain(vulkan: &mut Vulkan, vulkan_objects: &[&VulkanObject])
             .destroy_swapchain(vulkan.swap_chain.swap_chain, None);
 
         for i in 0..vulkan.swap_chain.images.len() {
-            vulkan
-                .instance_devices
-                .devices
-                .logical
-                .device
-                .destroy_framebuffer(vulkan.frame_buffers[i], None);
-
-            vulkan
-                .instance_devices
-                .devices
-                .logical
-                .device
-                .destroy_image_view(vulkan.swap_chain.image_views[i], None);
+            device.destroy_framebuffer(vulkan.frame_buffers[i], None);
+            device.destroy_image_view(vulkan.swap_chain.image_views[i], None);
         }
     }
 }
@@ -244,12 +195,10 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects:
     // let _w = size.width;
     // let _h = size.height;
 
+    let device = &vulkan.instance_devices.devices.logical.device;
+
     unsafe {
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
+        device
             .device_wait_idle()
             .expect("Failed to wait for device idle!")
     };

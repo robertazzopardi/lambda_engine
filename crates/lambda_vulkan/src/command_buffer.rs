@@ -1,11 +1,8 @@
 use crate::{
-    device::{self, LogicalDeviceFeatures},
-    frame_buffer::FrameBuffers,
-    swap_chain::SwapChain,
-    utility::InstanceDevices,
+    device, frame_buffer::FrameBuffers, swap_chain::SwapChain, utility::InstanceDevices,
     RenderPass, VulkanObject,
 };
-use ash::{extensions::khr::Surface, vk};
+use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
 use std::ptr;
 
@@ -56,28 +53,27 @@ pub fn create_command_buffers(
         .command_buffer_count(swap_chain.images.len() as u32)
         .level(vk::CommandBufferLevel::PRIMARY);
 
+    let device = &instance_devices.devices.logical.device;
+
     let command_buffers = unsafe {
-        instance_devices
-            .devices
-            .logical
-            .device
+        device
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("Failed to allocate command render buffers")
     };
+
+    let vk::Extent2D { width, height } = swap_chain.extent;
+
     let view_port = vk::Viewport::builder()
         .x(0.)
         .y(0.)
-        .width(swap_chain.extent.width as f32)
-        .height(swap_chain.extent.height as f32)
+        .width(width as f32)
+        .height(height as f32)
         .min_depth(0.)
         .max_depth(1.);
 
     let scissor = vk::Rect2D::builder()
         .offset(vk::Offset2D { x: 0, y: 0 })
-        .extent(vk::Extent2D {
-            width: swap_chain.extent.width,
-            height: swap_chain.extent.height,
-        });
+        .extent(vk::Extent2D { width, height });
 
     let begin_info = vk::CommandBufferBeginInfo::builder();
 
@@ -99,10 +95,7 @@ pub fn create_command_buffers(
 
     unsafe {
         for i in 0..swap_chain.images.len() {
-            instance_devices
-                .devices
-                .logical
-                .device
+            device
                 .begin_command_buffer(command_buffers[i as usize], &begin_info)
                 .expect("Failed to begin recording command buffer!");
 
@@ -119,48 +112,31 @@ pub fn create_command_buffers(
                 p_clear_values: clear_values.as_ptr(),
             };
 
-            instance_devices
-                .devices
-                .logical
-                .device
-                .cmd_begin_render_pass(
-                    command_buffers[i as usize],
-                    &render_pass_begin_info,
-                    vk::SubpassContents::INLINE,
-                );
+            device.cmd_begin_render_pass(
+                command_buffers[i as usize],
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            );
 
-            instance_devices.devices.logical.device.cmd_set_viewport(
+            device.cmd_set_viewport(
                 command_buffers[i as usize],
                 0,
                 std::slice::from_ref(&view_port),
             );
 
-            instance_devices.devices.logical.device.cmd_set_scissor(
+            device.cmd_set_scissor(
                 command_buffers[i as usize],
                 0,
                 std::slice::from_ref(&scissor),
             );
 
             models.iter().for_each(|model| {
-                bind_index_and_vertex_buffers(
-                    model,
-                    &instance_devices.devices.logical,
-                    command_buffers[i],
-                    &offsets,
-                    i,
-                );
+                bind_index_and_vertex_buffers(model, device, command_buffers[i], &offsets, i)
             });
 
-            instance_devices
-                .devices
-                .logical
-                .device
-                .cmd_end_render_pass(command_buffers[i as usize]);
+            device.cmd_end_render_pass(command_buffers[i as usize]);
 
-            instance_devices
-                .devices
-                .logical
-                .device
+            device
                 .end_command_buffer(command_buffers[i as usize])
                 .expect("Failed to record command buffer!");
         }
@@ -245,20 +221,20 @@ pub fn end_single_time_command(
 /// Expand on safety of this function
 pub unsafe fn bind_index_and_vertex_buffers(
     object: &VulkanObject,
-    logical: &LogicalDeviceFeatures,
+    device: &Device,
     command_buffer: vk::CommandBuffer,
     offsets: &[vk::DeviceSize],
     index: usize,
 ) {
     let object_graphics_pipeline = object.graphics_pipeline.as_ref().unwrap();
 
-    logical.device.cmd_bind_pipeline(
+    device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
         object_graphics_pipeline.features.pipeline,
     );
 
-    logical.device.cmd_bind_descriptor_sets(
+    device.cmd_bind_descriptor_sets(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
         object_graphics_pipeline.features.layout,
@@ -271,13 +247,11 @@ pub unsafe fn bind_index_and_vertex_buffers(
 
     let vertex_buffers = [object_buffers.vertex.buffer];
 
-    logical
-        .device
-        .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
+    device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
 
     let object_and_vertices_and_indices = object.vertices_and_indices.as_ref().unwrap();
 
-    logical.device.cmd_draw(
+    device.cmd_draw(
         command_buffer,
         object_and_vertices_and_indices.vertices.len() as u32,
         1,
@@ -286,14 +260,14 @@ pub unsafe fn bind_index_and_vertex_buffers(
     );
 
     if object.indexed {
-        logical.device.cmd_bind_index_buffer(
+        device.cmd_bind_index_buffer(
             command_buffer,
             object_buffers.index.buffer,
             0,
             vk::IndexType::UINT16,
         );
 
-        logical.device.cmd_draw_indexed(
+        device.cmd_draw_indexed(
             command_buffer,
             object_and_vertices_and_indices.indices.len() as u32,
             1,
