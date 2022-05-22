@@ -1,4 +1,4 @@
-use crate::camera::Camera;
+use lambda_camera::camera::Camera;
 use winit::{
     dpi::LogicalSize,
     event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
@@ -37,6 +37,7 @@ impl From<Resolution> for LogicalSize<u32> {
     }
 }
 
+#[derive(Debug)]
 pub struct Display {
     pub(crate) window: Window,
     pub(crate) event_loop: EventLoop<()>,

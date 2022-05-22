@@ -1,18 +1,20 @@
 [package]
-name = "lambda_internal"
+name = "lambda_vulkan"
 version = "0.1.0"
 edition = "2021"
-include = ["src/**/*"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ash = "0.37.0"
 ash-window = "0.10.0"
-derive-new = "0.5.9"
 derive_builder = "0.11.2"
 derive_more = "0.99.17"
+derive-new = "0.5.9"
 memoffset = "0.6.5"
 nalgebra = "0.31.0"
 smallvec = "1.8.0"
 winit = "0.26.1"
-lambda_geometry = { path = "../lambda_geometry" }
-lambda_vulkan = { path = "../lambda_vulkan" }
+image = "0.24.2"
 lambda_camera = { path = "../lambda_camera" }
+lambda_space = { path = "../lambda_space" }

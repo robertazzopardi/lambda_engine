@@ -1,5 +1,5 @@
-use crate::{camera::Camera, uniform_buffer::UniformBufferObject};
-use ash::vk::Extent2D;
+use lambda_camera::camera::Camera;
+use lambda_vulkan::{uniform_buffer::UniformBufferObject, WindowSize};
 use std::time::{Duration, Instant};
 
 fn calculate_fps(fps: f64) -> f64 {
@@ -31,10 +31,15 @@ impl Time {
         self.accumulator += frame_time;
     }
 
-    pub fn step(&mut self, camera: &mut Camera, ubo: &mut UniformBufferObject, extent: Extent2D) {
+    pub fn step(
+        &mut self,
+        camera: &mut Camera,
+        ubo: &mut UniformBufferObject,
+        extent: &WindowSize,
+    ) {
         while self.accumulator >= self.delta {
             camera.rotate(self.delta.as_secs_f32());
-            ubo.update(&extent, camera);
+            ubo.update(&extent.0, camera);
 
             self.accumulator -= self.delta;
             self.elapsed += self.delta;
