@@ -6,7 +6,7 @@ use crate::{
 use derive_builder::Builder;
 use lambda_space::space::{Coordinate3, Orientation};
 
-const CUBE_VERTICES: [[f32; 3]; 36] = [
+pub const CUBE_VERTICES: [[f32; 3]; 36] = [
     [1.0, 1.0, -1.0],
     [-1.0, 1.0, -1.0],
     [-1.0, 1.0, 1.0],

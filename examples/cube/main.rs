@@ -1,4 +1,7 @@
-use lambda_engine::prelude::*;
+use lambda_engine::{
+    lambda_geometry::{Cube, Geom, GeomBehavior},
+    prelude::*,
+};
 
 fn main() {
     let mut display = Display::new(Resolution::ResHD);
@@ -17,5 +20,23 @@ fn main() {
 
     let mut engine = Engine::new(&display, &mut camera, objects, None);
 
+    test();
+
     engine.run(&mut display, camera);
+}
+
+fn test() {
+    let cube = Cube::new(
+        *GeometryBuilder::default()
+            .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
+            .cull_mode(ModelCullMode::Back)
+            .shader(ShaderType::Vertex)
+            .indexed()
+            .build()
+            .unwrap(),
+    );
+
+    let m: Geom = cube.into();
+
+    dbg!(m.vertices_and_indices());
 }

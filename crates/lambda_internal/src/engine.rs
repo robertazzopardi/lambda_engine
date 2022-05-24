@@ -74,7 +74,7 @@ impl Engine {
 
         let mut vulkan_objects = Vec::new();
         models.iter_mut().for_each(|property| {
-            property.build(
+            property.defer_build(
                 &command_pool,
                 swap_chain_len,
                 &swap_chain,

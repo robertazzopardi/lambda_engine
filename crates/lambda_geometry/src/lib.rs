@@ -8,7 +8,10 @@ pub mod macros;
 pub mod utility;
 
 use derive_builder::{Builder, UninitializedFieldError};
-use lambda_space::space::{Vertex, VerticesAndIndices};
+use enum_dispatch::enum_dispatch;
+use l2d::square::square_from_vertices;
+use l3d::cube::{CubeInfo, CUBE_VERTICES};
+use lambda_space::space::{Vertex, Vertices, VerticesAndIndices};
 use lambda_vulkan::{
     buffer::ModelBuffers, command_buffer::CommandPool, graphics_pipeline::GraphicsPipeline,
     swap_chain::SwapChain, texture::Texture, utility::InstanceDevices, ModelCullMode,
@@ -16,6 +19,7 @@ use lambda_vulkan::{
 };
 use nalgebra::Vector3;
 use std::{fs::File, io::Read};
+use utility::calculate_indices;
 
 pub mod prelude {
     pub use crate::{
@@ -31,9 +35,53 @@ pub type Shapes = Vec<Shape>;
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
+#[enum_dispatch]
+pub enum Geom {
+    Cube,
+}
+
+#[enum_dispatch(Geom)]
+pub trait GeomBehavior {
+    fn vertices_and_indices(&self) -> u32 {
+        unimplemented!()
+    }
+}
+
+#[derive(new)]
+pub struct Cube(Geometry<CubeInfo>);
+
+impl GeomBehavior for Cube {
+    fn vertices_and_indices(&self) -> u32 {
+        32
+    }
+}
+
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(build_fn(skip))]
-pub struct Geometry<T: Default + Clone> {
+pub struct Geometry<T> {
     pub properties: T,
 
     #[builder(setter(custom))]
@@ -47,8 +95,8 @@ pub struct Geometry<T: Default + Clone> {
     pub vulkan_object: VulkanObject,
 }
 
-impl<'a, T: Default + Clone> GeometryBuilder<T> {
-    pub fn texture(&mut self, path: &'a str) -> &mut Self {
+impl<T: Default + Clone> GeometryBuilder<T> {
+    pub fn texture<'a>(&mut self, path: &'a str) -> &mut Self {
         let file = File::open(path);
 
         if let Ok(mut texture_file) = file {
@@ -103,7 +151,7 @@ where
         }
     }
 
-    fn is_indexed(&self) -> bool {
+    fn indexed(&self) -> bool {
         self.indexed
     }
 
@@ -130,9 +178,11 @@ where
 }
 
 pub trait InternalGeometry: private::InternalGeometry {
-    fn vertices_and_indices(&mut self) -> &VerticesAndIndices;
+    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
+        unimplemented!()
+    }
 
-    fn build(
+    fn defer_build(
         &mut self,
         command_pool: &CommandPool,
         command_buffer_count: u32,
@@ -164,15 +214,14 @@ pub(crate) mod private {
     };
 
     pub trait InternalGeometry {
+        // NOTE TODO we want this pass by value
         fn vulkan_object(&self) -> &VulkanObject;
 
         fn buffers(&mut self, _: ModelBuffers);
 
         fn texture(&mut self, _: &CommandPool, _: &InstanceDevices);
 
-        fn is_indexed(&self) -> bool {
-            unimplemented!()
-        }
+        fn indexed(&self) -> bool;
 
         fn graphics_pipeline(&mut self, _: &SwapChain, _: &RenderPass, _: &InstanceDevices) {
             unimplemented!()
