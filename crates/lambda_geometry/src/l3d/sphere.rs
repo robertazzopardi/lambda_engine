@@ -1,13 +1,16 @@
-use crate::{utility::spherical_indices, Geometry, InternalGeometry, VerticesAndIndices, WHITE};
+use crate::{utility::spherical_indices, GeomBehavior, Geometry, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
+use derive_more::{Deref, DerefMut};
 use lambda_space::{
     space::{Coordinate3, Orientation, Vertices},
     vertex,
 };
+use lambda_vulkan::{
+    buffer::ModelBuffers, command_buffer::CommandPool, graphics_pipeline::GraphicsPipeline,
+    swap_chain::SwapChain, texture::Texture, utility::InstanceDevices, RenderPass, VulkanObject,
+};
 use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
-
-pub type Sphere = Geometry<SphereInfo>;
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
 #[builder(default)]
@@ -19,8 +22,11 @@ pub struct SphereInfo {
     pub stack_count: u32,
 }
 
-impl InternalGeometry for Sphere {
-    fn vertices_and_indices(&mut self) -> &VerticesAndIndices {
+#[derive(new, Deref, DerefMut)]
+pub struct Sphere(Geometry<SphereInfo>);
+
+impl GeomBehavior for Sphere {
+    fn vertices_and_indices(&mut self) -> VerticesAndIndices {
         let length = 1. / self.properties.radius;
 
         let sector_step = 2. * std::f32::consts::PI / self.properties.sector_count as f32;
@@ -58,6 +64,45 @@ impl InternalGeometry for Sphere {
             spherical_indices(self.properties.sector_count, self.properties.stack_count),
         ));
 
-        self.vulkan_object.vertices_and_indices.as_ref().unwrap()
+        self.vulkan_object.vertices_and_indices.clone().unwrap()
+    }
+
+    fn vulkan_object(&self) -> VulkanObject {
+        self.vulkan_object.clone()
+    }
+
+    fn defer_build(
+        &mut self,
+        command_pool: &CommandPool,
+        command_buffer_count: u32,
+        swap_chain: &SwapChain,
+        render_pass: &RenderPass,
+        instance_devices: &InstanceDevices,
+    ) {
+        if let Some(texture) = self.texture.clone() {
+            self.vulkan_object.texture_buffer =
+                Some(Texture::new(&texture, command_pool, instance_devices));
+        }
+
+        let vertices_and_indices = self.vertices_and_indices();
+
+        let model_buffers = ModelBuffers::new(
+            &vertices_and_indices,
+            command_pool,
+            command_buffer_count,
+            instance_devices,
+        );
+
+        self.vulkan_object.buffers = Some(model_buffers);
+
+        self.vulkan_object.graphics_pipeline = Some(GraphicsPipeline::new(
+            swap_chain,
+            render_pass.0,
+            &self.vulkan_object.texture_buffer,
+            self.topology,
+            self.cull_mode,
+            instance_devices,
+            self.shader,
+        ));
     }
 }

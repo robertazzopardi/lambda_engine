@@ -46,7 +46,7 @@ pub fn create_command_buffers(
     instance_devices: &InstanceDevices,
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
-    models: &[&VulkanObject],
+    models: &[VulkanObject],
 ) -> CommandBuffers {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(**command_pool)

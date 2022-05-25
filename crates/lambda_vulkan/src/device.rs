@@ -255,7 +255,7 @@ pub unsafe fn recreate_drop(
 /// # Safety
 ///
 ///
-pub unsafe fn destroy(object: &VulkanObject, device: &Device) {
+pub unsafe fn destroy(object: VulkanObject, device: &Device) {
     // let object_texture = object.object_texture();
     if let Some(object_texture) = object.texture_buffer {
         device.destroy_sampler(object_texture.sampler, None);

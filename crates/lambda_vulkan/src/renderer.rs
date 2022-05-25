@@ -112,7 +112,7 @@ pub unsafe fn render(
     camera: &mut Camera,
     current_frame: &mut usize,
     resized: &mut bool,
-    vulkan_objects: &[&VulkanObject],
+    vulkan_objects: &[VulkanObject],
 ) {
     vulkan
         .instance_devices

@@ -18,7 +18,7 @@ pub mod texture;
 pub mod uniform_buffer;
 pub mod utility;
 
-use crate::debug::Debug;
+use debug::Debug;
 use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::VkCommander;

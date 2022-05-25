@@ -1,6 +1,6 @@
 use crate::time::Time;
 use lambda_camera::camera::Camera;
-use lambda_geometry::Shapes;
+use lambda_geometry::{GeomBehavior, Geometries};
 use lambda_vulkan::{
     command_buffer::{self, VkCommander},
     create_surface,
@@ -21,7 +21,7 @@ pub struct Engine {
     vulkan: Vulkan,
     current_frame: usize,
     is_frame_buffer_resized: bool,
-    models: Shapes,
+    models: Geometries,
     time: Time,
 }
 
@@ -29,7 +29,7 @@ impl Engine {
     pub fn new(
         display: &Display,
         camera: &mut Camera,
-        models: Shapes,
+        models: Geometries,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
         let entry_instance = EntryInstance::new(&display.window);

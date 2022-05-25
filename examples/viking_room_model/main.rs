@@ -8,21 +8,23 @@ fn main() {
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let cube_model = GeometryBuilder::default()
-        .properties(
-            ModelInfoBuilder::default()
-                .radius(0.5)
-                .model_path(VIKING_MODEL)
-                .build()
-                .unwrap(),
-        )
-        .texture(VIKING_MODEL_TEXTURE)
-        .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::None)
-        .build()
-        .unwrap();
+    let viking_model = Model::new(
+        GeometryBuilder::default()
+            .properties(
+                ModelInfoBuilder::default()
+                    .radius(0.5)
+                    .model_path(VIKING_MODEL.to_owned())
+                    .build()
+                    .unwrap(),
+            )
+            .texture(VIKING_MODEL_TEXTURE)
+            .shader(ShaderType::LightTexture)
+            .cull_mode(ModelCullMode::None)
+            .build()
+            .unwrap(),
+    );
 
-    let objects: Shapes = vec![cube_model];
+    let objects: Geometries = vec![viking_model.into()];
 
     let mut engine = Engine::new(&display, &mut camera, objects, None);
 

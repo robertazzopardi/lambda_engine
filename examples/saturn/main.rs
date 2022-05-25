@@ -10,39 +10,43 @@ fn main() {
 
     let sections = 50;
 
-    let sphere = GeometryBuilder::default()
-        .properties(
-            SphereInfoBuilder::default()
-                .radius(0.4)
-                .sector_count(sections)
-                .stack_count(sections)
-                .build()
-                .unwrap(),
-        )
-        .texture(SATURN_TEXTURE)
-        .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::Back)
-        .indexed()
-        .build()
-        .unwrap();
+    let sphere = Sphere::new(
+        GeometryBuilder::default()
+            .properties(
+                SphereInfoBuilder::default()
+                    .radius(0.4)
+                    .sector_count(sections)
+                    .stack_count(sections)
+                    .build()
+                    .unwrap(),
+            )
+            .texture(SATURN_TEXTURE)
+            .shader(ShaderType::LightTexture)
+            .cull_mode(ModelCullMode::Back)
+            .indexed()
+            .build()
+            .unwrap(),
+    );
 
-    let ring = GeometryBuilder::default()
-        .properties(
-            RingInfoBuilder::default()
-                .inner_radius(0.5)
-                .outer_radius(1.)
-                .sector_count(sections)
-                .build()
-                .unwrap(),
-        )
-        .texture(RING_TEXTURE)
-        .shader(ShaderType::LightTexture)
-        .topology(ModelTopology::TriangleStrip)
-        .cull_mode(ModelCullMode::None)
-        .build()
-        .unwrap();
+    let ring = Ring::new(
+        GeometryBuilder::default()
+            .properties(
+                RingInfoBuilder::default()
+                    .inner_radius(0.5)
+                    .outer_radius(1.)
+                    .sector_count(sections)
+                    .build()
+                    .unwrap(),
+            )
+            .texture(RING_TEXTURE)
+            .shader(ShaderType::LightTexture)
+            .topology(ModelTopology::TriangleStrip)
+            .cull_mode(ModelCullMode::None)
+            .build()
+            .unwrap(),
+    );
 
-    let objects: Shapes = vec![sphere, ring];
+    let objects: Geometries = vec![sphere.into(), ring.into()];
 
     let debugging = Some(DebugMessageProperties::new(
         MessageLevel::builder().error().verbose().warning(),

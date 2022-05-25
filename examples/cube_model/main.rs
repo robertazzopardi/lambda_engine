@@ -8,22 +8,24 @@ fn main() {
 
     let mut camera = Camera::new(2., 1., 0.);
 
-    let cube_model = GeometryBuilder::default()
-        .properties(
-            ModelInfoBuilder::default()
-                .radius(0.3)
-                .model_path(CUBE_MODEL)
-                .build()
-                .unwrap(),
-        )
-        .texture(SATURN_TEXTURE)
-        .shader(ShaderType::LightTexture)
-        .cull_mode(ModelCullMode::Back)
-        .indexed()
-        .build()
-        .unwrap();
+    let cube_model = Model::new(
+        GeometryBuilder::default()
+            .properties(
+                ModelInfoBuilder::default()
+                    .radius(0.3)
+                    .model_path(CUBE_MODEL.to_owned())
+                    .build()
+                    .unwrap(),
+            )
+            .texture(SATURN_TEXTURE)
+            .shader(ShaderType::LightTexture)
+            .cull_mode(ModelCullMode::Back)
+            .indexed()
+            .build()
+            .unwrap(),
+    );
 
-    let objects: Shapes = vec![cube_model];
+    let objects: Geometries = vec![cube_model.into()];
 
     let mut engine = Engine::new(&display, &mut camera, objects, None);
 

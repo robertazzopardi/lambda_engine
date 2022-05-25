@@ -38,7 +38,7 @@ pub fn update_uniform_buffer(
     vulkan: &Vulkan,
     _camera: &mut Camera,
     current_image: usize,
-    vulkan_objects: &[&VulkanObject],
+    vulkan_objects: &[VulkanObject],
 ) {
     // let rot = Quaternion::from_axis_angle(Vector3::unit_z(), Deg(1.0))
     //     .rotate_point(self.camera.pos);
