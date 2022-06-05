@@ -18,7 +18,7 @@ pub enum Resolution {
 }
 
 impl Resolution {
-    fn size(w: u32, h: u32) -> LogicalSize<u32> {
+    pub fn sized(w: u32, h: u32) -> LogicalSize<u32> {
         LogicalSize::new(w, h)
     }
 }
@@ -121,5 +121,46 @@ pub fn handle_inputs(
             _ => {}
         },
         _ => (),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolution() {
+        let res_2k = Resolution::Res2K;
+        let res_4k = Resolution::Res4K;
+        let res_8k = Resolution::Res8K;
+        let res_fhd = Resolution::ResFullHD;
+        let res_hd = Resolution::ResHD;
+        let res_qhd = Resolution::ResQHD;
+        let res_sd = Resolution::ResSD;
+
+        let res_custom = Resolution::sized(3_442, 2_349);
+
+        let logical_res: LogicalSize<u32> = res_2k.into();
+        assert_eq!(logical_res, LogicalSize::new(2_048, 1_080));
+
+        let logical_res: LogicalSize<u32> = res_4k.into();
+        assert_eq!(logical_res, LogicalSize::new(3_840, 2_160));
+
+        let logical_res: LogicalSize<u32> = res_8k.into();
+        assert_eq!(logical_res, LogicalSize::new(7_680, 4_320));
+
+        let logical_res: LogicalSize<u32> = res_fhd.into();
+        assert_eq!(logical_res, LogicalSize::new(1_920, 1_080));
+
+        let logical_res: LogicalSize<u32> = res_hd.into();
+        assert_eq!(logical_res, LogicalSize::new(1_280, 720));
+
+        let logical_res: LogicalSize<u32> = res_qhd.into();
+        assert_eq!(logical_res, LogicalSize::new(2_560, 1_440));
+
+        let logical_res: LogicalSize<u32> = res_sd.into();
+        assert_eq!(logical_res, LogicalSize::new(640, 480));
+
+        assert_eq!(res_custom, LogicalSize::new(3_442, 2_349));
     }
 }
