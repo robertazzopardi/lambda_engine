@@ -155,7 +155,8 @@ impl Engine {
                     &mut camera,
                     &mut self.current_frame,
                     &mut self.is_frame_buffer_resized,
-                    &vulkan_objects,
+                    &mut vulkan_objects,
+                    self.time.delta.as_secs_f32(),
                 )
             };
         });

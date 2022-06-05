@@ -8,7 +8,7 @@ fn calculate_fps(fps: f64) -> f64 {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Time {
-    delta: Duration,
+    pub delta: Duration,
     elapsed: Duration,
     now: Instant,
     accumulator: Duration,

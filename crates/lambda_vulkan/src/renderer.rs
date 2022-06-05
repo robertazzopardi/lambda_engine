@@ -112,7 +112,8 @@ pub unsafe fn render(
     camera: &mut Camera,
     current_frame: &mut usize,
     resized: &mut bool,
-    vulkan_objects: &[VulkanObject],
+    vulkan_objects: &mut [VulkanObject],
+    dt: f32,
 ) {
     vulkan
         .instance_devices
@@ -146,6 +147,7 @@ pub unsafe fn render(
         camera,
         image_index.try_into().unwrap(),
         vulkan_objects,
+        dt,
     );
 
     if vulkan.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {

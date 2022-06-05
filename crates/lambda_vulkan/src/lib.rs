@@ -18,13 +18,14 @@ pub mod texture;
 pub mod uniform_buffer;
 pub mod utility;
 
-use debug::Debug;
 use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::VkCommander;
+use debug::Debug;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
 use lambda_space::space::VerticesAndIndices;
+use nalgebra::{Matrix4, Vector3};
 use resource::Resources;
 use swap_chain::SwapChain;
 use sync_objects::SyncObjects;
@@ -60,13 +61,27 @@ pub struct Vulkan {
 #[derive(Default, Debug, Clone, new)]
 pub struct RenderPass(pub vk::RenderPass);
 
-#[derive(Default, Debug, Clone, new)]
+#[derive(Debug, Clone, new)]
 pub struct VulkanObject {
     pub vertices_and_indices: Option<VerticesAndIndices>,
     pub texture_buffer: Option<Texture>,
     pub graphics_pipeline: Option<GraphicsPipeline>,
     pub buffers: Option<ModelBuffers>,
     pub indexed: bool,
+    model: Matrix4<f32>,
+}
+
+impl Default for VulkanObject {
+    fn default() -> Self {
+        Self {
+            vertices_and_indices: Default::default(),
+            texture_buffer: Default::default(),
+            graphics_pipeline: Default::default(),
+            buffers: Default::default(),
+            indexed: Default::default(),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

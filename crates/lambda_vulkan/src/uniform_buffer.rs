@@ -1,11 +1,18 @@
+use crate::{memory, Vulkan, VulkanObject};
+
 use ash::vk;
 use lambda_camera::camera::Camera;
-use nalgebra::{Matrix4, Perspective3, Vector3};
-
-use crate::{memory, Vulkan, VulkanObject};
+use nalgebra::{Matrix4, Perspective3};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UniformBufferObject {
+    model: Option<Matrix4<f32>>,
+    view: Matrix4<f32>,
+    proj: Matrix4<f32>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, new)]
+pub struct UniformBuffer {
     model: Matrix4<f32>,
     view: Matrix4<f32>,
     proj: Matrix4<f32>,
@@ -14,7 +21,7 @@ pub struct UniformBufferObject {
 impl UniformBufferObject {
     pub fn new(extent: &vk::Extent2D, camera: &Camera) -> Self {
         let mut mvp = Self {
-            model: Matrix4::identity(),
+            model: None,
             view: Matrix4::identity(),
             proj: Matrix4::identity(),
         };
@@ -23,8 +30,6 @@ impl UniformBufferObject {
     }
 
     pub fn update(&mut self, extent: &vk::Extent2D, camera: &Camera) {
-        self.model = Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians());
-
         self.view = camera.calc_matrix();
 
         let aspect = extent.width as f32 / extent.height as f32;
@@ -38,17 +43,18 @@ pub fn update_uniform_buffer(
     vulkan: &Vulkan,
     _camera: &mut Camera,
     current_image: usize,
-    vulkan_objects: &[VulkanObject],
+    vulkan_objects: &mut [VulkanObject],
+    _dt: f32,
 ) {
-    // let rot = Quaternion::from_axis_angle(Vector3::unit_z(), Deg(1.0))
-    //     .rotate_point(self.camera.pos);
-    // self.camera.pos = rot;
+    // let axis_angle = Vector3::y() * 0.05;
+    // let rot = Rotation3::new(axis_angle);
+    // camera.pos = rot * camera.pos;
 
-    let ubos = [vulkan.ubo];
-
-    let buffer_size = (std::mem::size_of::<UniformBufferObject>() * ubos.len()) as u64;
+    let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
 
     vulkan_objects.iter().for_each(|object| {
+        let uniform_buffer = UniformBuffer::new(object.model, vulkan.ubo.view, vulkan.ubo.proj);
+
         memory::map_memory(
             &vulkan.instance_devices.devices.logical.device,
             object
@@ -59,13 +65,15 @@ pub fn update_uniform_buffer(
                 .uniform_buffers[current_image]
                 .memory,
             buffer_size,
-            &ubos,
+            &[uniform_buffer],
         );
     });
 }
 
 #[cfg(test)]
 mod tests {
+    use nalgebra::Vector3;
+
     use super::*;
 
     #[test]
@@ -75,9 +83,7 @@ mod tests {
         let ubo = UniformBufferObject::new(&extent, &camera);
 
         let expected_ubo = UniformBufferObject {
-            model: Matrix4::new(
-                1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
-            ),
+            model: None,
             view: Matrix4::new(
                 0., 0., 1., -7., 0., 1., 0., -6., -1., -0., -0., 5., 0., 0., 0., 1.,
             ),
@@ -100,9 +106,7 @@ mod tests {
         ubo.update(&extent, &camera);
 
         let expected_ubo = UniformBufferObject {
-            model: Matrix4::new(
-                1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
-            ),
+            model: None,
             view: Matrix4::new(
                 0., 0., 1., -3., 0., 1., 0., 1., -1., -0., -0., -5., 0., 0., 0., 1.,
             ),
