@@ -239,7 +239,7 @@ pub unsafe fn bind_index_and_vertex_buffers(
         vk::PipelineBindPoint::GRAPHICS,
         object_graphics_pipeline.features.layout,
         0,
-        std::slice::from_ref(&object_graphics_pipeline.descriptor_set.descriptor_sets[index]),
+        std::slice::from_ref(&object_graphics_pipeline.descriptors.descriptor_sets[index]),
         &[],
     );
 

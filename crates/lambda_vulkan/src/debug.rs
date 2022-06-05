@@ -143,7 +143,7 @@ pub fn debugger(
     let messenger = unsafe {
         utils
             .create_debug_utils_messenger(&create_info, None)
-            .unwrap()
+            .expect("Failed to create debug utils")
     };
 
     Debug { messenger, utils }

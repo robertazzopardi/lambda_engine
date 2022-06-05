@@ -21,7 +21,7 @@ pub struct Descriptor {
     pub uniform_buffers: Vec<Buffer>,
 }
 
-#[derive(new, Clone, Default, Debug)]
+#[derive(new, Clone, Copy, Default, Debug)]
 pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
@@ -30,7 +30,7 @@ pub struct GraphicsPipelineFeatures {
 #[derive(Clone, Default, Debug)]
 pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
-    pub descriptor_set: Descriptor,
+    pub descriptors: Descriptor,
     pub topology: ModelTopology,
     pub cull_mode: ModelCullMode,
     pub shader_type: ShaderType,
@@ -83,7 +83,7 @@ impl GraphicsPipeline {
 
         Self {
             features,
-            descriptor_set,
+            descriptors: descriptor_set,
             topology,
             cull_mode,
             shader_type,
@@ -134,7 +134,7 @@ impl GraphicsPipeline {
 
         Self {
             features,
-            descriptor_set,
+            descriptors: descriptor_set,
             topology: self.topology,
             cull_mode: self.cull_mode,
             shader_type: self.shader_type,

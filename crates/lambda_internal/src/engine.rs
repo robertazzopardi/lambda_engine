@@ -168,7 +168,9 @@ impl Drop for Engine {
         let device = &self.vulkan.instance_devices.devices.logical.device;
 
         unsafe {
-            device.device_wait_idle().unwrap();
+            device
+                .device_wait_idle()
+                .expect("Failed to wait for device idle state");
 
             let mut vulkan_objects = Vec::new();
             self.models

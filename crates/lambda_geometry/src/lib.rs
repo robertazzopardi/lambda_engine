@@ -88,7 +88,9 @@ impl<T: Clone> GeometryBuilder<T> {
 
         if let Ok(mut texture_file) = file {
             let mut data = Vec::new();
-            texture_file.read_to_end(&mut data).unwrap();
+            texture_file
+                .read_to_end(&mut data)
+                .expect("Failed to read contents of texture file");
             self.texture = Some(Some(data));
         }
 

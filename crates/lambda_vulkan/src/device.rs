@@ -24,7 +24,7 @@ pub struct LogicalDeviceFeatures {
     pub queues: Queues,
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub(crate) struct QueueFamilyIndices {
     pub graphics_family: Option<u32>,
     pub present_family: Option<u32>,
@@ -238,15 +238,15 @@ pub unsafe fn recreate_drop(
     device.destroy_pipeline(graphics_pipeline.features.pipeline, None);
     device.destroy_pipeline_layout(graphics_pipeline.features.layout, None);
 
-    device.destroy_descriptor_pool(graphics_pipeline.descriptor_set.descriptor_pool, None);
+    device.destroy_descriptor_pool(graphics_pipeline.descriptors.descriptor_pool, None);
 
     for i in 0..swap_chain.images.len() {
         device.destroy_buffer(
-            graphics_pipeline.descriptor_set.uniform_buffers[i].buffer,
+            graphics_pipeline.descriptors.uniform_buffers[i].buffer,
             None,
         );
         device.free_memory(
-            graphics_pipeline.descriptor_set.uniform_buffers[i].memory,
+            graphics_pipeline.descriptors.uniform_buffers[i].memory,
             None,
         );
     }
@@ -269,7 +269,7 @@ pub unsafe fn destroy(object: VulkanObject, device: &Device) {
             .graphics_pipeline
             .as_ref()
             .unwrap()
-            .descriptor_set
+            .descriptors
             .descriptor_set_layout,
         None,
     );

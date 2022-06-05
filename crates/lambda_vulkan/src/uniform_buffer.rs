@@ -61,7 +61,7 @@ pub fn update_uniform_buffer(
                 .graphics_pipeline
                 .as_ref()
                 .unwrap()
-                .descriptor_set
+                .descriptors
                 .uniform_buffers[current_image]
                 .memory,
             buffer_size,
