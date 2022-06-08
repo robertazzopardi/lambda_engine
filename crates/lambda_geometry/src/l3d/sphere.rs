@@ -13,13 +13,28 @@ use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
-#[builder(default)]
+#[builder(default, build_fn(skip))]
+#[builder(name = "SphereBuilder")]
 pub struct SphereInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
     pub sector_count: u32,
     pub stack_count: u32,
+}
+
+impl SphereBuilder {
+    pub fn build(&mut self) -> SphereInfo {
+        let radius = self.radius.expect("Field `Radius` expected");
+
+        SphereInfo {
+            position: self.position.unwrap_or_default(),
+            orientation: self.orientation.unwrap_or_default(),
+            radius,
+            sector_count: self.sector_count.unwrap_or_default(),
+            stack_count: self.stack_count.unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(new, Deref, DerefMut)]

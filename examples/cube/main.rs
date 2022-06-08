@@ -1,5 +1,7 @@
 use lambda_engine::prelude::*;
 
+fn actions() {}
+
 fn main() {
     let mut display = Display::new(Resolution::ResHD);
 
@@ -7,12 +9,12 @@ fn main() {
 
     let cube = Cube::new(
         GeometryBuilder::default()
-            .properties(CubeInfoBuilder::default().radius(0.5).build().unwrap())
-            .cull_mode(ModelCullMode::Back)
-            .shader(ShaderType::Vertex)
+            .properties(CubeBuilder::default().radius(0.5).build())
+            .cull_mode(CullMode::Back)
+            .shader(Shader::Vertex)
+            .behavior(actions)
             .indexed()
-            .build()
-            .unwrap(),
+            .build(),
     );
 
     let objects: Geometries = vec![cube.into()];

@@ -14,12 +14,26 @@ use nalgebra::{Point3, Vector3};
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
 #[derive(Builder, Default, Debug, Clone, new)]
-#[builder(default)]
+#[builder(default, build_fn(skip))]
+#[builder(name = "SquareBuilder")]
 pub struct SquareInfo {
     pub position: Point3<f32>,
     pub orientation: Orientation,
     pub radius: f32,
     pub has_depth: bool,
+}
+
+impl SquareBuilder {
+    pub fn build(&mut self) -> SquareInfo {
+        let radius = self.radius.expect("Field `Radius` expected");
+
+        SquareInfo {
+            position: self.position.unwrap_or_default(),
+            orientation: self.orientation.unwrap_or_default(),
+            radius,
+            has_depth: self.has_depth.unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(new, Deref, DerefMut)]

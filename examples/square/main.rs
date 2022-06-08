@@ -7,12 +7,11 @@ fn main() {
 
     let square = Square::new(
         GeometryBuilder::default()
-            .properties(SquareInfoBuilder::default().radius(0.5).build().unwrap())
-            .cull_mode(ModelCullMode::None)
-            .shader(ShaderType::Vertex)
+            .properties(SquareBuilder::default().radius(0.5).build())
+            .cull_mode(CullMode::None)
+            .shader(Shader::Vertex)
             .indexed()
-            .build()
-            .unwrap(),
+            .build(),
     );
 
     let objects: Geometries = vec![square.into()];

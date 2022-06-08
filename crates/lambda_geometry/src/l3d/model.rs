@@ -15,12 +15,31 @@ use lambda_vulkan::{
 use nalgebra::{Point3, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone, new)]
-#[builder(default)]
+#[builder(default, build_fn(skip))]
+#[builder(name = "ModelBuilder")]
 pub struct ModelInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
     model_path: String,
+}
+
+impl ModelBuilder {
+    pub fn build(&mut self) -> ModelInfo {
+        let radius = self.radius.expect("Field `Radius` expected");
+        let model_path = self
+            .model_path
+            .as_ref()
+            .expect("Field `model_path` expected")
+            .clone();
+
+        ModelInfo {
+            position: self.position.unwrap_or_default(),
+            orientation: self.orientation.unwrap_or_default(),
+            radius,
+            model_path,
+        }
+    }
 }
 
 #[derive(new, Deref, DerefMut)]

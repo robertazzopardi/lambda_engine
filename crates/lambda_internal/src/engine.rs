@@ -12,7 +12,7 @@ use lambda_vulkan::{
     sync_objects::{SyncObjects, MAX_FRAMES_IN_FLIGHT},
     uniform_buffer::UniformBufferObject,
     utility::{EntryInstance, InstanceDevices},
-    Vulkan, WindowSize,
+    Vulkan, VulkanObject, WindowSize,
 };
 use lambda_window::window::{self, Display};
 use winit::platform::run_return::EventLoopExtRunReturn;
@@ -125,6 +125,12 @@ impl Engine {
     pub fn run(&mut self, display: &mut Display, mut camera: Camera) {
         let mut mouse_pressed = false;
 
+        let mut vulkan_objects = self
+            .models
+            .iter()
+            .map(|model| model.vulkan_object())
+            .collect::<Vec<VulkanObject>>();
+
         display.event_loop.run_return(|event, _, control_flow| {
             self.time.tick();
 
@@ -141,12 +147,6 @@ impl Engine {
                 &mut self.vulkan.ubo,
                 &WindowSize(self.vulkan.swap_chain.extent),
             );
-
-            // not efficient but for now works
-            let mut vulkan_objects = Vec::new();
-            self.models
-                .iter()
-                .for_each(|model| vulkan_objects.push(model.vulkan_object()));
 
             unsafe {
                 renderer::render(

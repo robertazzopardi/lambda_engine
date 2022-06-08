@@ -5,7 +5,7 @@ use crate::{
     texture::{self, Texture},
     uniform_buffer::UniformBufferObject,
     utility::InstanceDevices,
-    ModelCullMode, ModelTopology, ShaderType,
+    CullMode, ModelTopology, Shader,
 };
 use ash::vk;
 use lambda_space::space::Vertex;
@@ -32,8 +32,8 @@ pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptors: Descriptor,
     pub topology: ModelTopology,
-    pub cull_mode: ModelCullMode,
-    pub shader_type: ShaderType,
+    pub cull_mode: CullMode,
+    pub shader_type: Shader,
 }
 
 impl GraphicsPipeline {
@@ -42,9 +42,9 @@ impl GraphicsPipeline {
         render_pass: vk::RenderPass,
         texture: &Option<Texture>,
         topology: ModelTopology,
-        cull_mode: ModelCullMode,
+        cull_mode: CullMode,
         instance_devices: &InstanceDevices,
-        shader_type: ShaderType,
+        shader_type: Shader,
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
 
@@ -236,8 +236,8 @@ fn create_pipeline_and_layout(
     descriptor_set_layout: &vk::DescriptorSetLayout,
     render_pass: vk::RenderPass,
     topology: ModelTopology,
-    cull_mode: ModelCullMode,
-    shader_type: ShaderType,
+    cull_mode: CullMode,
+    shader_type: Shader,
 ) -> GraphicsPipelineFeatures {
     let entry_point = CString::new("main").unwrap();
 

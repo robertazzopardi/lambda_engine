@@ -51,11 +51,24 @@ pub const CUBE_VERTICES: [[f32; 3]; 36] = [
 ];
 
 #[derive(Builder, Default, Debug, Clone, Copy, new)]
-#[builder(default)]
+#[builder(default, build_fn(skip))]
+#[builder(name = "CubeBuilder")]
 pub struct CubeInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
+}
+
+impl CubeBuilder {
+    pub fn build(&mut self) -> CubeInfo {
+        let radius = self.radius.expect("Field `Radius` Expected");
+
+        CubeInfo {
+            position: self.position.unwrap_or_default(),
+            orientation: self.orientation.unwrap_or_default(),
+            radius,
+        }
+    }
 }
 
 #[derive(new, Deref, DerefMut)]

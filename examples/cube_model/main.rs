@@ -11,18 +11,16 @@ fn main() {
     let cube_model = Model::new(
         GeometryBuilder::default()
             .properties(
-                ModelInfoBuilder::default()
+                ModelBuilder::default()
                     .radius(0.3)
                     .model_path(CUBE_MODEL.to_owned())
-                    .build()
-                    .unwrap(),
+                    .build(),
             )
             .texture(SATURN_TEXTURE)
-            .shader(ShaderType::LightTexture)
-            .cull_mode(ModelCullMode::Back)
+            .shader(Shader::LightTexture)
+            .cull_mode(CullMode::Back)
             .indexed()
-            .build()
-            .unwrap(),
+            .build(),
     );
 
     let objects: Geometries = vec![cube_model.into()];

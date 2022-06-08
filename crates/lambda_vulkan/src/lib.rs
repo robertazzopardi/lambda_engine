@@ -40,7 +40,7 @@ pub type Fence = vk::Fence;
 pub mod prelude {
     pub use crate::{
         debug::{Debug, DebugMessageProperties, MessageLevel, MessageType},
-        ModelCullMode, ModelTopology, ShaderType,
+        CullMode, ModelTopology, Shader,
     };
 }
 
@@ -61,7 +61,7 @@ pub struct Vulkan {
 #[derive(Default, Debug, Clone, new)]
 pub struct RenderPass(pub vk::RenderPass);
 
-#[derive(Debug, Clone, new)]
+#[derive(Debug, Clone)]
 pub struct VulkanObject {
     pub vertices_and_indices: Option<VerticesAndIndices>,
     pub texture_buffer: Option<Texture>,
@@ -80,6 +80,15 @@ impl Default for VulkanObject {
             buffers: Default::default(),
             indexed: Default::default(),
             model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
+        }
+    }
+}
+
+impl VulkanObject {
+    pub fn new(indexed: bool) -> Self {
+        Self {
+            indexed,
+            ..Default::default()
         }
     }
 }
@@ -131,25 +140,25 @@ impl Default for ModelTopology {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum ModelCullMode {
+pub enum CullMode {
     Back,
     Front,
     FrontAndBack,
     None,
 }
 
-impl From<ModelCullMode> for VkCull {
-    fn from(model_cull_model: ModelCullMode) -> Self {
+impl From<CullMode> for VkCull {
+    fn from(model_cull_model: CullMode) -> Self {
         match model_cull_model {
-            ModelCullMode::Back => VkCull::BACK,
-            ModelCullMode::Front => VkCull::FRONT,
-            ModelCullMode::FrontAndBack => VkCull::FRONT_AND_BACK,
-            ModelCullMode::None => VkCull::NONE,
+            CullMode::Back => VkCull::BACK,
+            CullMode::Front => VkCull::FRONT,
+            CullMode::FrontAndBack => VkCull::FRONT_AND_BACK,
+            CullMode::None => VkCull::NONE,
         }
     }
 }
 
-impl Default for ModelCullMode {
+impl Default for CullMode {
     fn default() -> Self {
         Self::None
     }
@@ -161,26 +170,26 @@ const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
 
 #[derive(Debug, Clone, Copy)]
-pub enum ShaderType {
+pub enum Shader {
     Light,
     LightTexture,
     Texture,
     Vertex,
 }
 
-impl Default for ShaderType {
+impl Default for Shader {
     fn default() -> Self {
         Self::Light
     }
 }
 
-impl From<ShaderType> for &str {
-    fn from(texture_type: ShaderType) -> Self {
+impl From<Shader> for &str {
+    fn from(texture_type: Shader) -> Self {
         match texture_type {
-            ShaderType::Light => LIGHT,
-            ShaderType::LightTexture => LIGHT_TEXTURE,
-            ShaderType::Texture => TEXTURE,
-            ShaderType::Vertex => VERTEX,
+            Shader::Light => LIGHT,
+            Shader::LightTexture => LIGHT_TEXTURE,
+            Shader::Texture => TEXTURE,
+            Shader::Vertex => VERTEX,
         }
     }
 }

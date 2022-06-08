@@ -61,7 +61,8 @@ impl SwapChain {
             .image_color_space(surface_format.color_space)
             .image_extent(extent)
             .image_array_layers(1)
-            .image_usage(vk::ImageUsageFlags::TRANSIENT_ATTACHMENT)
+            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
             .pre_transform(capabilities.current_transform)
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
@@ -81,8 +82,6 @@ impl SwapChain {
             ];
 
             create_info.p_queue_family_indices = queue_family_indices_arr.as_ptr();
-        } else {
-            create_info.image_sharing_mode = vk::SharingMode::EXCLUSIVE;
         }
 
         let swap_chain = Swapchain::new(instance, &devices.logical.device);

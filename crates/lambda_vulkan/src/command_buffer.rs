@@ -251,14 +251,6 @@ pub unsafe fn bind_index_and_vertex_buffers(
 
     let object_and_vertices_and_indices = object.vertices_and_indices.as_ref().unwrap();
 
-    device.cmd_draw(
-        command_buffer,
-        object_and_vertices_and_indices.vertices.len() as u32,
-        1,
-        0,
-        0,
-    );
-
     if object.indexed {
         device.cmd_bind_index_buffer(
             command_buffer,
@@ -272,6 +264,14 @@ pub unsafe fn bind_index_and_vertex_buffers(
             object_and_vertices_and_indices.indices.len() as u32,
             1,
             0,
+            0,
+            0,
+        );
+    } else {
+        device.cmd_draw(
+            command_buffer,
+            object_and_vertices_and_indices.vertices.len() as u32,
+            1,
             0,
             0,
         );

@@ -9,13 +9,26 @@ use lambda_vulkan::{
 use nalgebra::Vector2;
 
 #[derive(Builder, Default, Debug, Clone, new)]
-#[builder(default)]
+#[builder(default, build_fn(skip))]
+#[builder(name = "RingBuilder")]
 pub struct RingInfo {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub inner_radius: f32,
     pub outer_radius: f32,
     pub sector_count: u32,
+}
+
+impl RingBuilder {
+    pub fn build(&mut self) -> RingInfo {
+        RingInfo {
+            position: self.position.unwrap_or_default(),
+            orientation: self.orientation.unwrap_or_default(),
+            inner_radius: self.inner_radius.unwrap_or_default(),
+            outer_radius: self.outer_radius.unwrap_or_default(),
+            sector_count: self.sector_count.unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(new, Deref, DerefMut)]

@@ -11,17 +11,16 @@ fn main() {
     let viking_model = Model::new(
         GeometryBuilder::default()
             .properties(
-                ModelInfoBuilder::default()
+                ModelBuilder::default()
                     .radius(0.5)
                     .model_path(VIKING_MODEL.to_owned())
-                    .build()
-                    .unwrap(),
+                    .build(),
             )
             .texture(VIKING_MODEL_TEXTURE)
-            .shader(ShaderType::LightTexture)
-            .cull_mode(ModelCullMode::None)
-            .build()
-            .unwrap(),
+            .shader(Shader::LightTexture)
+            .cull_mode(CullMode::None)
+            .indexed()
+            .build(),
     );
 
     let objects: Geometries = vec![viking_model.into()];

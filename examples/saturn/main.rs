@@ -13,37 +13,33 @@ fn main() {
     let sphere = Sphere::new(
         GeometryBuilder::default()
             .properties(
-                SphereInfoBuilder::default()
+                SphereBuilder::default()
                     .radius(0.4)
                     .sector_count(sections)
                     .stack_count(sections)
-                    .build()
-                    .unwrap(),
+                    .build(),
             )
             .texture(SATURN_TEXTURE)
-            .shader(ShaderType::LightTexture)
-            .cull_mode(ModelCullMode::Back)
+            .shader(Shader::LightTexture)
+            .cull_mode(CullMode::Back)
             .indexed()
-            .build()
-            .unwrap(),
+            .build(),
     );
 
     let ring = Ring::new(
         GeometryBuilder::default()
             .properties(
-                RingInfoBuilder::default()
+                RingBuilder::default()
                     .inner_radius(0.5)
                     .outer_radius(1.)
                     .sector_count(sections)
-                    .build()
-                    .unwrap(),
+                    .build(),
             )
             .texture(RING_TEXTURE)
-            .shader(ShaderType::LightTexture)
+            .shader(Shader::LightTexture)
             .topology(ModelTopology::TriangleStrip)
-            .cull_mode(ModelCullMode::None)
-            .build()
-            .unwrap(),
+            .cull_mode(CullMode::None)
+            .build(),
     );
 
     let objects: Geometries = vec![sphere.into(), ring.into()];
