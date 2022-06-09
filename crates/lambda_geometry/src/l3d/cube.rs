@@ -71,7 +71,7 @@ impl CubeBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Cube(Geometry<CubeInfo>);
 
 impl GeomBehavior for Cube {
@@ -85,8 +85,7 @@ impl GeomBehavior for Cube {
 
         let indices = calculate_indices(&vertices);
 
-        self.vulkan_object.vertices_and_indices = Some(VerticesAndIndices::new(vertices, indices));
-        self.vulkan_object.vertices_and_indices.clone().unwrap()
+        VerticesAndIndices::new(vertices, indices)
     }
 
     fn vulkan_object(&self) -> VulkanObject {
@@ -101,9 +100,9 @@ impl GeomBehavior for Cube {
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
     ) {
-        if let Some(texture) = self.texture.clone() {
+        if !self.texture.is_empty() {
             self.vulkan_object.texture_buffer =
-                Some(Texture::new(&texture, command_pool, instance_devices));
+                Some(Texture::new(&self.texture, command_pool, instance_devices));
         }
 
         let vertices_and_indices = self.vertices_and_indices();
@@ -126,5 +125,7 @@ impl GeomBehavior for Cube {
             instance_devices,
             self.shader,
         ));
+
+        self.vulkan_object.vertices_and_indices = vertices_and_indices;
     }
 }

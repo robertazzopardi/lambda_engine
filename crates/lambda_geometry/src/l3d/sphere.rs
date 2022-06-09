@@ -37,7 +37,7 @@ impl SphereBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Sphere(Geometry<SphereInfo>);
 
 impl GeomBehavior for Sphere {
@@ -74,12 +74,10 @@ impl GeomBehavior for Sphere {
             }
         }
 
-        self.vulkan_object.vertices_and_indices = Some(VerticesAndIndices::new(
+        VerticesAndIndices::new(
             vertices,
             spherical_indices(self.properties.sector_count, self.properties.stack_count),
-        ));
-
-        self.vulkan_object.vertices_and_indices.clone().unwrap()
+        )
     }
 
     fn vulkan_object(&self) -> VulkanObject {
@@ -94,9 +92,9 @@ impl GeomBehavior for Sphere {
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
     ) {
-        if let Some(texture) = self.texture.clone() {
+        if !self.texture.is_empty() {
             self.vulkan_object.texture_buffer =
-                Some(Texture::new(&texture, command_pool, instance_devices));
+                Some(Texture::new(&self.texture, command_pool, instance_devices));
         }
 
         let vertices_and_indices = self.vertices_and_indices();
@@ -119,5 +117,7 @@ impl GeomBehavior for Sphere {
             instance_devices,
             self.shader,
         ));
+
+        self.vulkan_object.vertices_and_indices = vertices_and_indices;
     }
 }

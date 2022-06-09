@@ -39,6 +39,7 @@ pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 #[enum_dispatch]
+#[derive(Debug, Clone)]
 pub enum Geom {
     Cube,
     Square,
@@ -71,7 +72,7 @@ pub struct Geometry<T> {
     pub properties: T,
 
     #[builder(setter(custom))]
-    pub texture: Option<Vec<u8>>,
+    pub texture: Vec<u8>,
     #[builder(setter(custom))]
     pub indexed: bool,
     pub topology: ModelTopology,
@@ -93,7 +94,7 @@ impl<T: Clone> GeometryBuilder<T> {
             texture_file
                 .read_to_end(&mut data)
                 .expect("Failed to read contents of texture file");
-            self.texture = Some(Some(data));
+            self.texture = Some(data);
         }
 
         self
@@ -109,23 +110,21 @@ impl<T: Clone> GeometryBuilder<T> {
         self
     }
 
-    pub fn build(&self) -> Geometry<T> {
+    pub fn build(&mut self) -> Geometry<T> {
         let properties = self
             .properties
-            .clone()
+            .take()
             .expect("Expected the field `properties` to be defined for this geometry");
-
-        let indexed = self.indexed.unwrap_or_default();
 
         Geometry {
             properties,
-            texture: self.texture.clone().unwrap_or(None),
-            indexed,
+            texture: self.texture.take().unwrap_or_default(),
+            indexed: self.indexed.unwrap_or_default(),
             topology: self.topology.unwrap_or_default(),
             cull_mode: self.cull_mode.unwrap_or_default(),
             shader: self.shader.unwrap_or_default(),
             behavior: self.behavior.unwrap_or_default(),
-            vulkan_object: VulkanObject::new(indexed),
+            vulkan_object: VulkanObject::new(self.indexed.unwrap_or_default()),
         }
     }
 }

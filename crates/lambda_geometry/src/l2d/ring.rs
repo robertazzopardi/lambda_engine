@@ -31,7 +31,7 @@ impl RingBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Ring(Geometry<RingInfo>);
 
 impl GeomBehavior for Ring {
@@ -68,12 +68,10 @@ impl GeomBehavior for Ring {
             ));
         }
 
-        self.vulkan_object.vertices_and_indices = Some(VerticesAndIndices::new(
+        VerticesAndIndices::new(
             vertices.into(),
             utility::spherical_indices(self.properties.sector_count, 2),
-        ));
-
-        self.vulkan_object.vertices_and_indices.clone().unwrap()
+        )
     }
 
     fn vulkan_object(&self) -> VulkanObject {
@@ -88,9 +86,9 @@ impl GeomBehavior for Ring {
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
     ) {
-        if let Some(texture) = self.texture.clone() {
+        if !self.texture.is_empty() {
             self.vulkan_object.texture_buffer =
-                Some(Texture::new(&texture, command_pool, instance_devices));
+                Some(Texture::new(&self.texture, command_pool, instance_devices));
         }
 
         let vertices_and_indices = self.vertices_and_indices();
@@ -113,5 +111,7 @@ impl GeomBehavior for Ring {
             instance_devices,
             self.shader,
         ));
+
+        self.vulkan_object.vertices_and_indices = vertices_and_indices;
     }
 }

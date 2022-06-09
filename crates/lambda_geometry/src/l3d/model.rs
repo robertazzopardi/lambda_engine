@@ -27,11 +27,7 @@ pub struct ModelInfo {
 impl ModelBuilder {
     pub fn build(&mut self) -> ModelInfo {
         let radius = self.radius.expect("Field `Radius` expected");
-        let model_path = self
-            .model_path
-            .as_ref()
-            .expect("Field `model_path` expected")
-            .clone();
+        let model_path = self.model_path.take().expect("Field `model_path` expected");
 
         ModelInfo {
             position: self.position.unwrap_or_default(),
@@ -42,7 +38,7 @@ impl ModelBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Model(Geometry<ModelInfo>);
 
 impl GeomBehavior for Model {
@@ -60,8 +56,7 @@ impl GeomBehavior for Model {
                 utility::scale(face, self.properties.radius);
             });
 
-        self.vulkan_object.vertices_and_indices = Some(vertices_and_indices);
-        self.vulkan_object.vertices_and_indices.clone().unwrap()
+        vertices_and_indices
     }
 
     fn vulkan_object(&self) -> VulkanObject {
@@ -76,9 +71,9 @@ impl GeomBehavior for Model {
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
     ) {
-        if let Some(texture) = self.texture.clone() {
+        if !self.texture.is_empty() {
             self.vulkan_object.texture_buffer =
-                Some(Texture::new(&texture, command_pool, instance_devices));
+                Some(Texture::new(&self.texture, command_pool, instance_devices));
         }
 
         let vertices_and_indices = self.vertices_and_indices();
@@ -101,6 +96,8 @@ impl GeomBehavior for Model {
             instance_devices,
             self.shader,
         ));
+
+        self.vulkan_object.vertices_and_indices = vertices_and_indices;
     }
 }
 

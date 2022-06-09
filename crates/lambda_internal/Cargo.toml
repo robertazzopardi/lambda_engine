@@ -5,8 +5,8 @@ edition = "2021"
 include = ["src/**/*"]
 
 [dependencies]
-winit = "0.26.1"
 nalgebra = "0.31.0"
+winit = "0.26.1"
 lambda_geometry = { path = "../lambda_geometry" }
 lambda_vulkan = { path = "../lambda_vulkan" }
 lambda_camera = { path = "../lambda_camera" }

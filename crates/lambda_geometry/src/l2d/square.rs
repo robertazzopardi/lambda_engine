@@ -36,7 +36,7 @@ impl SquareBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Square(Geometry<SquareInfo>);
 
 impl GeomBehavior for Square {
@@ -52,11 +52,7 @@ impl GeomBehavior for Square {
             vert.pos += self.properties.position.coords;
         });
 
-        self.vulkan_object.vertices_and_indices = Some(VerticesAndIndices::new(
-            vertices,
-            SQUARE_INDICES.to_vec().into(),
-        ));
-        self.vulkan_object.vertices_and_indices.clone().unwrap()
+        VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into())
     }
 
     fn vulkan_object(&self) -> VulkanObject {
@@ -71,9 +67,9 @@ impl GeomBehavior for Square {
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
     ) {
-        if let Some(texture) = self.texture.clone() {
+        if !self.texture.is_empty() {
             self.vulkan_object.texture_buffer =
-                Some(Texture::new(&texture, command_pool, instance_devices));
+                Some(Texture::new(&self.texture, command_pool, instance_devices));
         }
 
         let vertices_and_indices = self.vertices_and_indices();
@@ -96,11 +92,13 @@ impl GeomBehavior for Square {
             instance_devices,
             self.shader,
         ));
+
+        self.vulkan_object.vertices_and_indices = vertices_and_indices;
     }
 }
 
 pub fn square_from_vertices(vertices: &[[f32; 3]]) -> Vertices {
-    let tex_coord = vec![
+    let tex_coord = [
         vector2!(1., 0.),
         vector2!(0., 0.),
         vector2!(0., 1.),
@@ -109,7 +107,7 @@ pub fn square_from_vertices(vertices: &[[f32; 3]]) -> Vertices {
 
     let mut tex_coords = Vec::new();
     for _ in 0..(vertices.len() / 4) {
-        tex_coords.extend(tex_coord.clone());
+        tex_coords.extend(tex_coord);
     }
 
     Vertices::new(

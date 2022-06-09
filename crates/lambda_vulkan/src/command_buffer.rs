@@ -249,7 +249,7 @@ pub unsafe fn bind_index_and_vertex_buffers(
 
     device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
 
-    let object_and_vertices_and_indices = object.vertices_and_indices.as_ref().unwrap();
+    let object_and_vertices_and_indices = &object.vertices_and_indices;
 
     if object.indexed {
         device.cmd_bind_index_buffer(
