@@ -57,13 +57,7 @@ pub fn update_uniform_buffer(
 
         memory::map_memory(
             &vulkan.instance_devices.devices.logical.device,
-            object
-                .graphics_pipeline
-                .as_ref()
-                .unwrap()
-                .descriptors
-                .uniform_buffers[current_image]
-                .memory,
+            object.graphics_pipeline.descriptors.uniform_buffers[current_image].memory,
             buffer_size,
             &[uniform_buffer],
         );

@@ -169,7 +169,7 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[VulkanObject]) {
 
         vulkan_objects.iter().for_each(|object| {
             device::recreate_drop(
-                object.graphics_pipeline.as_ref().unwrap(),
+                &object.graphics_pipeline,
                 &vulkan.instance_devices.devices.logical.device,
                 &vulkan.swap_chain,
             )
@@ -227,11 +227,11 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects:
     let models = Vec::new();
 
     vulkan_objects.iter().for_each(|object| {
-        object.graphics_pipeline.as_ref().unwrap().recreate(
+        object.graphics_pipeline.recreate(
             &vulkan.instance_devices,
             &vulkan.swap_chain,
             vulkan.render_pass.0,
-            &object.texture_buffer,
+            &object.texture,
         );
     });
 

@@ -226,24 +226,22 @@ pub unsafe fn bind_index_and_vertex_buffers(
     offsets: &[vk::DeviceSize],
     index: usize,
 ) {
-    let object_graphics_pipeline = object.graphics_pipeline.as_ref().unwrap();
-
     device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
-        object_graphics_pipeline.features.pipeline,
+        object.graphics_pipeline.features.pipeline,
     );
 
     device.cmd_bind_descriptor_sets(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
-        object_graphics_pipeline.features.layout,
+        object.graphics_pipeline.features.layout,
         0,
-        std::slice::from_ref(&object_graphics_pipeline.descriptors.descriptor_sets[index]),
+        std::slice::from_ref(&object.graphics_pipeline.descriptors.descriptor_sets[index]),
         &[],
     );
 
-    let object_buffers = object.buffers.unwrap();
+    let object_buffers = object.buffers;
 
     let vertex_buffers = [object_buffers.vertex.buffer];
 

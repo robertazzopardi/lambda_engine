@@ -54,7 +54,7 @@ pub trait GeomBehavior {
 
     fn vulkan_object(&self) -> VulkanObject;
 
-    fn defer_build(
+    fn deferred_build(
         &mut self,
         _: &CommandPool,
         _: u32,
@@ -85,7 +85,7 @@ pub struct Geometry<T> {
     pub vulkan_object: VulkanObject,
 }
 
-impl<T: Clone> GeometryBuilder<T> {
+impl<T> GeometryBuilder<T> {
     pub fn texture(&mut self, path: &str) -> &mut Self {
         let file = File::open(path);
 

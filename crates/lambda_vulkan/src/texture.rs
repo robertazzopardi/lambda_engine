@@ -22,19 +22,18 @@ impl Texture {
         command_pool: &vk::CommandPool,
         instance_devices: &InstanceDevices,
     ) -> Self {
-        let image = create_texture_image(image_buffer, command_pool, instance_devices);
-        let image_view = utility::create_image_view(
-            &image,
-            vk::Format::R8G8B8A8_SRGB,
-            vk::ImageAspectFlags::COLOR,
-            &instance_devices.devices,
-        );
-        let sampler = create_texture_sampler(image.mip_levels, instance_devices);
-
         Self {
-            image,
-            image_view,
-            sampler,
+            image: create_texture_image(image_buffer, command_pool, instance_devices),
+            image_view: utility::create_image_view(
+                &create_texture_image(image_buffer, command_pool, instance_devices),
+                vk::Format::R8G8B8A8_SRGB,
+                vk::ImageAspectFlags::COLOR,
+                &instance_devices.devices,
+            ),
+            sampler: create_texture_sampler(
+                create_texture_image(image_buffer, command_pool, instance_devices).mip_levels,
+                instance_devices,
+            ),
         }
     }
 }

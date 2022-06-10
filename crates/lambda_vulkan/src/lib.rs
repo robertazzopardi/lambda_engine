@@ -18,10 +18,7 @@ pub mod texture;
 pub mod uniform_buffer;
 pub mod utility;
 
-use ash::{
-    extensions::khr::Surface,
-    vk::{self, CommandPool},
-};
+use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::VkCommander;
 use debug::Debug;
@@ -67,9 +64,9 @@ pub struct RenderPass(pub vk::RenderPass);
 #[derive(Debug, Clone)]
 pub struct VulkanObject {
     pub vertices_and_indices: VerticesAndIndices,
-    pub texture_buffer: Option<Texture>,
-    pub graphics_pipeline: Option<GraphicsPipeline>,
-    pub buffers: Option<ModelBuffers>,
+    pub texture: Option<Texture>,
+    pub graphics_pipeline: GraphicsPipeline,
+    pub buffers: ModelBuffers,
     pub indexed: bool,
     model: Matrix4<f32>,
 }
@@ -78,7 +75,7 @@ impl Default for VulkanObject {
     fn default() -> Self {
         Self {
             vertices_and_indices: Default::default(),
-            texture_buffer: Default::default(),
+            texture: Default::default(),
             graphics_pipeline: Default::default(),
             buffers: Default::default(),
             indexed: Default::default(),
@@ -93,43 +90,6 @@ impl VulkanObject {
             indexed,
             ..Default::default()
         }
-    }
-
-    pub fn defer_build(
-        &mut self,
-        command_pool: &CommandPool,
-        command_buffer_count: u32,
-        swap_chain: &SwapChain,
-        render_pass: &RenderPass,
-        instance_devices: &InstanceDevices,
-        vertices_and_indices: VerticesAndIndices,
-        texture: Option<Vec<u8>>,
-        topology: ModelTopology,
-        cull_mode: CullMode,
-        shader: Shader,
-    ) {
-        if let Some(texture) = texture {
-            self.texture_buffer = Some(Texture::new(&texture, command_pool, instance_devices));
-        }
-
-        let model_buffers = ModelBuffers::new(
-            &vertices_and_indices,
-            command_pool,
-            command_buffer_count,
-            instance_devices,
-        );
-
-        self.buffers = Some(model_buffers);
-
-        self.graphics_pipeline = Some(GraphicsPipeline::new(
-            swap_chain,
-            render_pass.0,
-            &self.texture_buffer,
-            topology,
-            cull_mode,
-            instance_devices,
-            shader,
-        ));
     }
 }
 

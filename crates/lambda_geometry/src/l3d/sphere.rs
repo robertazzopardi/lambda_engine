@@ -84,7 +84,7 @@ impl GeomBehavior for Sphere {
         self.vulkan_object.clone()
     }
 
-    fn defer_build(
+    fn deferred_build(
         &mut self,
         command_pool: &CommandPool,
         command_buffer_count: u32,
@@ -93,30 +93,28 @@ impl GeomBehavior for Sphere {
         instance_devices: &InstanceDevices,
     ) {
         if !self.texture.is_empty() {
-            self.vulkan_object.texture_buffer =
+            self.vulkan_object.texture =
                 Some(Texture::new(&self.texture, command_pool, instance_devices));
         }
 
         let vertices_and_indices = self.vertices_and_indices();
 
-        let model_buffers = ModelBuffers::new(
+        self.vulkan_object.buffers = ModelBuffers::new(
             &vertices_and_indices,
             command_pool,
             command_buffer_count,
             instance_devices,
         );
 
-        self.vulkan_object.buffers = Some(model_buffers);
-
-        self.vulkan_object.graphics_pipeline = Some(GraphicsPipeline::new(
+        self.vulkan_object.graphics_pipeline = GraphicsPipeline::new(
             swap_chain,
             render_pass.0,
-            &self.vulkan_object.texture_buffer,
+            &self.vulkan_object.texture,
             self.topology,
             self.cull_mode,
             instance_devices,
             self.shader,
-        ));
+        );
 
         self.vulkan_object.vertices_and_indices = vertices_and_indices;
     }

@@ -257,7 +257,7 @@ pub unsafe fn recreate_drop(
 ///
 pub unsafe fn destroy(object: VulkanObject, device: &Device) {
     // let object_texture = object.object_texture();
-    if let Some(object_texture) = object.texture_buffer {
+    if let Some(object_texture) = object.texture {
         device.destroy_sampler(object_texture.sampler, None);
         device.destroy_image_view(object_texture.image_view, None);
         device.destroy_image(object_texture.image.image, None);
@@ -265,16 +265,11 @@ pub unsafe fn destroy(object: VulkanObject, device: &Device) {
     }
 
     device.destroy_descriptor_set_layout(
-        object
-            .graphics_pipeline
-            .as_ref()
-            .unwrap()
-            .descriptors
-            .descriptor_set_layout,
+        object.graphics_pipeline.descriptors.descriptor_set_layout,
         None,
     );
 
-    let object_buffers = object.buffers.unwrap();
+    let object_buffers = object.buffers;
 
     device.destroy_buffer(object_buffers.vertex.buffer, None);
     device.free_memory(object_buffers.vertex.memory, None);

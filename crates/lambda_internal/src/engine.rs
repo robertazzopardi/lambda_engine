@@ -72,19 +72,22 @@ impl Engine {
 
         let mut models = models;
 
-        let mut vulkan_objects = Vec::new();
-        models.iter_mut().for_each(|property| {
-            // dbg!(property.clone());
+        let vulkan_objects = models
+            .iter_mut()
+            .map(|property| {
+                // dbg!(property.clone());
 
-            property.defer_build(
-                &command_pool,
-                swap_chain_len,
-                &swap_chain,
-                &render_pass,
-                &instance_devices,
-            );
-            vulkan_objects.push(property.vulkan_object());
-        });
+                property.deferred_build(
+                    &command_pool,
+                    swap_chain_len,
+                    &swap_chain,
+                    &render_pass,
+                    &instance_devices,
+                );
+
+                property.vulkan_object()
+            })
+            .collect::<Vec<VulkanObject>>();
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
