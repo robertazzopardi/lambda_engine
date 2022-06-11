@@ -50,7 +50,7 @@ pub const CUBE_VERTICES: [[f32; 3]; 36] = [
     [1.0, -1.0, -1.0],
 ];
 
-#[derive(Builder, Default, Debug, Clone, Copy, new)]
+#[derive(Builder, Default, Debug, Clone, Copy)]
 #[builder(default, build_fn(skip))]
 #[builder(name = "CubeBuilder")]
 pub struct CubeInfo {
@@ -61,17 +61,15 @@ pub struct CubeInfo {
 
 impl CubeBuilder {
     pub fn build(&mut self) -> CubeInfo {
-        let radius = self.radius.expect("Field `Radius` Expected");
-
         CubeInfo {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
-            radius,
+            radius: self.radius.expect("Field `Radius` Expected"),
         }
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
+#[derive(new, Deref, DerefMut, Debug)]
 pub struct Cube(Geometry<CubeInfo>);
 
 impl GeomBehavior for Cube {
@@ -88,8 +86,8 @@ impl GeomBehavior for Cube {
         VerticesAndIndices::new(vertices, indices)
     }
 
-    fn vulkan_object(&self) -> VulkanObject {
-        self.vulkan_object.clone()
+    fn vulkan_object(&self) -> &VulkanObject {
+        &self.vulkan_object
     }
 
     fn deferred_build(

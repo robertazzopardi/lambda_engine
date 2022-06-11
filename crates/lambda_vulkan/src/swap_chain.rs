@@ -154,7 +154,7 @@ fn create_image_views(
     swap_chain_image_views
 }
 
-pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[VulkanObject]) {
+pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[&VulkanObject]) {
     let device = &vulkan.instance_devices.devices.logical.device;
 
     unsafe {
@@ -189,7 +189,7 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[VulkanObject]) {
     }
 }
 
-pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects: &[VulkanObject]) {
+pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects: &[&VulkanObject]) {
     // let size = window.inner_size();
     // let _w = size.width;
     // let _h = size.height;

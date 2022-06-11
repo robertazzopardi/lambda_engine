@@ -4,6 +4,7 @@ use crate::{
 };
 use ash::vk;
 
+#[derive(Clone, Copy, Debug)]
 pub enum ResourceType {
     Colour,
     Depth,
@@ -16,10 +17,10 @@ pub struct Resources {
 
 impl Resources {
     pub fn new(swap_chain: &SwapChain, instance_devices: &InstanceDevices) -> Self {
-        let depth = Resource::new(swap_chain, ResourceType::Depth, instance_devices);
-        let colour = Resource::new(swap_chain, ResourceType::Colour, instance_devices);
-
-        Self { depth, colour }
+        Self {
+            depth: Resource::new(swap_chain, ResourceType::Depth, instance_devices),
+            colour: Resource::new(swap_chain, ResourceType::Colour, instance_devices),
+        }
     }
 }
 

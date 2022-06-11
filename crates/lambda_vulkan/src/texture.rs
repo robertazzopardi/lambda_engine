@@ -9,7 +9,7 @@ use ash::vk;
 use nalgebra::Point2;
 use std::cmp;
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct Texture {
     pub image: Image,
     pub image_view: vk::ImageView,

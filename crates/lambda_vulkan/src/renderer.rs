@@ -2,7 +2,7 @@ use crate::{
     resource,
     swap_chain::{recreate_swap_chain, SwapChain},
     sync_objects::MAX_FRAMES_IN_FLIGHT,
-    uniform_buffer::update_uniform_buffer,
+    uniform_buffer::update_uniform_buffers,
     utility::InstanceDevices,
     RenderPass, Vulkan, VulkanObject,
 };
@@ -112,7 +112,7 @@ pub unsafe fn render(
     camera: &mut Camera,
     current_frame: &mut usize,
     resized: &mut bool,
-    vulkan_objects: &mut [VulkanObject],
+    vulkan_objects: &mut [&VulkanObject],
     dt: f32,
 ) {
     vulkan
@@ -142,7 +142,7 @@ pub unsafe fn render(
         }
     };
 
-    update_uniform_buffer(
+    update_uniform_buffers(
         vulkan,
         camera,
         image_index.try_into().unwrap(),

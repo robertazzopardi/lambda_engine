@@ -13,7 +13,7 @@ use nalgebra::{Point3, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
-#[derive(Builder, Default, Debug, Clone, new)]
+#[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 #[builder(name = "SquareBuilder")]
 pub struct SquareInfo {
@@ -25,18 +25,16 @@ pub struct SquareInfo {
 
 impl SquareBuilder {
     pub fn build(&mut self) -> SquareInfo {
-        let radius = self.radius.expect("Field `Radius` expected");
-
         SquareInfo {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
-            radius,
+            radius: self.radius.expect("Field `Radius` expected"),
             has_depth: self.has_depth.unwrap_or_default(),
         }
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
+#[derive(new, Deref, DerefMut, Debug)]
 pub struct Square(Geometry<SquareInfo>);
 
 impl GeomBehavior for Square {
@@ -55,8 +53,8 @@ impl GeomBehavior for Square {
         VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into())
     }
 
-    fn vulkan_object(&self) -> VulkanObject {
-        self.vulkan_object.clone()
+    fn vulkan_object(&self) -> &VulkanObject {
+        &self.vulkan_object
     }
 
     fn deferred_build(
@@ -95,7 +93,7 @@ impl GeomBehavior for Square {
     }
 }
 
-pub fn square_from_vertices(vertices: &[[f32; 3]]) -> Vertices {
+pub(crate) fn square_from_vertices(vertices: &[[f32; 3]]) -> Vertices {
     let tex_coord = [
         vector2!(1., 0.),
         vector2!(0., 0.),

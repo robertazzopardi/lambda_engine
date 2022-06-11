@@ -13,7 +13,7 @@ use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
 use std::{ffi::CString, mem};
 
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct Descriptor {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub descriptor_pool: vk::DescriptorPool,
@@ -21,13 +21,13 @@ pub struct Descriptor {
     pub uniform_buffers: Vec<Buffer>,
 }
 
-#[derive(new, Clone, Copy, Default, Debug)]
+#[derive(new, Default, Debug)]
 pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptors: Descriptor,

@@ -87,7 +87,7 @@ impl Engine {
 
                 property.vulkan_object()
             })
-            .collect::<Vec<VulkanObject>>();
+            .collect::<Vec<&VulkanObject>>();
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
@@ -134,7 +134,7 @@ impl Engine {
             .models
             .iter()
             .map(|model| model.vulkan_object())
-            .collect::<Vec<VulkanObject>>();
+            .collect::<Vec<&VulkanObject>>();
 
         display.event_loop.run_return(|event, _, control_flow| {
             self.time.tick();
@@ -177,10 +177,11 @@ impl Drop for Engine {
                 .device_wait_idle()
                 .expect("Failed to wait for device idle state");
 
-            let mut vulkan_objects = Vec::new();
-            self.models
+            let vulkan_objects = self
+                .models
                 .iter()
-                .for_each(|model| vulkan_objects.push(model.vulkan_object()));
+                .map(|model| model.vulkan_object())
+                .collect::<Vec<&VulkanObject>>();
 
             swap_chain::cleanup_swap_chain(&self.vulkan, &vulkan_objects);
 
@@ -202,12 +203,12 @@ impl Drop for Engine {
 
             device.destroy_command_pool(*self.vulkan.commander.pool, None);
 
-            println!("here");
-
             device.destroy_device(None);
 
+            println!("here");
+
             if debug::enable_validation_layers() {
-                if let Some(debugger) = &self.vulkan.debugger {
+                if let Some(debugger) = self.vulkan.debugger.take() {
                     debugger
                         .utils
                         .destroy_debug_utils_messenger(debugger.messenger, None);

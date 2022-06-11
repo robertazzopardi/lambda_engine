@@ -20,18 +20,16 @@ pub(crate) fn find_memory_type(
     panic!("Failed to find suitable memory type!")
 }
 
-pub fn map_memory<T>(
+pub fn map_memory<T: Copy>(
     device: &Device,
     device_memory: vk::DeviceMemory,
     device_size: vk::DeviceSize,
     to_map: &[T],
-) where
-    T: std::marker::Copy,
-{
+) {
     unsafe {
         let data = device
             .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
-            .unwrap();
+            .expect("Failed to map memory");
         let mut vert_align = Align::new(data, std::mem::align_of::<T>() as u64, device_size);
         vert_align.copy_from_slice(to_map);
         device.unmap_memory(device_memory);

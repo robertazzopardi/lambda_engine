@@ -39,7 +39,7 @@ pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 #[enum_dispatch]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Geom {
     Cube,
     Square,
@@ -52,7 +52,7 @@ pub enum Geom {
 pub trait GeomBehavior {
     fn vertices_and_indices(&mut self) -> VerticesAndIndices;
 
-    fn vulkan_object(&self) -> VulkanObject;
+    fn vulkan_object(&self) -> &VulkanObject;
 
     fn deferred_build(
         &mut self,
@@ -66,7 +66,7 @@ pub trait GeomBehavior {
     }
 }
 
-#[derive(Default, Builder, Debug, Clone)]
+#[derive(Default, Builder, Debug)]
 #[builder(build_fn(skip))]
 pub struct Geometry<T> {
     pub properties: T,
@@ -82,6 +82,7 @@ pub struct Geometry<T> {
     #[builder(setter(custom))]
     pub behavior: Option<fn()>,
 
+    #[builder(setter(skip))]
     pub vulkan_object: VulkanObject,
 }
 

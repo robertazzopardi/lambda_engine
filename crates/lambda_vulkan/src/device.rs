@@ -5,26 +5,26 @@ use ash::{
 };
 use std::ffi::CString;
 
-#[derive(new, Clone, Copy, Debug)]
+#[derive(new, Debug)]
 pub struct PhysicalDeviceProperties {
     pub device: vk::PhysicalDevice,
     pub queue_family_index: u32,
     pub samples: vk::SampleCountFlags,
 }
 
-#[derive(Clone, Copy, Debug, new)]
+#[derive(Debug, new)]
 pub struct Queues {
     pub present: vk::Queue,
     pub graphics: vk::Queue,
 }
 
-#[derive(new, Clone)]
+#[derive(new)]
 pub struct LogicalDeviceFeatures {
     pub device: Device,
     pub queues: Queues,
 }
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Default, Debug)]
 pub(crate) struct QueueFamilyIndices {
     pub graphics_family: Option<u32>,
     pub present_family: Option<u32>,
@@ -36,7 +36,6 @@ impl QueueFamilyIndices {
     }
 }
 
-#[derive(Clone)]
 pub struct Devices {
     pub physical: PhysicalDeviceProperties,
     pub logical: LogicalDeviceFeatures,
@@ -139,7 +138,7 @@ fn create_logical_device(
     unsafe {
         let device = instance
             .create_device(*device, &device_create_info, None)
-            .unwrap();
+            .expect("Could not create device");
 
         let graphics_queue = device.get_device_queue(queue_family.graphics_family.unwrap(), 0);
         let present_queue = device.get_device_queue(queue_family.present_family.unwrap(), 0);
@@ -255,9 +254,8 @@ pub unsafe fn recreate_drop(
 /// # Safety
 ///
 ///
-pub unsafe fn destroy(object: VulkanObject, device: &Device) {
-    // let object_texture = object.object_texture();
-    if let Some(object_texture) = object.texture {
+pub unsafe fn destroy(object: &VulkanObject, device: &Device) {
+    if let Some(object_texture) = &object.texture {
         device.destroy_sampler(object_texture.sampler, None);
         device.destroy_image_view(object_texture.image_view, None);
         device.destroy_image(object_texture.image.image, None);
@@ -269,11 +267,9 @@ pub unsafe fn destroy(object: VulkanObject, device: &Device) {
         None,
     );
 
-    let object_buffers = object.buffers;
+    device.destroy_buffer(object.buffers.vertex.buffer, None);
+    device.free_memory(object.buffers.vertex.memory, None);
 
-    device.destroy_buffer(object_buffers.vertex.buffer, None);
-    device.free_memory(object_buffers.vertex.memory, None);
-
-    device.destroy_buffer(object_buffers.index.buffer, None);
-    device.free_memory(object_buffers.index.memory, None);
+    device.destroy_buffer(object.buffers.index.buffer, None);
+    device.free_memory(object.buffers.index.memory, None);
 }

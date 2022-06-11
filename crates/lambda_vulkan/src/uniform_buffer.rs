@@ -1,10 +1,9 @@
 use crate::{memory, Vulkan, VulkanObject};
-
 use ash::vk;
 use lambda_camera::camera::Camera;
 use nalgebra::{Matrix4, Perspective3};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct UniformBufferObject {
     model: Option<Matrix4<f32>>,
     view: Matrix4<f32>,
@@ -39,11 +38,11 @@ impl UniformBufferObject {
     }
 }
 
-pub fn update_uniform_buffer(
+pub fn update_uniform_buffers(
     vulkan: &Vulkan,
     _camera: &mut Camera,
     current_image: usize,
-    vulkan_objects: &mut [VulkanObject],
+    vulkan_objects: &mut [&VulkanObject],
     _dt: f32,
 ) {
     // let axis_angle = Vector3::y() * 0.05;

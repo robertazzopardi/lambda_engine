@@ -14,7 +14,7 @@ use lambda_vulkan::{
 };
 use nalgebra::{Point3, Vector2, Vector3};
 
-#[derive(Builder, Default, Debug, Clone, new)]
+#[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 #[builder(name = "ModelBuilder")]
 pub struct ModelInfo {
@@ -26,19 +26,16 @@ pub struct ModelInfo {
 
 impl ModelBuilder {
     pub fn build(&mut self) -> ModelInfo {
-        let radius = self.radius.expect("Field `Radius` expected");
-        let model_path = self.model_path.take().expect("Field `model_path` expected");
-
         ModelInfo {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
-            radius,
-            model_path,
+            radius: self.radius.expect("Field `Radius` expected"),
+            model_path: self.model_path.take().expect("Field `model_path` expected"),
         }
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
+#[derive(new, Deref, DerefMut, Debug)]
 pub struct Model(Geometry<ModelInfo>);
 
 impl GeomBehavior for Model {
@@ -59,8 +56,8 @@ impl GeomBehavior for Model {
         vertices_and_indices
     }
 
-    fn vulkan_object(&self) -> VulkanObject {
-        self.vulkan_object.clone()
+    fn vulkan_object(&self) -> &VulkanObject {
+        &self.vulkan_object
     }
 
     fn deferred_build(

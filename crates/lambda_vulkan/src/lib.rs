@@ -58,10 +58,10 @@ pub struct Vulkan {
     pub instance_devices: InstanceDevices,
 }
 
-#[derive(Default, Debug, Clone, new)]
+#[derive(Default, Debug, new)]
 pub struct RenderPass(pub vk::RenderPass);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct VulkanObject {
     pub vertices_and_indices: VerticesAndIndices,
     pub texture: Option<Texture>,

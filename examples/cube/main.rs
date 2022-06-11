@@ -19,7 +19,12 @@ fn main() {
 
     let objects: Geometries = vec![cube.into()];
 
-    let mut engine = Engine::new(&display, &mut camera, objects, None);
+    let debugging = Some(DebugMessageProperties::new(
+        MessageLevel::builder().error().verbose().warning(),
+        MessageType::builder().performance().validation(),
+    ));
+
+    let mut engine = Engine::new(&display, &mut camera, objects, debugging);
 
     engine.run(&mut display, camera);
 }

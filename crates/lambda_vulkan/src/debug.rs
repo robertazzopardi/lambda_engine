@@ -4,7 +4,6 @@ use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 use winit::window::Window;
 
-#[derive(Clone)]
 pub struct Debug {
     pub messenger: vk::DebugUtilsMessengerEXT,
     pub utils: DebugUtils,
@@ -57,7 +56,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 /// VkDebugUtilsMessageSeverityFlagBitsEXT
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Debug)]
 pub struct MessageLevel {
     flags: vk::DebugUtilsMessageSeverityFlagsEXT,
 }
@@ -66,7 +65,7 @@ impl MessageLevel {
     /// MessageLevel Builder
     ///
     /// Info message severity enabled by default
-    pub fn builder() -> Self {
+    pub const fn builder() -> Self {
         Self {
             flags: vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
         }
@@ -92,7 +91,7 @@ impl MessageLevel {
 }
 
 /// VkDebugUtilsMessageTypeFlagBitsEXT
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Debug)]
 pub struct MessageType {
     flags: vk::DebugUtilsMessageTypeFlagsEXT,
 }
@@ -101,7 +100,7 @@ impl MessageType {
     /// MessageType Builder
     ///
     /// General type message enabled by default
-    pub fn builder() -> Self {
+    pub const fn builder() -> Self {
         Self {
             flags: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL,
         }
@@ -120,7 +119,7 @@ impl MessageType {
     }
 }
 
-#[derive(new, Clone, Copy, Debug)]
+#[derive(new, Debug)]
 pub struct DebugMessageProperties {
     pub message_level: MessageLevel,
     pub message_type: MessageType,

@@ -6,13 +6,13 @@ use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
 use std::ptr;
 
-#[derive(new, Debug, From, Deref, Clone)]
+#[derive(new, Debug, From, Deref)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
 
-#[derive(new, Debug, From, Deref, Clone)]
+#[derive(new, Debug, From, Deref)]
 pub struct CommandPool(vk::CommandPool);
 
-#[derive(new, Debug, Clone)]
+#[derive(new, Debug)]
 pub struct VkCommander {
     pub buffers: CommandBuffers,
     pub pool: CommandPool,
@@ -46,7 +46,7 @@ pub fn create_command_buffers(
     instance_devices: &InstanceDevices,
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
-    models: &[VulkanObject],
+    models: &[&VulkanObject],
 ) -> CommandBuffers {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(**command_pool)
@@ -241,9 +241,7 @@ pub unsafe fn bind_index_and_vertex_buffers(
         &[],
     );
 
-    let object_buffers = object.buffers;
-
-    let vertex_buffers = [object_buffers.vertex.buffer];
+    let vertex_buffers = [object.buffers.vertex.buffer];
 
     device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
 
@@ -252,7 +250,7 @@ pub unsafe fn bind_index_and_vertex_buffers(
     if object.indexed {
         device.cmd_bind_index_buffer(
             command_buffer,
-            object_buffers.index.buffer,
+            object.buffers.index.buffer,
             0,
             vk::IndexType::UINT16,
         );

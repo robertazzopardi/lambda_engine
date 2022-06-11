@@ -8,7 +8,7 @@ use lambda_vulkan::{
 };
 use nalgebra::Vector2;
 
-#[derive(Builder, Default, Debug, Clone, new)]
+#[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 #[builder(name = "RingBuilder")]
 pub struct RingInfo {
@@ -31,7 +31,7 @@ impl RingBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
+#[derive(new, Deref, DerefMut, Debug)]
 pub struct Ring(Geometry<RingInfo>);
 
 impl GeomBehavior for Ring {
@@ -74,8 +74,8 @@ impl GeomBehavior for Ring {
         )
     }
 
-    fn vulkan_object(&self) -> VulkanObject {
-        self.vulkan_object.clone()
+    fn vulkan_object(&self) -> &VulkanObject {
+        &self.vulkan_object
     }
 
     fn deferred_build(

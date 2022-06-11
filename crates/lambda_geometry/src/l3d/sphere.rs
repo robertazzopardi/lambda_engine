@@ -12,7 +12,7 @@ use lambda_vulkan::{
 use nalgebra::{Point3, Vector2};
 use std::ops::Mul;
 
-#[derive(Builder, Default, Debug, Clone, Copy, new)]
+#[derive(Builder, Default, Debug, Clone, Copy)]
 #[builder(default, build_fn(skip))]
 #[builder(name = "SphereBuilder")]
 pub struct SphereInfo {
@@ -25,19 +25,17 @@ pub struct SphereInfo {
 
 impl SphereBuilder {
     pub fn build(&mut self) -> SphereInfo {
-        let radius = self.radius.expect("Field `Radius` expected");
-
         SphereInfo {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
-            radius,
+            radius: self.radius.expect("Field `Radius` expected"),
             sector_count: self.sector_count.unwrap_or_default(),
             stack_count: self.stack_count.unwrap_or_default(),
         }
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
+#[derive(new, Deref, DerefMut, Debug)]
 pub struct Sphere(Geometry<SphereInfo>);
 
 impl GeomBehavior for Sphere {
@@ -80,8 +78,8 @@ impl GeomBehavior for Sphere {
         )
     }
 
-    fn vulkan_object(&self) -> VulkanObject {
-        self.vulkan_object.clone()
+    fn vulkan_object(&self) -> &VulkanObject {
+        &self.vulkan_object
     }
 
     fn deferred_build(

@@ -27,16 +27,14 @@ pub fn create_frame_buffers(
             .height(swap_chain.extent.height)
             .layers(1);
 
-        unsafe {
-            frame_buffers.push(
-                instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .create_framebuffer(&frame_buffer_info, None)
-                    .expect("Failed to create Frame Buffer!"),
-            );
-        }
+        frame_buffers.push(unsafe {
+            instance_devices
+                .devices
+                .logical
+                .device
+                .create_framebuffer(&frame_buffer_info, None)
+                .expect("Failed to create Frame Buffer!")
+        });
     }
 
     frame_buffers.into()

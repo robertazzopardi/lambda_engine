@@ -3,13 +3,13 @@ use ash::vk;
 use lambda_space::space::{Vertex, VerticesAndIndices};
 use std::mem::size_of;
 
-#[derive(new, Clone, Copy, Default, Debug)]
+#[derive(new, Default, Debug)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
 }
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct ModelBuffers {
     pub vertex: Buffer,
     pub index: Buffer,
@@ -48,17 +48,14 @@ impl ModelBuffers {
     }
 }
 
-pub(crate) fn create_vertex_index_buffer<T>(
+pub(crate) fn create_vertex_index_buffer<T: Copy>(
     buffer_size: u64,
     data: &[T],
     usage_flags: vk::BufferUsageFlags,
     command_pool: &vk::CommandPool,
     command_buffer_count: u32,
     instance_devices: &InstanceDevices,
-) -> Buffer
-where
-    T: std::marker::Copy,
-{
+) -> Buffer {
     let InstanceDevices { devices, .. } = instance_devices;
 
     let staging = texture::create_buffer(
