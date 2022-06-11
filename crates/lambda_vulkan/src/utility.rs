@@ -1,5 +1,12 @@
-use crate::{debug, device::Devices, memory};
-use ash::{extensions::ext::DebugUtils, vk, Entry, Instance};
+use crate::{
+    debug::{
+        self, create_debug_messenger, DebugMessageProperties, ENABLE_VALIDATION_LAYERS,
+        VALIDATION_LAYERS,
+    },
+    device::Devices,
+    memory,
+};
+use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
@@ -41,12 +48,11 @@ pub struct EntryInstance {
 }
 
 impl EntryInstance {
-    pub fn new(window: &Window) -> Self {
-        if debug::enable_validation_layers() && !debug::check_validation_layer_support(window) {
-            panic!("Validation layers requested, but not available!")
-        }
-
-        let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
+    pub fn new(window: &Window, debugging: &Option<DebugMessageProperties>) -> Self {
+        let layer_names = VALIDATION_LAYERS
+            .iter()
+            .map(|layer_name| CString::new(*layer_name).unwrap())
+            .collect::<Vec<CString>>();
         let layers_names_raw: Vec<*const i8> = layer_names
             .iter()
             .map(|raw_name| raw_name.as_ptr())
@@ -54,7 +60,9 @@ impl EntryInstance {
 
         let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
         let mut extension_names_raw = surface_extensions.to_vec();
+        // if ENABLE_VALIDATION_LAYERS {
         extension_names_raw.push(DebugUtils::name().as_ptr());
+        // }
 
         let app_name = CString::new("Vulkan").unwrap();
         let engine_name = CString::new("No Engine").unwrap();
@@ -64,15 +72,33 @@ impl EntryInstance {
             .application_version(0)
             .engine_name(&engine_name)
             .engine_version(0)
-            .api_version(vk::API_VERSION_1_1);
-
-        let create_info = vk::InstanceCreateInfo::builder()
-            .application_info(&app_info)
-            .enabled_layer_names(&layers_names_raw)
-            .enabled_extension_names(extension_names_raw.as_slice());
+            .api_version(vk::API_VERSION_1_3);
 
         unsafe {
             let entry = Entry::load().unwrap();
+
+            if ENABLE_VALIDATION_LAYERS && !debug::check_validation_layer_support(&entry) {
+                panic!("Validation layers requested, but not available!")
+            }
+
+            let debugger = debugging.as_ref().unwrap();
+            let mut debug_create_info =
+                create_debug_messenger(debugger.message_level.flags, debugger.message_type.flags);
+
+            let create_info = if ENABLE_VALIDATION_LAYERS {
+                vk::InstanceCreateInfo::builder()
+                    .application_info(&app_info)
+                    .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
+                    .enabled_layer_names(&layers_names_raw)
+                    .push_next(&mut debug_create_info)
+                    .enabled_extension_names(extension_names_raw.as_slice())
+            } else {
+                vk::InstanceCreateInfo::builder()
+                    .application_info(&app_info)
+                    .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
+                    .enabled_extension_names(extension_names_raw.as_slice())
+            };
+
             let instance: Instance = entry
                 .create_instance(&create_info, None)
                 .expect("Instance creation error");
@@ -141,7 +167,7 @@ pub(crate) fn create_image_view(
     image: &Image,
     format: vk::Format,
     aspect_mask: vk::ImageAspectFlags,
-    devices: &Devices,
+    device: &Device,
 ) -> vk::ImageView {
     let sub_resource_range = vk::ImageSubresourceRange::builder()
         .aspect_mask(aspect_mask)
@@ -158,9 +184,7 @@ pub(crate) fn create_image_view(
         .subresource_range(sub_resource_range);
 
     unsafe {
-        devices
-            .logical
-            .device
+        device
             .create_image_view(&image_view_info, None)
             .expect("Failed to create textured image view!")
     }

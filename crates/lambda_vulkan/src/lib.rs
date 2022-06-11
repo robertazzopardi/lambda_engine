@@ -21,10 +21,13 @@ pub mod utility;
 use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::VkCommander;
-use debug::Debug;
+use debug::{Debug, DebugMessageProperties};
+use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
+use lambda_camera::prelude::Camera;
 use lambda_space::space::VerticesAndIndices;
+use lambda_window::prelude::Display;
 use nalgebra::{Matrix4, Vector3};
 use resource::Resources;
 use swap_chain::SwapChain;
@@ -44,6 +47,8 @@ pub mod prelude {
     };
 }
 
+pub type VulkanObjects = Vec<VulkanObject>;
+
 pub struct Vulkan {
     pub commander: VkCommander,
     pub render_pass: RenderPass,
@@ -56,6 +61,98 @@ pub struct Vulkan {
     pub debugger: Option<Debug>,
     pub frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
+    // pub objects: VulkanObjects,
+}
+
+impl Vulkan {
+    // pub fn new(
+    //     display: &Display,
+    //     camera: &Camera,
+    //     vulkan_objects: &VulkanObjects,
+    //     debugging: Option<DebugMessageProperties>,
+    // ) -> Self {
+    //     let entry_instance = EntryInstance::new(&display.window, &debugging);
+
+    //     let debugger =
+    //         debugging.map(|debug_properties| debug::debugger(&entry_instance, debug_properties));
+
+    //     let surface = lambda_window::create_surface(
+    //         &display.window,
+    //         &entry_instance.instance,
+    //         &entry_instance.entry,
+    //     );
+
+    //     let surface_loader = create_surface(&entry_instance);
+
+    //     let devices = Devices::new(&entry_instance.instance, &surface, &surface_loader);
+
+    //     let instance_devices = InstanceDevices::new(entry_instance.instance, devices);
+
+    //     let swap_chain =
+    //         SwapChain::new(&instance_devices, surface, &surface_loader, &display.window);
+
+    //     let render_pass = renderer::create_render_pass(&instance_devices, &swap_chain);
+
+    //     let resources = Resources::new(&swap_chain, &instance_devices);
+
+    //     let frame_buffers = frame_buffer::create_frame_buffers(
+    //         &swap_chain,
+    //         &render_pass,
+    //         &instance_devices,
+    //         &resources,
+    //     );
+
+    //     let command_pool =
+    //         command_buffer::create_command_pool(&instance_devices, &surface_loader, &surface);
+
+    //     let sync_objects = SyncObjects::new(&instance_devices);
+
+    //     let swap_chain_len = swap_chain.images.len() as u32;
+
+    //     let vulkan_objects = models
+    //         .iter_mut()
+    //         .map(|property| {
+    //             // dbg!(property.clone());
+
+    //             property.deferred_build(
+    //                 &command_pool,
+    //                 swap_chain_len,
+    //                 &swap_chain,
+    //                 &render_pass,
+    //                 &instance_devices,
+    //             );
+
+    //             property.vulkan_object()
+    //         })
+    //         .collect::<Vec<&VulkanObject>>();
+
+    //     let command_buffers = command_buffer::create_command_buffers(
+    //         &command_pool,
+    //         &swap_chain,
+    //         &instance_devices,
+    //         &render_pass,
+    //         &frame_buffers,
+    //         &vulkan_objects,
+    //     );
+
+    //     let commander = VkCommander::new(command_buffers, command_pool);
+
+    //     let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
+
+    //     Vulkan {
+    //         commander,
+    //         render_pass,
+    //         resources,
+    //         surface,
+    //         surface_loader,
+    //         swap_chain,
+    //         sync_objects,
+    //         ubo,
+    //         debugger,
+    //         frame_buffers,
+    //         instance_devices,
+    //     }
+    // }
 }
 
 #[derive(Default, Debug, new)]

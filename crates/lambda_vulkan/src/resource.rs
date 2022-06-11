@@ -62,7 +62,8 @@ impl Resource {
 
         let image = utility::create_image(image_info, instance_devices);
 
-        let view = utility::create_image_view(&image, format, aspect_flags, devices);
+        let view =
+            utility::create_image_view(&image, format, aspect_flags, &devices.logical.device);
 
         Self { image, view }
     }

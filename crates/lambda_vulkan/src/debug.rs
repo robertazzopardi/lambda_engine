@@ -1,20 +1,41 @@
 use crate::utility::EntryInstance;
-use ash::{extensions::ext::DebugUtils, vk};
+use ash::{extensions::ext::DebugUtils, vk, Entry};
 use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
-use winit::window::Window;
+
+pub const VALIDATION_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
 
 pub struct Debug {
     pub messenger: vk::DebugUtilsMessengerEXT,
     pub utils: DebugUtils,
 }
 
-pub const fn enable_validation_layers() -> bool {
-    cfg!(debug_assertions)
-}
+pub const ENABLE_VALIDATION_LAYERS: bool = cfg!(debug_assertions);
 
-pub(crate) const fn check_validation_layer_support(_window_handle: &Window) -> bool {
-    // let mut _layer_count: u32;
+pub(crate) fn check_validation_layer_support(entry: &Entry) -> bool {
+    let mut layer_properties = entry
+        .enumerate_instance_layer_properties()
+        .expect("Could not enumerate instance layer properties");
+
+    for validation_layer in VALIDATION_LAYERS.into_iter() {
+        let mut found_layer = false;
+
+        for property in layer_properties.iter_mut() {
+            let terminated_string =
+                String::from_utf8(property.layer_name.into_iter().map(|b| b as u8).collect())
+                    .unwrap();
+            let property_layer = terminated_string.trim_matches(char::from(0));
+
+            if validation_layer == property_layer {
+                found_layer = true;
+                break;
+            }
+        }
+
+        if !found_layer {
+            return false;
+        }
+    }
 
     true
 }
@@ -56,9 +77,9 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 /// VkDebugUtilsMessageSeverityFlagBitsEXT
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct MessageLevel {
-    flags: vk::DebugUtilsMessageSeverityFlagsEXT,
+    pub flags: vk::DebugUtilsMessageSeverityFlagsEXT,
 }
 
 impl MessageLevel {
@@ -90,10 +111,16 @@ impl MessageLevel {
     }
 }
 
+impl Default for MessageLevel {
+    fn default() -> Self {
+        Self::builder().error().verbose().warning()
+    }
+}
+
 /// VkDebugUtilsMessageTypeFlagBitsEXT
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct MessageType {
-    flags: vk::DebugUtilsMessageTypeFlagsEXT,
+    pub flags: vk::DebugUtilsMessageTypeFlagsEXT,
 }
 
 impl MessageType {
@@ -119,10 +146,28 @@ impl MessageType {
     }
 }
 
-#[derive(new, Debug)]
+impl Default for MessageType {
+    fn default() -> Self {
+        Self::builder().validation().performance()
+    }
+}
+
+#[derive(new, Debug, Default)]
 pub struct DebugMessageProperties {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
+}
+
+#[inline]
+pub fn create_debug_messenger(
+    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+    message_type: vk::DebugUtilsMessageTypeFlagsEXT,
+) -> vk::DebugUtilsMessengerCreateInfoEXT {
+    vk::DebugUtilsMessengerCreateInfoEXT::builder()
+        .message_severity(message_severity)
+        .message_type(message_type)
+        .pfn_user_callback(Some(vulkan_debug_callback))
+        .build()
 }
 
 pub fn debugger(
@@ -132,17 +177,14 @@ pub fn debugger(
         message_type,
     }: DebugMessageProperties,
 ) -> Debug {
-    let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-        .message_severity(message_level.flags)
-        .message_type(message_type.flags)
-        .pfn_user_callback(Some(vulkan_debug_callback));
+    let create_info = create_debug_messenger(message_level.flags, message_type.flags);
 
     let utils = DebugUtils::new(entry, instance);
 
     let messenger = unsafe {
         utils
             .create_debug_utils_messenger(&create_info, None)
-            .expect("Failed to create debug utils")
+            .expect("Failed to create debug messenger")
     };
 
     Debug { messenger, utils }

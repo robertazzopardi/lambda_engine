@@ -158,34 +158,33 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[&VulkanObject]) {
     let device = &vulkan.instance_devices.devices.logical.device;
 
     unsafe {
+        device.destroy_image_view(vulkan.resources.depth.view, None);
+        device.destroy_image(vulkan.resources.depth.image.image, None);
+        device.free_memory(vulkan.resources.depth.image.memory, None);
+
         device.destroy_image_view(vulkan.resources.colour.view, None);
         device.destroy_image(vulkan.resources.colour.image.image, None);
         device.free_memory(vulkan.resources.colour.image.memory, None);
 
-        device.destroy_image_view(vulkan.resources.depth.view, None);
-        device.destroy_image(vulkan.resources.depth.image.image, None);
-        device.free_memory(vulkan.resources.depth.image.memory, None);
-        device.free_command_buffers(*vulkan.commander.pool, &vulkan.commander.buffers);
+        vulkan.frame_buffers.iter().for_each(|frame_buffer| {
+            device.destroy_framebuffer(*frame_buffer, None);
+        });
 
         vulkan_objects.iter().for_each(|object| {
-            device::recreate_drop(
-                &object.graphics_pipeline,
-                &vulkan.instance_devices.devices.logical.device,
-                &vulkan.swap_chain,
-            )
+            device.destroy_pipeline(object.graphics_pipeline.features.pipeline, None);
+            device.destroy_pipeline_layout(object.graphics_pipeline.features.layout, None);
         });
 
         device.destroy_render_pass(vulkan.render_pass.0, None);
+
+        vulkan.swap_chain.image_views.iter().for_each(|image_view| {
+            device.destroy_image_view(*image_view, None);
+        });
 
         vulkan
             .swap_chain
             .loader
             .destroy_swapchain(vulkan.swap_chain.swap_chain, None);
-
-        for i in 0..vulkan.swap_chain.images.len() {
-            device.destroy_framebuffer(vulkan.frame_buffers[i], None);
-            device.destroy_image_view(vulkan.swap_chain.image_views[i], None);
-        }
     }
 }
 

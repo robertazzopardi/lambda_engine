@@ -1,4 +1,6 @@
-use crate::{graphics_pipeline::GraphicsPipeline, swap_chain::SwapChain, VulkanObject};
+use crate::{
+    graphics_pipeline::GraphicsPipeline, sync_objects::MAX_FRAMES_IN_FLIGHT, VulkanObject,
+};
 use ash::{
     extensions::khr::{Surface, Swapchain},
     vk, Device, Instance,
@@ -229,17 +231,8 @@ fn get_max_usable_sample_count(
 /// # Safety
 ///
 ///
-pub unsafe fn recreate_drop(
-    graphics_pipeline: &GraphicsPipeline,
-    device: &Device,
-    swap_chain: &SwapChain,
-) {
-    device.destroy_pipeline(graphics_pipeline.features.pipeline, None);
-    device.destroy_pipeline_layout(graphics_pipeline.features.layout, None);
-
-    device.destroy_descriptor_pool(graphics_pipeline.descriptors.descriptor_pool, None);
-
-    for i in 0..swap_chain.images.len() {
+pub unsafe fn recreate_drop(graphics_pipeline: &GraphicsPipeline, device: &Device) {
+    for i in 0..MAX_FRAMES_IN_FLIGHT {
         device.destroy_buffer(
             graphics_pipeline.descriptors.uniform_buffers[i].buffer,
             None,
@@ -249,6 +242,8 @@ pub unsafe fn recreate_drop(
             None,
         );
     }
+
+    device.destroy_descriptor_pool(graphics_pipeline.descriptors.descriptor_pool, None);
 }
 
 /// # Safety
@@ -258,6 +253,7 @@ pub unsafe fn destroy(object: &VulkanObject, device: &Device) {
     if let Some(object_texture) = &object.texture {
         device.destroy_sampler(object_texture.sampler, None);
         device.destroy_image_view(object_texture.image_view, None);
+
         device.destroy_image(object_texture.image.image, None);
         device.free_memory(object_texture.image.memory, None);
     }
@@ -267,9 +263,9 @@ pub unsafe fn destroy(object: &VulkanObject, device: &Device) {
         None,
     );
 
-    device.destroy_buffer(object.buffers.vertex.buffer, None);
-    device.free_memory(object.buffers.vertex.memory, None);
-
     device.destroy_buffer(object.buffers.index.buffer, None);
     device.free_memory(object.buffers.index.memory, None);
+
+    device.destroy_buffer(object.buffers.vertex.buffer, None);
+    device.free_memory(object.buffers.vertex.memory, None);
 }

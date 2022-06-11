@@ -743,6 +743,7 @@ dependencies = [
  "image",
  "lambda_camera",
  "lambda_space",
+ "lambda_window",
  "memoffset",
  "nalgebra",
  "smallvec",

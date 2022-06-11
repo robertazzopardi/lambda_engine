@@ -28,7 +28,7 @@ impl Texture {
                 &create_texture_image(image_buffer, command_pool, instance_devices),
                 vk::Format::R8G8B8A8_SRGB,
                 vk::ImageAspectFlags::COLOR,
-                &instance_devices.devices,
+                &instance_devices.devices.logical.device,
             ),
             sampler: create_texture_sampler(
                 create_texture_image(image_buffer, command_pool, instance_devices).mip_levels,

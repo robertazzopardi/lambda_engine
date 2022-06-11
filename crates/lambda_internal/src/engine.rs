@@ -4,7 +4,7 @@ use lambda_geometry::{GeomBehavior, Geometries};
 use lambda_vulkan::{
     command_buffer::{self, VkCommander},
     create_surface,
-    debug::{self, DebugMessageProperties},
+    debug::{self, DebugMessageProperties, ENABLE_VALIDATION_LAYERS},
     device::{self, Devices},
     frame_buffer, renderer,
     resource::Resources,
@@ -32,7 +32,7 @@ impl Engine {
         models: Geometries,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
-        let entry_instance = EntryInstance::new(&display.window);
+        let entry_instance = EntryInstance::new(&display.window, &debugging);
 
         let debugger =
             debugging.map(|debug_properties| debug::debugger(&entry_instance, debug_properties));
@@ -165,49 +165,84 @@ impl Engine {
                 )
             };
         });
+
+        unsafe {
+            self.vulkan
+                .instance_devices
+                .devices
+                .logical
+                .device
+                .device_wait_idle()
+                .expect("Failed to wait for device idle state");
+        }
     }
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        let device = &self.vulkan.instance_devices.devices.logical.device;
+        let vulkan_objects = self
+            .models
+            .iter()
+            .map(|model| model.vulkan_object())
+            .collect::<Vec<&VulkanObject>>();
+
+        swap_chain::cleanup_swap_chain(&self.vulkan, &vulkan_objects);
 
         unsafe {
-            device
-                .device_wait_idle()
-                .expect("Failed to wait for device idle state");
-
-            let vulkan_objects = self
-                .models
-                .iter()
-                .map(|model| model.vulkan_object())
-                .collect::<Vec<&VulkanObject>>();
-
-            swap_chain::cleanup_swap_chain(&self.vulkan, &vulkan_objects);
-
-            self.models.iter().for_each(|model| {
-                device::destroy(model.vulkan_object(), device);
+            vulkan_objects.iter().for_each(|object| {
+                device::recreate_drop(
+                    &object.graphics_pipeline,
+                    &self.vulkan.instance_devices.devices.logical.device,
+                );
+                device::destroy(object, &self.vulkan.instance_devices.devices.logical.device);
             });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
-                device.destroy_semaphore(
-                    self.vulkan.sync_objects.image_available_semaphores[i],
-                    None,
-                );
-                device.destroy_semaphore(
-                    self.vulkan.sync_objects.render_finished_semaphores[i],
-                    None,
-                );
-                device.destroy_fence(self.vulkan.sync_objects.in_flight_fences[i], None);
+                self.vulkan
+                    .instance_devices
+                    .devices
+                    .logical
+                    .device
+                    .destroy_semaphore(
+                        self.vulkan.sync_objects.render_finished_semaphores[i],
+                        None,
+                    );
+                self.vulkan
+                    .instance_devices
+                    .devices
+                    .logical
+                    .device
+                    .destroy_semaphore(
+                        self.vulkan.sync_objects.image_available_semaphores[i],
+                        None,
+                    );
+                self.vulkan
+                    .instance_devices
+                    .devices
+                    .logical
+                    .device
+                    .destroy_fence(self.vulkan.sync_objects.in_flight_fences[i], None);
             }
 
-            device.destroy_command_pool(*self.vulkan.commander.pool, None);
+            self.vulkan
+                .instance_devices
+                .devices
+                .logical
+                .device
+                .destroy_command_pool(*self.vulkan.commander.pool, None);
 
-            device.destroy_device(None);
+            dbg!("2");
+
+            self.vulkan
+                .instance_devices
+                .devices
+                .logical
+                .device
+                .destroy_device(None);
 
             println!("here");
 
-            if debug::enable_validation_layers() {
+            if ENABLE_VALIDATION_LAYERS {
                 if let Some(debugger) = self.vulkan.debugger.take() {
                     debugger
                         .utils
