@@ -4,10 +4,6 @@ const SATURN_TEXTURE: &str = "./examples/assets/textures/2k_saturn.jpg";
 const RING_TEXTURE: &str = "./examples/assets/textures/2k_saturn_ring_alpha.png";
 
 fn main() {
-    let mut display = Display::new(Resolution::ResHD);
-
-    let mut camera = Camera::new(2., 1., 0.);
-
     let sections = 50;
 
     let sphere = Sphere::new(
@@ -44,12 +40,5 @@ fn main() {
 
     let objects: Geometries = vec![sphere.into(), ring.into()];
 
-    let debugging = Some(DebugMessageProperties::new(
-        MessageLevel::builder().error().verbose().warning(),
-        MessageType::builder().performance().validation(),
-    ));
-
-    let mut engine = Engine::new(&display, &mut camera, objects, debugging);
-
-    engine.run(&mut display, camera)
+    Engine::new(Resolution::ResHD, objects, None).run()
 }

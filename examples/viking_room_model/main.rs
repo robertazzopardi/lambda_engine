@@ -4,10 +4,6 @@ const VIKING_MODEL: &str = "./examples/assets/models/viking_room_model/viking_ro
 const VIKING_MODEL_TEXTURE: &str = "./examples/assets/models/viking_room_model/viking_room.png";
 
 fn main() {
-    let mut display = Display::new(Resolution::ResHD);
-
-    let mut camera = Camera::new(2., 1., 0.);
-
     let viking_model = Model::new(
         GeometryBuilder::default()
             .properties(
@@ -25,7 +21,5 @@ fn main() {
 
     let objects: Geometries = vec![viking_model.into()];
 
-    let mut engine = Engine::new(&display, &mut camera, objects, None);
-
-    engine.run(&mut display, camera)
+    Engine::new(Resolution::ResHD, objects, None).run()
 }

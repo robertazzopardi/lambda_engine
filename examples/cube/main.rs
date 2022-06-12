@@ -1,12 +1,10 @@
 use lambda_engine::prelude::*;
 
-fn actions() {}
+fn actions() {
+    println!("hello")
+}
 
 fn main() {
-    let mut display = Display::new(Resolution::ResHD);
-
-    let mut camera = Camera::new(-2., 1., 0.);
-
     let cube = Cube::new(
         GeometryBuilder::default()
             .properties(CubeBuilder::default().radius(0.5).build())
@@ -19,12 +17,7 @@ fn main() {
 
     let objects: Geometries = vec![cube.into()];
 
-    let debugging = Some(DebugMessageProperties::new(
-        MessageLevel::builder().error().verbose().warning(),
-        MessageType::builder().performance().validation(),
-    ));
+    let debugging = Some(DebugMessageProperties::default());
 
-    let mut engine = Engine::new(&display, &mut camera, objects, debugging);
-
-    engine.run(&mut display, camera);
+    Engine::new(Resolution::ResHD, objects, debugging).run()
 }

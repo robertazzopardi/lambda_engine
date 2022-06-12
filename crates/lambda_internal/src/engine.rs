@@ -1,69 +1,84 @@
 use crate::time::Time;
 use lambda_camera::camera::Camera;
-use lambda_geometry::{GeomBehavior, Geometries};
+use lambda_geometry::{GeomBehavior, Geometries, Geometry};
 use lambda_vulkan::{debug::DebugMessageProperties, renderer, Vulkan, WindowSize};
-use lambda_window::window::{self, Display};
+use lambda_window::{
+    prelude::Resolution,
+    window::{self, Display},
+};
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub struct Engine {
     vulkan: Vulkan,
     current_frame: usize,
     is_frame_buffer_resized: bool,
+    models: Geometries,
     time: Time,
+    display: Display,
+    camera: Camera,
 }
 
 impl Engine {
     pub fn new(
-        display: &Display,
-        camera: &mut Camera,
+        res: Resolution,
         models: Geometries,
         debugging: Option<DebugMessageProperties>,
     ) -> Self {
-        let time = Time::new(60.);
+        let display = Display::new(res);
 
-        let geom_properties = models.iter().map(|model| model.features()).collect();
-
-        let vulkan = Vulkan::new(display, camera, geom_properties, debugging);
+        let camera = Camera::new(-2., 1., 0.);
 
         Self {
-            vulkan,
+            vulkan: Vulkan::new(
+                &display,
+                &camera,
+                models.iter().map(|model| model.features()).collect(),
+                debugging,
+            ),
             current_frame: 0,
             is_frame_buffer_resized: false,
-            time,
+            models,
+            time: Time::new(60.),
+            display,
+            camera,
         }
     }
 
-    pub fn run(&mut self, display: &mut Display, mut camera: Camera) {
+    pub fn run(&mut self) {
         let mut mouse_pressed = false;
 
-        display.event_loop.run_return(|event, _, control_flow| {
-            self.time.tick();
+        self.display
+            .event_loop
+            .run_return(|event, _, control_flow| {
+                self.time.tick();
 
-            window::handle_inputs(
-                control_flow,
-                event,
-                &display.window,
-                &mut camera,
-                &mut mouse_pressed,
-            );
+                window::handle_inputs(
+                    control_flow,
+                    event,
+                    &self.display.window,
+                    &mut self.camera,
+                    &mut mouse_pressed,
+                );
 
-            self.time.step(
-                &mut camera,
-                &mut self.vulkan.ubo,
-                &WindowSize(self.vulkan.swap_chain.extent),
-            );
+                // self.models.iter().for_each(|model| model);
 
-            unsafe {
-                renderer::render(
-                    &mut self.vulkan,
-                    &display.window,
-                    &mut camera,
-                    &mut self.current_frame,
-                    &mut self.is_frame_buffer_resized,
-                    self.time.delta.as_secs_f32(),
-                )
-            };
-        });
+                self.time.step(
+                    &mut self.camera,
+                    &mut self.vulkan.ubo,
+                    &WindowSize(self.vulkan.swap_chain.extent),
+                );
+
+                unsafe {
+                    renderer::render(
+                        &mut self.vulkan,
+                        &self.display.window,
+                        &mut self.camera,
+                        &mut self.current_frame,
+                        &mut self.is_frame_buffer_resized,
+                        self.time.delta.as_secs_f32(),
+                    )
+                };
+            });
 
         unsafe {
             self.vulkan

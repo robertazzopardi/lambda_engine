@@ -1,10 +1,6 @@
 use lambda_engine::prelude::*;
 
 fn main() {
-    let mut display = Display::new(Resolution::ResHD);
-
-    let mut camera = Camera::new(-2., 1., 0.);
-
     let square = Square::new(
         GeometryBuilder::default()
             .properties(SquareBuilder::default().radius(0.5).build())
@@ -16,7 +12,5 @@ fn main() {
 
     let objects: Geometries = vec![square.into()];
 
-    let mut engine = Engine::new(&display, &mut camera, objects, None);
-
-    engine.run(&mut display, camera);
+    Engine::new(Resolution::ResHD, objects, None).run()
 }
