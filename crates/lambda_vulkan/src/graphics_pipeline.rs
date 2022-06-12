@@ -277,7 +277,7 @@ fn create_pipeline_and_layout(
         .stride(mem::size_of::<Vertex>().try_into().unwrap())
         .input_rate(vk::VertexInputRate::VERTEX);
 
-    let attribute_descriptions = [
+    let mut attribute_descriptions = vec![
         vk::VertexInputAttributeDescription {
             binding: 0,
             location: 0,
@@ -290,19 +290,22 @@ fn create_pipeline_and_layout(
             format: vk::Format::R32G32B32_SFLOAT,
             offset: offset_of!(Vertex, colour) as u32,
         },
-        vk::VertexInputAttributeDescription {
+    ];
+
+    if shader_type != Shader::Vertex {
+        attribute_descriptions.push(vk::VertexInputAttributeDescription {
             binding: 0,
             location: 2,
             format: vk::Format::R32G32B32_SFLOAT,
             offset: offset_of!(Vertex, normal) as u32,
-        },
-        vk::VertexInputAttributeDescription {
+        });
+        attribute_descriptions.push(vk::VertexInputAttributeDescription {
             binding: 0,
             location: 3,
             format: vk::Format::R32G32_SFLOAT,
             offset: offset_of!(Vertex, tex_coord) as u32,
-        },
-    ];
+        });
+    }
 
     let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
         .vertex_binding_descriptions(std::slice::from_ref(&binding_description))

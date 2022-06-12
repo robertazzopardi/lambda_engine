@@ -714,7 +714,6 @@ dependencies = [
  "lambda_geometry",
  "lambda_vulkan",
  "lambda_window",
- "nalgebra",
  "winit",
 ]
 

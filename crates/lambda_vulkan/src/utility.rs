@@ -48,7 +48,7 @@ pub struct EntryInstance {
 }
 
 impl EntryInstance {
-    pub fn new(window: &Window, debugging: &Option<DebugMessageProperties>) -> Self {
+    pub fn new(window: &Window, debugging: Option<DebugMessageProperties>) -> Self {
         let layer_names = VALIDATION_LAYERS
             .iter()
             .map(|layer_name| CString::new(*layer_name).unwrap())
@@ -60,9 +60,10 @@ impl EntryInstance {
 
         let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
         let mut extension_names_raw = surface_extensions.to_vec();
-        // if ENABLE_VALIDATION_LAYERS {
-        extension_names_raw.push(DebugUtils::name().as_ptr());
-        // }
+
+        if ENABLE_VALIDATION_LAYERS {
+            extension_names_raw.push(DebugUtils::name().as_ptr());
+        }
 
         let app_name = CString::new("Vulkan").unwrap();
         let engine_name = CString::new("No Engine").unwrap();
@@ -81,23 +82,21 @@ impl EntryInstance {
                 panic!("Validation layers requested, but not available!")
             }
 
-            let debugger = debugging.as_ref().unwrap();
-            let mut debug_create_info =
-                create_debug_messenger(debugger.message_level.flags, debugger.message_type.flags);
+            let mut debug_create_info: vk::DebugUtilsMessengerCreateInfoEXT;
 
-            let create_info = if ENABLE_VALIDATION_LAYERS {
-                vk::InstanceCreateInfo::builder()
-                    .application_info(&app_info)
-                    .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
-                    .enabled_layer_names(&layers_names_raw)
-                    .push_next(&mut debug_create_info)
-                    .enabled_extension_names(extension_names_raw.as_slice())
-            } else {
-                vk::InstanceCreateInfo::builder()
-                    .application_info(&app_info)
-                    .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
-                    .enabled_extension_names(extension_names_raw.as_slice())
-            };
+            let mut create_info = vk::InstanceCreateInfo::builder()
+                .application_info(&app_info)
+                .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
+                .enabled_extension_names(extension_names_raw.as_slice());
+
+            if ENABLE_VALIDATION_LAYERS {
+                if let Some(debugging) = debugging {
+                    debug_create_info = create_debug_messenger(debugging);
+                    create_info = create_info
+                        .enabled_layer_names(&layers_names_raw)
+                        .push_next(&mut debug_create_info);
+                }
+            }
 
             let instance: Instance = entry
                 .create_instance(&create_info, None)

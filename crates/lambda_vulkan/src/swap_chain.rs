@@ -4,7 +4,7 @@ use crate::{
     frame_buffer, renderer,
     resource::Resources,
     utility::InstanceDevices,
-    Fence, Vulkan, VulkanObject,
+    Fence, Vulkan,
 };
 use ash::{
     extensions::khr::{Surface, Swapchain},
@@ -154,7 +154,7 @@ fn create_image_views(
     swap_chain_image_views
 }
 
-pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[&VulkanObject]) {
+pub fn cleanup_swap_chain(vulkan: &Vulkan) {
     let device = &vulkan.instance_devices.devices.logical.device;
 
     unsafe {
@@ -170,7 +170,7 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[&VulkanObject]) {
             device.destroy_framebuffer(*frame_buffer, None);
         });
 
-        vulkan_objects.iter().for_each(|object| {
+        vulkan.objects.iter().for_each(|object| {
             device.destroy_pipeline(object.graphics_pipeline.features.pipeline, None);
             device.destroy_pipeline_layout(object.graphics_pipeline.features.layout, None);
         });
@@ -188,7 +188,7 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan, vulkan_objects: &[&VulkanObject]) {
     }
 }
 
-pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects: &[&VulkanObject]) {
+pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
     // let size = window.inner_size();
     // let _w = size.width;
     // let _h = size.height;
@@ -201,7 +201,7 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects:
             .expect("Failed to wait for device idle!")
     };
 
-    cleanup_swap_chain(vulkan, vulkan_objects);
+    cleanup_swap_chain(vulkan);
 
     vulkan.swap_chain = SwapChain::new(
         &vulkan.instance_devices,
@@ -225,7 +225,7 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window, vulkan_objects:
 
     let models = Vec::new();
 
-    vulkan_objects.iter().for_each(|object| {
+    vulkan.objects.iter().for_each(|object| {
         object.graphics_pipeline.recreate(
             &vulkan.instance_devices,
             &vulkan.swap_chain,

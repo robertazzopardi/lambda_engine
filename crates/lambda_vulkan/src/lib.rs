@@ -20,7 +20,7 @@ pub mod utility;
 
 use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
-use command_buffer::VkCommander;
+use command_buffer::{CommandPool, VkCommander};
 use debug::{Debug, DebugMessageProperties};
 use device::Devices;
 use frame_buffer::FrameBuffers;
@@ -35,6 +35,8 @@ use sync_objects::SyncObjects;
 use texture::Texture;
 use uniform_buffer::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
+
+use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
 
 pub type VkTop = vk::PrimitiveTopology;
 pub type VkCull = vk::CullModeFlags;
@@ -61,102 +63,175 @@ pub struct Vulkan {
     pub debugger: Option<Debug>,
     pub frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
-    // pub objects: VulkanObjects,
+    pub objects: VulkanObjects,
 }
 
 impl Vulkan {
-    // pub fn new(
-    //     display: &Display,
-    //     camera: &Camera,
-    //     vulkan_objects: &VulkanObjects,
-    //     debugging: Option<DebugMessageProperties>,
-    // ) -> Self {
-    //     let entry_instance = EntryInstance::new(&display.window, &debugging);
+    pub fn new(
+        display: &Display,
+        camera: &Camera,
+        geom_properties: Vec<GeomProperties>,
+        debugging: Option<DebugMessageProperties>,
+    ) -> Self {
+        let entry_instance = EntryInstance::new(&display.window, debugging);
 
-    //     let debugger =
-    //         debugging.map(|debug_properties| debug::debugger(&entry_instance, debug_properties));
+        let debugger = if cfg!(debug_assertions) {
+            debugging.map(|debugging| debug::debugger(&entry_instance, debugging))
+        } else {
+            None
+        };
 
-    //     let surface = lambda_window::create_surface(
-    //         &display.window,
-    //         &entry_instance.instance,
-    //         &entry_instance.entry,
-    //     );
+        let surface = lambda_window::create_surface(
+            &display.window,
+            &entry_instance.instance,
+            &entry_instance.entry,
+        );
 
-    //     let surface_loader = create_surface(&entry_instance);
+        let surface_loader = create_surface(&entry_instance);
 
-    //     let devices = Devices::new(&entry_instance.instance, &surface, &surface_loader);
+        let devices = Devices::new(&entry_instance.instance, &surface, &surface_loader);
 
-    //     let instance_devices = InstanceDevices::new(entry_instance.instance, devices);
+        let instance_devices = InstanceDevices::new(entry_instance.instance, devices);
 
-    //     let swap_chain =
-    //         SwapChain::new(&instance_devices, surface, &surface_loader, &display.window);
+        let swap_chain =
+            SwapChain::new(&instance_devices, surface, &surface_loader, &display.window);
 
-    //     let render_pass = renderer::create_render_pass(&instance_devices, &swap_chain);
+        let render_pass = renderer::create_render_pass(&instance_devices, &swap_chain);
 
-    //     let resources = Resources::new(&swap_chain, &instance_devices);
+        let resources = Resources::new(&swap_chain, &instance_devices);
 
-    //     let frame_buffers = frame_buffer::create_frame_buffers(
-    //         &swap_chain,
-    //         &render_pass,
-    //         &instance_devices,
-    //         &resources,
-    //     );
+        let frame_buffers = frame_buffer::create_frame_buffers(
+            &swap_chain,
+            &render_pass,
+            &instance_devices,
+            &resources,
+        );
 
-    //     let command_pool =
-    //         command_buffer::create_command_pool(&instance_devices, &surface_loader, &surface);
+        let command_pool =
+            command_buffer::create_command_pool(&instance_devices, &surface_loader, &surface);
 
-    //     let sync_objects = SyncObjects::new(&instance_devices);
+        let sync_objects = SyncObjects::new(&instance_devices);
 
-    //     let swap_chain_len = swap_chain.images.len() as u32;
+        let swap_chain_len = swap_chain.images.len() as u32;
 
-    //     let vulkan_objects = models
-    //         .iter_mut()
-    //         .map(|property| {
-    //             // dbg!(property.clone());
+        let objects = geom_properties
+            .into_iter()
+            .map(|property| {
+                VulkanObject::new(
+                    &command_pool,
+                    swap_chain_len,
+                    &swap_chain,
+                    &render_pass,
+                    &instance_devices,
+                    property,
+                )
+            })
+            .collect::<Vec<VulkanObject>>();
 
-    //             property.deferred_build(
-    //                 &command_pool,
-    //                 swap_chain_len,
-    //                 &swap_chain,
-    //                 &render_pass,
-    //                 &instance_devices,
-    //             );
+        let command_buffers = command_buffer::create_command_buffers(
+            &command_pool,
+            &swap_chain,
+            &instance_devices,
+            &render_pass,
+            &frame_buffers,
+            &objects,
+        );
 
-    //             property.vulkan_object()
-    //         })
-    //         .collect::<Vec<&VulkanObject>>();
+        let commander = VkCommander::new(command_buffers, command_pool);
 
-    //     let command_buffers = command_buffer::create_command_buffers(
-    //         &command_pool,
-    //         &swap_chain,
-    //         &instance_devices,
-    //         &render_pass,
-    //         &frame_buffers,
-    //         &vulkan_objects,
-    //     );
+        let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
 
-    //     let commander = VkCommander::new(command_buffers, command_pool);
+        Self {
+            commander,
+            render_pass,
+            resources,
+            surface,
+            surface_loader,
+            swap_chain,
+            sync_objects,
+            ubo,
+            debugger,
+            frame_buffers,
+            instance_devices,
+            objects,
+        }
+    }
+}
 
-    //     let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
+impl Drop for Vulkan {
+    fn drop(&mut self) {
+        swap_chain::cleanup_swap_chain(self);
 
-    //     Vulkan {
-    //         commander,
-    //         render_pass,
-    //         resources,
-    //         surface,
-    //         surface_loader,
-    //         swap_chain,
-    //         sync_objects,
-    //         ubo,
-    //         debugger,
-    //         frame_buffers,
-    //         instance_devices,
-    //     }
-    // }
+        unsafe {
+            self.objects.iter().for_each(|object| {
+                device::recreate_drop(
+                    &object.graphics_pipeline,
+                    &self.instance_devices.devices.logical.device,
+                );
+                device::destroy(object, &self.instance_devices.devices.logical.device);
+            });
+
+            for i in 0..MAX_FRAMES_IN_FLIGHT {
+                self.instance_devices
+                    .devices
+                    .logical
+                    .device
+                    .destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
+                self.instance_devices
+                    .devices
+                    .logical
+                    .device
+                    .destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
+                self.instance_devices
+                    .devices
+                    .logical
+                    .device
+                    .destroy_fence(self.sync_objects.in_flight_fences[i], None);
+            }
+
+            self.instance_devices
+                .devices
+                .logical
+                .device
+                .destroy_command_pool(*self.commander.pool, None);
+
+            dbg!("2");
+
+            self.instance_devices
+                .devices
+                .logical
+                .device
+                .destroy_device(None);
+
+            println!("here");
+
+            if ENABLE_VALIDATION_LAYERS {
+                if let Some(debugger) = self.debugger.take() {
+                    debugger
+                        .utils
+                        .destroy_debug_utils_messenger(debugger.messenger, None);
+                }
+            }
+
+            self.surface_loader.destroy_surface(self.surface, None);
+
+            self.instance_devices.instance.destroy_instance(None);
+        }
+    }
 }
 
 #[derive(Default, Debug, new)]
 pub struct RenderPass(pub vk::RenderPass);
+
+#[derive(Debug, Clone, new)]
+pub struct GeomProperties<'a> {
+    texture_buffer: &'a [u8],
+    vertices_and_indices: VerticesAndIndices,
+    topology: ModelTopology,
+    cull_mode: CullMode,
+    shader: Shader,
+    indexed: bool,
+}
 
 #[derive(Debug)]
 pub struct VulkanObject {
@@ -168,24 +243,48 @@ pub struct VulkanObject {
     model: Matrix4<f32>,
 }
 
-impl Default for VulkanObject {
-    fn default() -> Self {
-        Self {
-            vertices_and_indices: Default::default(),
-            texture: Default::default(),
-            graphics_pipeline: Default::default(),
-            buffers: Default::default(),
-            indexed: Default::default(),
-            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
-        }
-    }
-}
-
 impl VulkanObject {
-    pub fn new(indexed: bool) -> Self {
+    fn new(
+        command_pool: &CommandPool,
+        command_buffer_count: u32,
+        swap_chain: &SwapChain,
+        render_pass: &RenderPass,
+        instance_devices: &InstanceDevices,
+        properties: GeomProperties,
+    ) -> Self {
+        let mut texture = None;
+        if !properties.texture_buffer.is_empty() {
+            texture = Some(Texture::new(
+                properties.texture_buffer,
+                command_pool,
+                instance_devices,
+            ));
+        }
+
+        let buffers = ModelBuffers::new(
+            &properties.vertices_and_indices,
+            command_pool,
+            command_buffer_count,
+            instance_devices,
+        );
+
+        let graphics_pipeline = GraphicsPipeline::new(
+            swap_chain,
+            render_pass.0,
+            &texture,
+            properties.topology,
+            properties.cull_mode,
+            instance_devices,
+            properties.shader,
+        );
+
         Self {
-            indexed,
-            ..Default::default()
+            vertices_and_indices: properties.vertices_and_indices,
+            texture,
+            graphics_pipeline,
+            buffers,
+            indexed: properties.indexed,
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
     }
 }
@@ -236,7 +335,7 @@ impl Default for ModelTopology {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CullMode {
     Back,
     Front,
@@ -266,7 +365,7 @@ const LIGHT_TEXTURE: &str = "light_texture";
 const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Shader {
     Light,
     LightTexture,

@@ -77,7 +77,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 /// VkDebugUtilsMessageSeverityFlagBitsEXT
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct MessageLevel {
     pub flags: vk::DebugUtilsMessageSeverityFlagsEXT,
 }
@@ -118,7 +118,7 @@ impl Default for MessageLevel {
 }
 
 /// VkDebugUtilsMessageTypeFlagBitsEXT
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct MessageType {
     pub flags: vk::DebugUtilsMessageTypeFlagsEXT,
 }
@@ -152,7 +152,7 @@ impl Default for MessageType {
     }
 }
 
-#[derive(new, Debug, Default)]
+#[derive(new, Debug, Default, Clone, Copy)]
 pub struct DebugMessageProperties {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
@@ -160,24 +160,20 @@ pub struct DebugMessageProperties {
 
 #[inline]
 pub fn create_debug_messenger(
-    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
-    message_type: vk::DebugUtilsMessageTypeFlagsEXT,
+    debugging: DebugMessageProperties,
 ) -> vk::DebugUtilsMessengerCreateInfoEXT {
     vk::DebugUtilsMessengerCreateInfoEXT::builder()
-        .message_severity(message_severity)
-        .message_type(message_type)
+        .message_severity(debugging.message_level.flags)
+        .message_type(debugging.message_type.flags)
         .pfn_user_callback(Some(vulkan_debug_callback))
         .build()
 }
 
 pub fn debugger(
     EntryInstance { entry, instance }: &EntryInstance,
-    DebugMessageProperties {
-        message_level,
-        message_type,
-    }: DebugMessageProperties,
+    debug_properties: DebugMessageProperties,
 ) -> Debug {
-    let create_info = create_debug_messenger(message_level.flags, message_type.flags);
+    let create_info = create_debug_messenger(debug_properties);
 
     let utils = DebugUtils::new(entry, instance);
 

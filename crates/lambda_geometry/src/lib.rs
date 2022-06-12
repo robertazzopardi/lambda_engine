@@ -10,10 +10,7 @@ pub mod utility;
 use derive_builder::Builder;
 use enum_dispatch::enum_dispatch;
 use lambda_space::space::{Vertex, VerticesAndIndices};
-use lambda_vulkan::{
-    command_buffer::CommandPool, swap_chain::SwapChain, utility::InstanceDevices, CullMode,
-    ModelTopology, RenderPass, Shader, VulkanObject,
-};
+use lambda_vulkan::{CullMode, GeomProperties, ModelTopology, Shader};
 use nalgebra::Vector3;
 use prelude::{Cube, Model, Ring, Sphere, Square};
 use std::{fs::File, io::Read};
@@ -50,20 +47,9 @@ pub enum Geom {
 
 #[enum_dispatch(Geom)]
 pub trait GeomBehavior {
-    fn vertices_and_indices(&mut self) -> VerticesAndIndices;
+    fn vertices_and_indices(&self) -> VerticesAndIndices;
 
-    fn vulkan_object(&self) -> &VulkanObject;
-
-    fn deferred_build(
-        &mut self,
-        _: &CommandPool,
-        _: u32,
-        _: &SwapChain,
-        _: &RenderPass,
-        _: &InstanceDevices,
-    ) {
-        unimplemented!()
-    }
+    fn features(&self) -> GeomProperties;
 }
 
 #[derive(Default, Builder, Debug)]
@@ -81,9 +67,6 @@ pub struct Geometry<T> {
 
     #[builder(setter(custom))]
     pub behavior: Option<fn()>,
-
-    #[builder(setter(skip))]
-    pub vulkan_object: VulkanObject,
 }
 
 impl<T> GeometryBuilder<T> {
@@ -112,20 +95,17 @@ impl<T> GeometryBuilder<T> {
     }
 
     pub fn build(&mut self) -> Geometry<T> {
-        let properties = self
-            .properties
-            .take()
-            .expect("Expected the field `properties` to be defined for this geometry");
-
         Geometry {
-            properties,
+            properties: self
+                .properties
+                .take()
+                .expect("Expected the field `properties` to be defined for this geometry"),
             texture: self.texture.take().unwrap_or_default(),
             indexed: self.indexed.unwrap_or_default(),
             topology: self.topology.unwrap_or_default(),
             cull_mode: self.cull_mode.unwrap_or_default(),
             shader: self.shader.unwrap_or_default(),
             behavior: self.behavior.unwrap_or_default(),
-            vulkan_object: VulkanObject::new(self.indexed.unwrap_or_default()),
         }
     }
 }

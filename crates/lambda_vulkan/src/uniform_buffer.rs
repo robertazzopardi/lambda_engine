@@ -1,4 +1,4 @@
-use crate::{memory, Vulkan, VulkanObject};
+use crate::{memory, Vulkan};
 use ash::vk;
 use lambda_camera::camera::Camera;
 use nalgebra::{Matrix4, Perspective3};
@@ -42,7 +42,6 @@ pub fn update_uniform_buffers(
     vulkan: &Vulkan,
     _camera: &mut Camera,
     current_image: usize,
-    vulkan_objects: &mut [&VulkanObject],
     _dt: f32,
 ) {
     // let axis_angle = Vector3::y() * 0.05;
@@ -51,7 +50,7 @@ pub fn update_uniform_buffers(
 
     let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
 
-    vulkan_objects.iter().for_each(|object| {
+    vulkan.objects.iter().for_each(|object| {
         let uniform_buffer = UniformBuffer::new(object.model, vulkan.ubo.view, vulkan.ubo.proj);
 
         memory::map_memory(

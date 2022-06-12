@@ -4,7 +4,7 @@ use crate::{
     sync_objects::MAX_FRAMES_IN_FLIGHT,
     uniform_buffer::update_uniform_buffers,
     utility::InstanceDevices,
-    RenderPass, Vulkan, VulkanObject,
+    RenderPass, Vulkan,
 };
 use ash::vk;
 use lambda_camera::prelude::Camera;
@@ -112,7 +112,6 @@ pub unsafe fn render(
     camera: &mut Camera,
     current_frame: &mut usize,
     resized: &mut bool,
-    vulkan_objects: &mut [&VulkanObject],
     dt: f32,
 ) {
     vulkan
@@ -134,7 +133,7 @@ pub unsafe fn render(
             Ok(image_index) => image_index,
             Err(vk_result) => match vk_result {
                 vk::Result::ERROR_OUT_OF_DATE_KHR => {
-                    recreate_swap_chain(vulkan, window, vulkan_objects);
+                    recreate_swap_chain(vulkan, window);
                     return;
                 }
                 _ => panic!("Failed to acquire Swap Chain vk::Image!"),
@@ -142,13 +141,7 @@ pub unsafe fn render(
         }
     };
 
-    update_uniform_buffers(
-        vulkan,
-        camera,
-        image_index.try_into().unwrap(),
-        vulkan_objects,
-        dt,
-    );
+    update_uniform_buffers(vulkan, camera, image_index.try_into().unwrap(), dt);
 
     if vulkan.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
         vulkan
@@ -228,7 +221,7 @@ pub unsafe fn render(
 
     if is_resized {
         *resized = false;
-        recreate_swap_chain(vulkan, window, vulkan_objects);
+        recreate_swap_chain(vulkan, window);
     }
 
     *current_frame = (*current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
