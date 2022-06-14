@@ -60,8 +60,6 @@ impl Engine {
                     &mut mouse_pressed,
                 );
 
-                // self.models.iter().for_each(|model| model);
-
                 self.time.step(
                     &mut self.camera,
                     &mut self.vulkan.ubo,

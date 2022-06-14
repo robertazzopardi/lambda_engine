@@ -56,7 +56,6 @@ pub trait GeomBehavior {
 #[builder(build_fn(skip))]
 pub struct Geometry<T> {
     pub properties: T,
-
     #[builder(setter(custom))]
     pub texture: Vec<u8>,
     #[builder(setter(custom))]
@@ -64,9 +63,6 @@ pub struct Geometry<T> {
     pub topology: ModelTopology,
     pub cull_mode: CullMode,
     pub shader: Shader,
-
-    #[builder(setter(custom))]
-    pub behavior: Option<fn()>,
 }
 
 impl<T> GeometryBuilder<T> {
@@ -81,11 +77,6 @@ impl<T> GeometryBuilder<T> {
             self.texture = Some(data);
         }
 
-        self
-    }
-
-    pub fn behavior(&mut self, actions: fn()) -> &mut Self {
-        self.behavior = Some(Some(actions));
         self
     }
 
@@ -105,7 +96,6 @@ impl<T> GeometryBuilder<T> {
             topology: self.topology.unwrap_or_default(),
             cull_mode: self.cull_mode.unwrap_or_default(),
             shader: self.shader.unwrap_or_default(),
-            behavior: self.behavior.unwrap_or_default(),
         }
     }
 }
