@@ -44,6 +44,12 @@ pub struct Camera {
     direction: space::LookDirection,
 }
 
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new(-2., 1., 0.)
+    }
+}
+
 impl Camera {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self {

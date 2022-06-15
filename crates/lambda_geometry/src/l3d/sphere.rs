@@ -82,7 +82,7 @@ impl GeomBehavior for Sphere {
             self.topology,
             self.cull_mode,
             self.shader,
-            self.indexed,
+            *self.indexed,
         )
     }
 }

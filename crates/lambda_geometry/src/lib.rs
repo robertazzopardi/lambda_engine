@@ -8,6 +8,7 @@ pub mod macros;
 pub mod utility;
 
 use derive_builder::Builder;
+use derive_more::Deref;
 use enum_dispatch::enum_dispatch;
 use lambda_space::space::{Vertex, VerticesAndIndices};
 use lambda_vulkan::{CullMode, GeomProperties, ModelTopology, Shader};
@@ -35,6 +36,18 @@ pub type Geometries = Vec<Geom>;
 pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
+#[derive(Clone, Copy, Debug, Deref)]
+pub struct Indexed(bool);
+
+impl Default for Indexed {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
+#[derive(Clone, Debug, Deref)]
+pub struct TextureBuffer(Vec<u8>);
+
 #[enum_dispatch]
 #[derive(Debug)]
 pub enum Geom {
@@ -59,7 +72,7 @@ pub struct Geometry<T> {
     #[builder(setter(custom))]
     pub texture: Vec<u8>,
     #[builder(setter(custom))]
-    pub indexed: bool,
+    pub indexed: Indexed,
     pub topology: ModelTopology,
     pub cull_mode: CullMode,
     pub shader: Shader,
@@ -80,8 +93,8 @@ impl<T> GeometryBuilder<T> {
         self
     }
 
-    pub fn indexed(&mut self) -> &mut Self {
-        self.indexed = Some(true);
+    pub fn no_index(&mut self) -> &mut Self {
+        self.indexed = Some(Indexed(false));
         self
     }
 

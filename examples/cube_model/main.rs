@@ -15,7 +15,6 @@ fn main() {
             .texture(SATURN_TEXTURE)
             .shader(Shader::LightTexture)
             .cull_mode(CullMode::Back)
-            .indexed()
             .build(),
     );
 

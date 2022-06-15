@@ -15,7 +15,6 @@ fn main() {
             .texture(VIKING_MODEL_TEXTURE)
             .shader(Shader::LightTexture)
             .cull_mode(CullMode::None)
-            .indexed()
             .build(),
     );
 

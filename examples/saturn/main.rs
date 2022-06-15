@@ -18,7 +18,6 @@ fn main() {
             .texture(SATURN_TEXTURE)
             .shader(Shader::LightTexture)
             .cull_mode(CullMode::Back)
-            .indexed()
             .build(),
     );
 
@@ -35,6 +34,7 @@ fn main() {
             .shader(Shader::LightTexture)
             .topology(ModelTopology::TriangleStrip)
             .cull_mode(CullMode::None)
+            .no_index()
             .build(),
     );
 

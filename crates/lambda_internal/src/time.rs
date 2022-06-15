@@ -14,6 +14,12 @@ pub struct Time {
     accumulator: Duration,
 }
 
+impl Default for Time {
+    fn default() -> Self {
+        Self::new(60.)
+    }
+}
+
 impl Time {
     pub fn new(fps: f64) -> Self {
         Self {

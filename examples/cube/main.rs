@@ -6,13 +6,10 @@ fn main() {
             .properties(CubeBuilder::default().radius(0.5).build())
             .cull_mode(CullMode::Back)
             .shader(Shader::Vertex)
-            .indexed()
             .build(),
     );
 
     let objects: Geometries = vec![cube.into()];
 
-    let debugging = Some(DebugMessageProperties::default());
-
-    Engine::new(Resolution::ResHD, objects, debugging).run()
+    Engine::new(Resolution::ResHD, objects, None).run()
 }

@@ -90,7 +90,7 @@ impl GeomBehavior for Cube {
             self.topology,
             self.cull_mode,
             self.shader,
-            self.indexed,
+            *self.indexed,
         )
     }
 }

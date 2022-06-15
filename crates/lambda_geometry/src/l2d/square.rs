@@ -57,7 +57,7 @@ impl GeomBehavior for Square {
             self.topology,
             self.cull_mode,
             self.shader,
-            self.indexed,
+            *self.indexed,
         )
     }
 }

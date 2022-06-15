@@ -1,6 +1,7 @@
 use crate::time::Time;
+use derive_builder::Builder;
 use lambda_camera::camera::Camera;
-use lambda_geometry::{GeomBehavior, Geometries, Geometry};
+use lambda_geometry::{GeomBehavior, Geometries};
 use lambda_vulkan::{debug::DebugMessageProperties, renderer, Vulkan, WindowSize};
 use lambda_window::{
     prelude::Resolution,
@@ -9,7 +10,7 @@ use lambda_window::{
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub struct Engine {
-    vulkan: Vulkan,
+    backend: Vulkan,
     current_frame: usize,
     is_frame_buffer_resized: bool,
     models: Geometries,
@@ -29,7 +30,7 @@ impl Engine {
         let camera = Camera::new(-2., 1., 0.);
 
         Self {
-            vulkan: Vulkan::new(
+            backend: Vulkan::new(
                 &display,
                 &camera,
                 models.iter().map(|model| model.features()).collect(),
@@ -62,13 +63,13 @@ impl Engine {
 
                 self.time.step(
                     &mut self.camera,
-                    &mut self.vulkan.ubo,
-                    &WindowSize(self.vulkan.swap_chain.extent),
+                    &mut self.backend.ubo,
+                    &WindowSize(self.backend.swap_chain.extent),
                 );
 
                 unsafe {
                     renderer::render(
-                        &mut self.vulkan,
+                        &mut self.backend,
                         &self.display.window,
                         &mut self.camera,
                         &mut self.current_frame,
@@ -79,7 +80,7 @@ impl Engine {
             });
 
         unsafe {
-            self.vulkan
+            self.backend
                 .instance_devices
                 .devices
                 .logical

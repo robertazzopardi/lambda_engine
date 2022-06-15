@@ -6,7 +6,6 @@ fn main() {
             .properties(SquareBuilder::default().radius(0.5).build())
             .cull_mode(CullMode::None)
             .shader(Shader::Vertex)
-            .indexed()
             .build(),
     );
 

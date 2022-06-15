@@ -43,17 +43,38 @@ pub struct Display {
     pub event_loop: EventLoop<()>,
 }
 
-impl Display {
-    pub fn new(res: Resolution) -> Self {
+impl Default for Display {
+    fn default() -> Self {
         let event_loop = EventLoop::new();
 
-        let logical_size: LogicalSize<u32> = res.into();
+        let logical_size: LogicalSize<u32> = Resolution::ResHD.into();
         let window = WindowBuilder::new()
             .with_inner_size(logical_size)
             .build(&event_loop)
             .unwrap();
 
-        Self { event_loop, window }
+        Self { window, event_loop }
+    }
+}
+
+impl Display {
+    pub fn new(res: Resolution) -> Self {
+        let display = Self::default();
+
+        let logical_size: LogicalSize<u32> = res.into();
+        display.window.set_inner_size(logical_size);
+
+        display
+
+        // let event_loop = EventLoop::new();
+
+        // let logical_size: LogicalSize<u32> = res.into();
+        // let window = WindowBuilder::new()
+        //     .with_inner_size(logical_size)
+        //     .build(&event_loop)
+        //     .unwrap();
+
+        // Self { event_loop, window }
     }
 }
 
