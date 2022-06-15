@@ -32,7 +32,7 @@ impl SphereBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Sphere(Geometry<SphereInfo>);
 
 impl GeomBehavior for Sphere {

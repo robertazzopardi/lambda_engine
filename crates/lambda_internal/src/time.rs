@@ -1,9 +1,21 @@
 use lambda_camera::camera::Camera;
-use lambda_vulkan::{uniform_buffer::UniformBufferObject, WindowSize};
+use lambda_vulkan::{uniform_buffer::UniformBufferObject, Vulkan, WindowSize};
 use std::time::{Duration, Instant};
 
-fn calculate_fps(fps: f64) -> f64 {
-    (1000. / fps) / 1000.
+pub trait Fps {
+    fn duration(self) -> Duration;
+}
+
+impl Fps for f32 {
+    fn duration(self) -> Duration {
+        Duration::from_secs_f32((1000. / self) / 1000.)
+    }
+}
+
+impl Fps for f64 {
+    fn duration(self) -> Duration {
+        Duration::from_secs_f64((1000. / self) / 1000.)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -21,9 +33,9 @@ impl Default for Time {
 }
 
 impl Time {
-    pub fn new(fps: f64) -> Self {
+    pub fn new(fps: impl Fps) -> Self {
         Self {
-            delta: Duration::from_secs_f64(calculate_fps(fps)),
+            delta: fps.duration(),
             elapsed: Duration::ZERO,
             now: std::time::Instant::now(),
             accumulator: Duration::ZERO,
@@ -37,15 +49,10 @@ impl Time {
         self.accumulator += frame_time;
     }
 
-    pub fn step(
-        &mut self,
-        camera: &mut Camera,
-        ubo: &mut UniformBufferObject,
-        extent: &WindowSize,
-    ) {
+    pub fn step(&mut self, camera: &mut Camera, backend: &mut Vulkan) {
         while self.accumulator >= self.delta {
             camera.rotate(self.delta.as_secs_f32());
-            ubo.update(&extent.0, camera);
+            backend.ubo.update(&backend.swap_chain.extent, camera);
 
             self.accumulator -= self.delta;
             self.elapsed += self.delta;

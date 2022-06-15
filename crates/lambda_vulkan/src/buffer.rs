@@ -3,13 +3,13 @@ use ash::vk;
 use lambda_space::space::{Vertex, VerticesAndIndices};
 use std::mem::size_of;
 
-#[derive(new, Default, Debug)]
+#[derive(new, Default, Debug, Clone)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct ModelBuffers {
     pub vertex: Buffer,
     pub index: Buffer,

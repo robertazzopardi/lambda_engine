@@ -5,6 +5,7 @@ use std::{borrow::Cow, ffi::CStr};
 
 pub const VALIDATION_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
 
+#[derive(Clone)]
 pub struct Debug {
     pub messenger: vk::DebugUtilsMessengerEXT,
     pub utils: DebugUtils,

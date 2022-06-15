@@ -28,7 +28,7 @@ impl RingBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Ring(Geometry<RingInfo>);
 
 impl GeomBehavior for Ring {

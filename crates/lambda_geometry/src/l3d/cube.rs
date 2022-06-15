@@ -66,7 +66,7 @@ impl CubeBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Cube(Geometry<CubeInfo>);
 
 impl GeomBehavior for Cube {

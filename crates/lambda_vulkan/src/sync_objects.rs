@@ -6,6 +6,7 @@ pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 pub type ImageSemaphoreArray = [vk::Semaphore; MAX_FRAMES_IN_FLIGHT];
 pub type FenceArray = [vk::Fence; MAX_FRAMES_IN_FLIGHT];
 
+#[derive(Clone)]
 pub struct SyncObjects {
     pub image_available_semaphores: ImageSemaphoreArray,
     pub render_finished_semaphores: ImageSemaphoreArray,

@@ -10,20 +10,7 @@ pub enum ResourceType {
     Depth,
 }
 
-pub struct Resources {
-    pub colour: Resource,
-    pub depth: Resource,
-}
-
-impl Resources {
-    pub fn new(swap_chain: &SwapChain, instance_devices: &InstanceDevices) -> Self {
-        Self {
-            depth: Resource::new(swap_chain, ResourceType::Depth, instance_devices),
-            colour: Resource::new(swap_chain, ResourceType::Colour, instance_devices),
-        }
-    }
-}
-
+#[derive(Clone)]
 pub struct Resource {
     pub image: Image,
     pub view: vk::ImageView,
@@ -66,6 +53,21 @@ impl Resource {
             utility::create_image_view(&image, format, aspect_flags, &devices.logical.device);
 
         Self { image, view }
+    }
+}
+
+#[derive(Clone)]
+pub struct Resources {
+    pub colour: Resource,
+    pub depth: Resource,
+}
+
+impl Resources {
+    pub fn new(swap_chain: &SwapChain, instance_devices: &InstanceDevices) -> Self {
+        Self {
+            depth: Resource::new(swap_chain, ResourceType::Depth, instance_devices),
+            colour: Resource::new(swap_chain, ResourceType::Colour, instance_devices),
+        }
     }
 }
 

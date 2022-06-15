@@ -32,7 +32,7 @@ impl ModelBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug)]
+#[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Model(Geometry<ModelInfo>);
 
 impl GeomBehavior for Model {

@@ -49,7 +49,7 @@ impl Default for Indexed {
 pub struct TextureBuffer(Vec<u8>);
 
 #[enum_dispatch]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Geom {
     Cube,
     Square,
@@ -65,7 +65,7 @@ pub trait GeomBehavior {
     fn features(&self) -> GeomProperties;
 }
 
-#[derive(Default, Builder, Debug)]
+#[derive(Default, Builder, Debug, Clone)]
 #[builder(build_fn(skip))]
 pub struct Geometry<T> {
     pub properties: T,

@@ -18,6 +18,9 @@ members = ["crates/*"]
 [dependencies]
 lambda_internal = { path = "crates/lambda_internal", default-features = false }
 
+[features]
+vulkan = []
+
 # Examples
 
 ## 3D

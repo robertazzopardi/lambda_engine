@@ -10,7 +10,7 @@ use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
 use std::ffi::CString;
 use winit::window::Window;
 
-#[derive(new, Default, Debug)]
+#[derive(new, Default, Debug, Clone)]
 pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
@@ -36,7 +36,7 @@ pub(crate) struct ImageInfo {
     properties: vk::MemoryPropertyFlags,
 }
 
-#[derive(new)]
+#[derive(new, Clone)]
 pub struct InstanceDevices {
     pub instance: Instance,
     pub devices: Devices,

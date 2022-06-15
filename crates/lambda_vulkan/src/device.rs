@@ -7,20 +7,20 @@ use ash::{
 };
 use std::ffi::CString;
 
-#[derive(new, Debug)]
+#[derive(new, Debug, Clone)]
 pub struct PhysicalDeviceProperties {
     pub device: vk::PhysicalDevice,
     pub queue_family_index: u32,
     pub samples: vk::SampleCountFlags,
 }
 
-#[derive(Debug, new)]
+#[derive(Debug, new, Clone)]
 pub struct Queues {
     pub present: vk::Queue,
     pub graphics: vk::Queue,
 }
 
-#[derive(new)]
+#[derive(new, Clone)]
 pub struct LogicalDeviceFeatures {
     pub device: Device,
     pub queues: Queues,
@@ -38,6 +38,7 @@ impl QueueFamilyIndices {
     }
 }
 
+#[derive(Clone)]
 pub struct Devices {
     pub physical: PhysicalDeviceProperties,
     pub logical: LogicalDeviceFeatures,

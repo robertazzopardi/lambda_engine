@@ -6,13 +6,13 @@ use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
 use std::ptr;
 
-#[derive(new, Debug, From, Deref)]
+#[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
 
-#[derive(new, Debug, From, Deref)]
+#[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandPool(vk::CommandPool);
 
-#[derive(new, Debug)]
+#[derive(new, Debug, Clone)]
 pub struct VkCommander {
     pub buffers: CommandBuffers,
     pub pool: CommandPool,

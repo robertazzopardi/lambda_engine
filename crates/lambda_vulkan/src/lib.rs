@@ -51,6 +51,7 @@ pub mod prelude {
 
 pub type VulkanObjects = Vec<VulkanObject>;
 
+#[derive(Clone)]
 pub struct Vulkan {
     pub commander: VkCommander,
     pub render_pass: RenderPass,
@@ -220,7 +221,7 @@ impl Drop for Vulkan {
     }
 }
 
-#[derive(Default, Debug, new)]
+#[derive(Default, Debug, Clone, new)]
 pub struct RenderPass(pub vk::RenderPass);
 
 #[derive(Debug, Clone, new)]
@@ -233,7 +234,7 @@ pub struct GeomProperties<'a> {
     indexed: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VulkanObject {
     pub vertices_and_indices: VerticesAndIndices,
     pub texture: Option<Texture>,

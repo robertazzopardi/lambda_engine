@@ -11,5 +11,11 @@ fn main() {
 
     let objects: Geometries = vec![cube.into()];
 
-    Engine::new(Resolution::ResHD, objects, None).run()
+    // Engine::new(Resolution::ResHD, objects, None).run()
+    Engine::default()
+        .display(Resolution::ResHD)
+        .geometries(objects)
+        // .debugging(DebugMessageProperties::default())
+        .build()
+        .run()
 }

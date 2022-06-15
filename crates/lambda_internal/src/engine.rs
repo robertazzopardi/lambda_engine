@@ -1,4 +1,4 @@
-use crate::time::Time;
+use crate::time::{Fps, Time};
 use derive_builder::Builder;
 use lambda_camera::camera::Camera;
 use lambda_geometry::{GeomBehavior, Geometries};
@@ -9,44 +9,89 @@ use lambda_window::{
 };
 use winit::platform::run_return::EventLoopExtRunReturn;
 
+#[derive(Default)]
 pub struct Engine {
-    backend: Vulkan,
+    backend: Option<Vulkan>,
     current_frame: usize,
     is_frame_buffer_resized: bool,
     models: Geometries,
     time: Time,
     display: Display,
     camera: Camera,
+    debugging: Option<DebugMessageProperties>,
 }
 
 impl Engine {
-    pub fn new(
-        res: Resolution,
-        models: Geometries,
-        debugging: Option<DebugMessageProperties>,
-    ) -> Self {
-        let display = Display::new(res);
-
-        let camera = Camera::new(-2., 1., 0.);
-
-        Self {
-            backend: Vulkan::new(
-                &display,
-                &camera,
-                models.iter().map(|model| model.features()).collect(),
-                debugging,
-            ),
-            current_frame: 0,
-            is_frame_buffer_resized: false,
-            models,
-            time: Time::new(60.),
-            display,
-            camera,
-        }
+    pub fn display(&mut self, res: Resolution) -> &mut Self {
+        self.display = Display::new(res);
+        self
     }
+
+    pub fn geometries(&mut self, models: Geometries) -> &mut Self {
+        self.models = models;
+        self
+    }
+
+    pub fn time(&mut self, fps: impl Fps) -> &mut Self {
+        self.time = Time::new(fps);
+        self
+    }
+
+    pub fn debugging(&mut self, debugging: DebugMessageProperties) -> &mut Self {
+        self.debugging = Some(debugging);
+        self
+    }
+
+    pub fn camera(&mut self, camera: Camera) -> &mut Self {
+        self.camera = camera;
+        self
+    }
+
+    pub fn build(&mut self) -> &mut Self {
+        dbg!(self.debugging);
+        self.backend = Some(Vulkan::new(
+            &self.display,
+            &self.camera,
+            self.models.iter().map(|model| model.features()).collect(),
+            self.debugging,
+        ));
+
+        self
+    }
+
+    // pub fn new(
+    //     res: Resolution,
+    //     models: Geometries,
+    //     debugging: Option<DebugMessageProperties>,
+    // ) -> Self {
+    //     let display = Display::new(res);
+
+    //     let camera = Camera::default();
+
+    //     Self {
+    //         backend: Vulkan::new(
+    //             &display,
+    //             &camera,
+    //             models.iter().map(|model| model.features()).collect(),
+    //             debugging,
+    //         ),
+    //         current_frame: 0,
+    //         is_frame_buffer_resized: false,
+    //         models,
+    //         time: Time::new(60.),
+    //         display,
+    //         camera,
+    //     }
+    // }
 
     pub fn run(&mut self) {
         let mut mouse_pressed = false;
+
+        if self.backend.is_none() {
+            panic!("Engine must call build to instantiate the renderer")
+        }
+
+        let mut backend = self.backend.take().unwrap();
 
         self.display
             .event_loop
@@ -61,15 +106,11 @@ impl Engine {
                     &mut mouse_pressed,
                 );
 
-                self.time.step(
-                    &mut self.camera,
-                    &mut self.backend.ubo,
-                    &WindowSize(self.backend.swap_chain.extent),
-                );
+                self.time.step(&mut self.camera, &mut backend);
 
                 unsafe {
                     renderer::render(
-                        &mut self.backend,
+                        &mut backend,
                         &self.display.window,
                         &mut self.camera,
                         &mut self.current_frame,
@@ -80,7 +121,7 @@ impl Engine {
             });
 
         unsafe {
-            self.backend
+            backend
                 .instance_devices
                 .devices
                 .logical
