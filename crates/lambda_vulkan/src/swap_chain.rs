@@ -4,7 +4,7 @@ use crate::{
     frame_buffer, renderer,
     resource::Resources,
     utility::InstanceDevices,
-    Fence, Vulkan,
+    Vulkan,
 };
 use ash::{
     extensions::khr::{Surface, Swapchain},
@@ -171,7 +171,7 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan) {
             device.destroy_framebuffer(*frame_buffer, None);
         });
 
-        vulkan.objects.iter().for_each(|object| {
+        vulkan.objects.0.iter().for_each(|object| {
             device.destroy_pipeline(object.graphics_pipeline.features.pipeline, None);
             device.destroy_pipeline_layout(object.graphics_pipeline.features.layout, None);
         });
@@ -222,11 +222,11 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
         &vulkan.resources,
     );
 
-    vulkan.sync_objects.images_in_flight = vec![Fence::null(); 1];
+    vulkan.sync_objects.images_in_flight = vec![vk::Fence::null(); 1];
 
     let models = Vec::new();
 
-    vulkan.objects.iter().for_each(|object| {
+    vulkan.objects.0.iter().for_each(|object| {
         object.graphics_pipeline.recreate(
             &vulkan.instance_devices,
             &vulkan.swap_chain,

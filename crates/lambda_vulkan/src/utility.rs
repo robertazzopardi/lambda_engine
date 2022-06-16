@@ -1,8 +1,5 @@
 use crate::{
-    debug::{
-        self, create_debug_messenger, DebugMessageProperties, ENABLE_VALIDATION_LAYERS,
-        VALIDATION_LAYERS,
-    },
+    debug::{self, create_debug_messenger, Debugger, ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS},
     device::Devices,
     memory,
 };
@@ -48,7 +45,7 @@ pub struct EntryInstance {
 }
 
 impl EntryInstance {
-    pub fn new(window: &Window, debugging: Option<DebugMessageProperties>) -> Self {
+    pub fn new(window: &Window, debugging: Option<Debugger>) -> Self {
         let layer_names = VALIDATION_LAYERS
             .iter()
             .map(|layer_name| CString::new(*layer_name).unwrap())

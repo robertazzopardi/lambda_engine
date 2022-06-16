@@ -11,5 +11,10 @@ fn main() {
 
     let objects: Geometries = vec![cube.into()];
 
-    EngineBuilder::default().geometries(objects).build().run()
+    // DebugMessageProperties::new(
+    //     MessageLevel::builder().error().verbose().warning(),
+    //     MessageType::builder().performance().validation(),
+    // );
+
+    Engine::default().geometries(objects).build().run()
 }

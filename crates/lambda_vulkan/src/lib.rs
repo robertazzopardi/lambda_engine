@@ -3,25 +3,26 @@ extern crate ash;
 extern crate derive_new;
 extern crate derive_builder;
 
-pub mod buffer;
-pub mod command_buffer;
+mod buffer;
+mod command_buffer;
 pub mod debug;
-pub mod device;
-pub mod frame_buffer;
-pub mod graphics_pipeline;
-pub mod memory;
+mod device;
+mod frame_buffer;
+mod graphics_pipeline;
+mod memory;
 pub mod renderer;
-pub mod resource;
-pub mod swap_chain;
-pub mod sync_objects;
-pub mod texture;
-pub mod uniform_buffer;
-pub mod utility;
+mod resource;
+mod swap_chain;
+mod sync_objects;
+mod texture;
+mod uniform_buffer;
+mod utility;
 
+use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
 use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::{CommandPool, VkCommander};
-use debug::{Debug, DebugMessageProperties};
+use debug::{Debug, Debugger};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
@@ -36,43 +37,49 @@ use texture::Texture;
 use uniform_buffer::UniformBufferObject;
 use utility::{EntryInstance, InstanceDevices};
 
-use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
-
-pub type VkTop = vk::PrimitiveTopology;
-pub type VkCull = vk::CullModeFlags;
-pub type Fence = vk::Fence;
-
 pub mod prelude {
     pub use crate::{
-        debug::{Debug, DebugMessageProperties, MessageLevel, MessageType},
+        debug::{Debugger, MessageLevel, MessageType},
         CullMode, ModelTopology, Shader,
     };
 }
 
-pub type VulkanObjects = Vec<VulkanObject>;
+#[derive(Clone)]
+pub(crate) struct VulkanObjects(Vec<VulkanObject>);
 
 #[derive(Clone)]
 pub struct Vulkan {
-    pub commander: VkCommander,
-    pub render_pass: RenderPass,
-    pub resources: Resources,
-    pub surface: vk::SurfaceKHR,
-    pub surface_loader: Surface,
+    pub(crate) commander: VkCommander,
+    pub(crate) render_pass: RenderPass,
+    pub(crate) resources: Resources,
+    pub(crate) surface: vk::SurfaceKHR,
+    pub(crate) surface_loader: Surface,
     pub swap_chain: SwapChain,
-    pub sync_objects: SyncObjects,
+    pub(crate) sync_objects: SyncObjects,
     pub ubo: UniformBufferObject,
-    pub debugger: Option<Debug>,
-    pub frame_buffers: FrameBuffers,
+    pub(crate) debugger: Option<Debug>,
+    pub(crate) frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
-    pub objects: VulkanObjects,
+    pub(crate) objects: VulkanObjects,
 }
 
 impl Vulkan {
+    pub fn wait_device_idle(&self) {
+        unsafe {
+            self.instance_devices
+                .devices
+                .logical
+                .device
+                .device_wait_idle()
+                .expect("Failed to wait for device idle state");
+        }
+    }
+
     pub fn new(
         display: &Display,
         camera: &Camera,
         geom_properties: Vec<GeomProperties>,
-        debugging: Option<DebugMessageProperties>,
+        debugging: Option<Debugger>,
     ) -> Self {
         let entry_instance = EntryInstance::new(&display.window, debugging);
 
@@ -92,7 +99,10 @@ impl Vulkan {
 
         let devices = Devices::new(&entry_instance.instance, &surface, &surface_loader);
 
-        let instance_devices = InstanceDevices::new(entry_instance.instance, devices);
+        let instance_devices = InstanceDevices {
+            instance: entry_instance.instance,
+            devices,
+        };
 
         let swap_chain =
             SwapChain::new(&instance_devices, surface, &surface_loader, &display.window);
@@ -115,19 +125,21 @@ impl Vulkan {
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
-        let objects = geom_properties
-            .into_iter()
-            .map(|property| {
-                VulkanObject::new(
-                    &command_pool,
-                    swap_chain_len,
-                    &swap_chain,
-                    &render_pass,
-                    &instance_devices,
-                    property,
-                )
-            })
-            .collect::<Vec<VulkanObject>>();
+        let objects = VulkanObjects(
+            geom_properties
+                .into_iter()
+                .map(|property| {
+                    VulkanObject::new(
+                        &command_pool,
+                        swap_chain_len,
+                        &swap_chain,
+                        &render_pass,
+                        &instance_devices,
+                        property,
+                    )
+                })
+                .collect::<Vec<VulkanObject>>(),
+        );
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
@@ -135,7 +147,7 @@ impl Vulkan {
             &instance_devices,
             &render_pass,
             &frame_buffers,
-            &objects,
+            &objects.0,
         );
 
         let commander = VkCommander::new(command_buffers, command_pool);
@@ -164,7 +176,7 @@ impl Drop for Vulkan {
         swap_chain::cleanup_swap_chain(self);
 
         unsafe {
-            self.objects.iter().for_each(|object| {
+            self.objects.0.iter().for_each(|object| {
                 device::recreate_drop(
                     &object.graphics_pipeline,
                     &self.instance_devices.devices.logical.device,
@@ -222,7 +234,7 @@ impl Drop for Vulkan {
 }
 
 #[derive(Default, Debug, Clone, new)]
-pub struct RenderPass(pub vk::RenderPass);
+pub(crate) struct RenderPass(vk::RenderPass);
 
 #[derive(Debug, Clone, new)]
 pub struct GeomProperties<'a> {
@@ -235,12 +247,12 @@ pub struct GeomProperties<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct VulkanObject {
-    pub vertices_and_indices: VerticesAndIndices,
-    pub texture: Option<Texture>,
-    pub graphics_pipeline: GraphicsPipeline,
-    pub buffers: ModelBuffers,
-    pub indexed: bool,
+pub(crate) struct VulkanObject {
+    vertices_and_indices: VerticesAndIndices,
+    texture: Option<Texture>,
+    graphics_pipeline: GraphicsPipeline,
+    buffers: ModelBuffers,
+    indexed: bool,
     model: Matrix4<f32>,
 }
 
@@ -291,9 +303,9 @@ impl VulkanObject {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct WindowSize(pub vk::Extent2D);
+pub(crate) struct WindowSize(vk::Extent2D);
 
-pub fn create_surface(entry_instance: &EntryInstance) -> Surface {
+pub(crate) fn create_surface(entry_instance: &EntryInstance) -> Surface {
     Surface::new(&entry_instance.entry, &entry_instance.instance)
 }
 
@@ -312,20 +324,26 @@ pub enum ModelTopology {
     TriangleStripWithAdjacency,
 }
 
-impl From<ModelTopology> for VkTop {
+impl From<ModelTopology> for vk::PrimitiveTopology {
     fn from(model_topology: ModelTopology) -> Self {
         match model_topology {
-            ModelTopology::LineList => VkTop::LINE_LIST,
-            ModelTopology::LineListWithAdjacency => VkTop::LINE_LIST_WITH_ADJACENCY,
-            ModelTopology::LineStrip => VkTop::LINE_STRIP,
-            ModelTopology::LineStripWithAdjacency => VkTop::LINE_STRIP_WITH_ADJACENCY,
-            ModelTopology::PatchList => VkTop::PATCH_LIST,
-            ModelTopology::PointList => VkTop::POINT_LIST,
-            ModelTopology::TriangleFan => VkTop::TRIANGLE_FAN,
-            ModelTopology::TriangleList => VkTop::TRIANGLE_LIST,
-            ModelTopology::TriangleListWithAdjacency => VkTop::TRIANGLE_LIST_WITH_ADJACENCY,
-            ModelTopology::TriangleStrip => VkTop::TRIANGLE_STRIP,
-            ModelTopology::TriangleStripWithAdjacency => VkTop::TRIANGLE_STRIP_WITH_ADJACENCY,
+            ModelTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
+            ModelTopology::LineListWithAdjacency => vk::PrimitiveTopology::LINE_LIST_WITH_ADJACENCY,
+            ModelTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
+            ModelTopology::LineStripWithAdjacency => {
+                vk::PrimitiveTopology::LINE_STRIP_WITH_ADJACENCY
+            }
+            ModelTopology::PatchList => vk::PrimitiveTopology::PATCH_LIST,
+            ModelTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
+            ModelTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
+            ModelTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            ModelTopology::TriangleListWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_LIST_WITH_ADJACENCY
+            }
+            ModelTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+            ModelTopology::TriangleStripWithAdjacency => {
+                vk::PrimitiveTopology::TRIANGLE_STRIP_WITH_ADJACENCY
+            }
         }
     }
 }
@@ -344,13 +362,13 @@ pub enum CullMode {
     None,
 }
 
-impl From<CullMode> for VkCull {
+impl From<CullMode> for vk::CullModeFlags {
     fn from(model_cull_model: CullMode) -> Self {
         match model_cull_model {
-            CullMode::Back => VkCull::BACK,
-            CullMode::Front => VkCull::FRONT,
-            CullMode::FrontAndBack => VkCull::FRONT_AND_BACK,
-            CullMode::None => VkCull::NONE,
+            CullMode::Back => vk::CullModeFlags::BACK,
+            CullMode::Front => vk::CullModeFlags::FRONT,
+            CullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
+            CullMode::None => vk::CullModeFlags::NONE,
         }
     }
 }

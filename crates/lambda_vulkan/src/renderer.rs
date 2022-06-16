@@ -11,7 +11,7 @@ use lambda_camera::prelude::Camera;
 use std::ptr;
 use winit::window::Window;
 
-pub fn create_render_pass(
+pub(crate) fn create_render_pass(
     instance_devices: &InstanceDevices,
     swap_chain: &SwapChain,
 ) -> RenderPass {
@@ -102,11 +102,8 @@ pub fn create_render_pass(
             .expect("Failed to create render pass!")
     })
 }
-
-/// # Safety
-///
-/// This function can probably be optimized
-pub unsafe fn render(
+//
+pub fn render(
     vulkan: &mut Vulkan,
     window: &Window,
     camera: &mut Camera,
@@ -114,115 +111,117 @@ pub unsafe fn render(
     resized: &mut bool,
     dt: f32,
 ) {
-    vulkan
-        .instance_devices
-        .devices
-        .logical
-        .device
-        .wait_for_fences(&vulkan.sync_objects.in_flight_fences, true, std::u64::MAX)
-        .expect("Failed to wait for Fence!");
-
-    let (image_index, _is_sub_optimal) = {
-        let result = vulkan.swap_chain.loader.acquire_next_image(
-            vulkan.swap_chain.swap_chain,
-            std::u64::MAX,
-            vulkan.sync_objects.image_available_semaphores[*current_frame],
-            vk::Fence::null(),
-        );
-        match result {
-            Ok(image_index) => image_index,
-            Err(vk_result) => match vk_result {
-                vk::Result::ERROR_OUT_OF_DATE_KHR => {
-                    recreate_swap_chain(vulkan, window);
-                    return;
-                }
-                _ => panic!("Failed to acquire Swap Chain vk::Image!"),
-            },
-        }
-    };
-
-    update_uniform_buffers(vulkan, camera, image_index.try_into().unwrap(), dt);
-
-    if vulkan.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
+    unsafe {
         vulkan
             .instance_devices
             .devices
             .logical
             .device
-            .wait_for_fences(
-                &[vulkan.sync_objects.images_in_flight[image_index as usize]],
-                true,
+            .wait_for_fences(&vulkan.sync_objects.in_flight_fences, true, std::u64::MAX)
+            .expect("Failed to wait for Fence!");
+
+        let (image_index, _is_sub_optimal) = {
+            let result = vulkan.swap_chain.loader.acquire_next_image(
+                vulkan.swap_chain.swap_chain,
                 std::u64::MAX,
+                vulkan.sync_objects.image_available_semaphores[*current_frame],
+                vk::Fence::null(),
+            );
+            match result {
+                Ok(image_index) => image_index,
+                Err(vk_result) => match vk_result {
+                    vk::Result::ERROR_OUT_OF_DATE_KHR => {
+                        recreate_swap_chain(vulkan, window);
+                        return;
+                    }
+                    _ => panic!("Failed to acquire Swap Chain vk::Image!"),
+                },
+            }
+        };
+
+        update_uniform_buffers(vulkan, camera, image_index.try_into().unwrap(), dt);
+
+        if vulkan.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
+            vulkan
+                .instance_devices
+                .devices
+                .logical
+                .device
+                .wait_for_fences(
+                    &[vulkan.sync_objects.images_in_flight[image_index as usize]],
+                    true,
+                    std::u64::MAX,
+                )
+                .expect("Could not wait for images in flight");
+        }
+        vulkan.sync_objects.images_in_flight[image_index as usize] =
+            vulkan.sync_objects.in_flight_fences[*current_frame];
+
+        let wait_semaphores = &[vulkan.sync_objects.image_available_semaphores[*current_frame]];
+        let signal_semaphores = [vulkan.sync_objects.render_finished_semaphores[*current_frame]];
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+
+        let submit_infos = [vk::SubmitInfo {
+            s_type: vk::StructureType::SUBMIT_INFO,
+            p_next: ptr::null(),
+            wait_semaphore_count: wait_semaphores.len() as u32,
+            p_wait_semaphores: wait_semaphores.as_ptr(),
+            p_wait_dst_stage_mask: wait_stages.as_ptr(),
+            command_buffer_count: 1,
+            p_command_buffers: &vulkan.commander.buffers[image_index as usize],
+            signal_semaphore_count: signal_semaphores.len() as u32,
+            p_signal_semaphores: signal_semaphores.as_ptr(),
+        }];
+
+        vulkan
+            .instance_devices
+            .devices
+            .logical
+            .device
+            .reset_fences(&[vulkan.sync_objects.in_flight_fences[*current_frame]])
+            .expect("Failed to reset Fence!");
+
+        vulkan
+            .instance_devices
+            .devices
+            .logical
+            .device
+            .queue_submit(
+                vulkan.instance_devices.devices.logical.queues.present,
+                &submit_infos,
+                vulkan.sync_objects.in_flight_fences[*current_frame],
             )
-            .expect("Could not wait for images in flight");
-    }
-    vulkan.sync_objects.images_in_flight[image_index as usize] =
-        vulkan.sync_objects.in_flight_fences[*current_frame];
+            .expect("Failed to execute queue submit.");
 
-    let wait_semaphores = &[vulkan.sync_objects.image_available_semaphores[*current_frame]];
-    let signal_semaphores = [vulkan.sync_objects.render_finished_semaphores[*current_frame]];
-    let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let present_info = vk::PresentInfoKHR {
+            s_type: vk::StructureType::PRESENT_INFO_KHR,
+            p_next: ptr::null(),
+            wait_semaphore_count: 1,
+            p_wait_semaphores: signal_semaphores.as_ptr(),
+            swapchain_count: 1,
+            p_swapchains: &vulkan.swap_chain.swap_chain,
+            p_image_indices: &image_index,
+            p_results: ptr::null_mut(),
+        };
 
-    let submit_infos = [vk::SubmitInfo {
-        s_type: vk::StructureType::SUBMIT_INFO,
-        p_next: ptr::null(),
-        wait_semaphore_count: wait_semaphores.len() as u32,
-        p_wait_semaphores: wait_semaphores.as_ptr(),
-        p_wait_dst_stage_mask: wait_stages.as_ptr(),
-        command_buffer_count: 1,
-        p_command_buffers: &vulkan.commander.buffers[image_index as usize],
-        signal_semaphore_count: signal_semaphores.len() as u32,
-        p_signal_semaphores: signal_semaphores.as_ptr(),
-    }];
-
-    vulkan
-        .instance_devices
-        .devices
-        .logical
-        .device
-        .reset_fences(&[vulkan.sync_objects.in_flight_fences[*current_frame]])
-        .expect("Failed to reset Fence!");
-
-    vulkan
-        .instance_devices
-        .devices
-        .logical
-        .device
-        .queue_submit(
+        let result = vulkan.swap_chain.loader.queue_present(
             vulkan.instance_devices.devices.logical.queues.present,
-            &submit_infos,
-            vulkan.sync_objects.in_flight_fences[*current_frame],
-        )
-        .expect("Failed to execute queue submit.");
+            &present_info,
+        );
 
-    let present_info = vk::PresentInfoKHR {
-        s_type: vk::StructureType::PRESENT_INFO_KHR,
-        p_next: ptr::null(),
-        wait_semaphore_count: 1,
-        p_wait_semaphores: signal_semaphores.as_ptr(),
-        swapchain_count: 1,
-        p_swapchains: &vulkan.swap_chain.swap_chain,
-        p_image_indices: &image_index,
-        p_results: ptr::null_mut(),
-    };
+        let is_resized = match result {
+            Ok(_) => *resized,
+            Err(vk_result) => match vk_result {
+                vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
+                _ => panic!("Failed to execute queue present."),
+            },
+        };
 
-    let result = vulkan.swap_chain.loader.queue_present(
-        vulkan.instance_devices.devices.logical.queues.present,
-        &present_info,
-    );
+        if is_resized {
+            *resized = false;
+            recreate_swap_chain(vulkan, window);
+        }
 
-    let is_resized = match result {
-        Ok(_) => *resized,
-        Err(vk_result) => match vk_result {
-            vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
-            _ => panic!("Failed to execute queue present."),
-        },
-    };
-
-    if is_resized {
-        *resized = false;
-        recreate_swap_chain(vulkan, window);
+        *current_frame = (*current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
-
-    *current_frame = (*current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }

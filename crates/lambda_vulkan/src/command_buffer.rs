@@ -40,7 +40,7 @@ pub fn create_command_pool(
     })
 }
 
-pub fn create_command_buffers(
+pub(crate) fn create_command_buffers(
     command_pool: &CommandPool,
     swap_chain: &SwapChain,
     instance_devices: &InstanceDevices,
@@ -219,7 +219,7 @@ pub fn end_single_time_command(
 /// # Safety
 ///
 /// Expand on safety of this function
-pub unsafe fn bind_index_and_vertex_buffers(
+pub(crate) unsafe fn bind_index_and_vertex_buffers(
     object: &VulkanObject,
     device: &Device,
     command_buffer: vk::CommandBuffer,

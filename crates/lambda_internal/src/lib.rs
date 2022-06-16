@@ -10,10 +10,7 @@ pub use lambda_window;
 
 pub mod prelude {
     pub use crate::{
-        engine::{Engine, EngineBuilder},
-        lambda_camera::prelude::*,
-        lambda_geometry::prelude::*,
-        lambda_vulkan::prelude::*,
-        lambda_window::prelude::*,
+        engine::Engine, lambda_camera::prelude::*, lambda_geometry::prelude::*,
+        lambda_vulkan::prelude::*, lambda_window::prelude::*,
     };
 }

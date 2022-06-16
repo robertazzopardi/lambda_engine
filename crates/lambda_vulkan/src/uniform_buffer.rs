@@ -50,7 +50,7 @@ pub fn update_uniform_buffers(
 
     let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
 
-    vulkan.objects.iter().for_each(|object| {
+    vulkan.objects.0.iter().for_each(|object| {
         let uniform_buffer = UniformBuffer::new(object.model, vulkan.ubo.view, vulkan.ubo.proj);
 
         memory::map_memory(

@@ -3,15 +3,14 @@ use ash::{extensions::ext::DebugUtils, vk, Entry};
 use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 
-pub const VALIDATION_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
+pub(crate) const ENABLE_VALIDATION_LAYERS: bool = cfg!(debug_assertions);
+pub(crate) const VALIDATION_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
 
 #[derive(Clone)]
-pub struct Debug {
+pub(crate) struct Debug {
     pub messenger: vk::DebugUtilsMessengerEXT,
     pub utils: DebugUtils,
 }
-
-pub const ENABLE_VALIDATION_LAYERS: bool = cfg!(debug_assertions);
 
 pub(crate) fn check_validation_layer_support(entry: &Entry) -> bool {
     let mut layer_properties = entry
@@ -154,15 +153,13 @@ impl Default for MessageType {
 }
 
 #[derive(new, Debug, Default, Clone, Copy)]
-pub struct DebugMessageProperties {
+pub struct Debugger {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
 }
 
 #[inline]
-pub fn create_debug_messenger(
-    debugging: DebugMessageProperties,
-) -> vk::DebugUtilsMessengerCreateInfoEXT {
+pub(crate) fn create_debug_messenger(debugging: Debugger) -> vk::DebugUtilsMessengerCreateInfoEXT {
     vk::DebugUtilsMessengerCreateInfoEXT::builder()
         .message_severity(debugging.message_level.flags)
         .message_type(debugging.message_type.flags)
@@ -170,9 +167,9 @@ pub fn create_debug_messenger(
         .build()
 }
 
-pub fn debugger(
+pub(crate) fn debugger(
     EntryInstance { entry, instance }: &EntryInstance,
-    debug_properties: DebugMessageProperties,
+    debug_properties: Debugger,
 ) -> Debug {
     let create_info = create_debug_messenger(debug_properties);
 

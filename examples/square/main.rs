@@ -11,5 +11,5 @@ fn main() {
 
     let objects: Geometries = vec![square.into()];
 
-    EngineBuilder::default().geometries(objects).build().run()
+    Engine::default().geometries(objects).build().run()
 }

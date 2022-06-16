@@ -5,7 +5,7 @@ use derive_more::{Deref, From};
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct FrameBuffers(pub(crate) Vec<vk::Framebuffer>);
 
-pub fn create_frame_buffers(
+pub(crate) fn create_frame_buffers(
     swap_chain: &SwapChain,
     render_pass: &RenderPass,
     instance_devices: &InstanceDevices,

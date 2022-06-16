@@ -40,5 +40,5 @@ fn main() {
 
     let objects: Geometries = vec![sphere.into(), ring.into()];
 
-    EngineBuilder::default().geometries(objects).build().run()
+    Engine::default().geometries(objects).build().run()
 }

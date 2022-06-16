@@ -250,7 +250,7 @@ pub unsafe fn recreate_drop(graphics_pipeline: &GraphicsPipeline, device: &Devic
 /// # Safety
 ///
 ///
-pub unsafe fn destroy(object: &VulkanObject, device: &Device) {
+pub(crate) unsafe fn destroy(object: &VulkanObject, device: &Device) {
     if let Some(object_texture) = &object.texture {
         device.destroy_sampler(object_texture.sampler, None);
         device.destroy_image_view(object_texture.image_view, None);
