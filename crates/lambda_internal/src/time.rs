@@ -1,5 +1,5 @@
 use lambda_camera::camera::Camera;
-use lambda_vulkan::{uniform_buffer::UniformBufferObject, Vulkan, WindowSize};
+use lambda_vulkan::Vulkan;
 use std::time::{Duration, Instant};
 
 pub trait Fps {
@@ -20,10 +20,10 @@ impl Fps for f64 {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Time {
-    pub delta: Duration,
-    elapsed: Duration,
-    now: Instant,
     accumulator: Duration,
+    elapsed: Duration,
+    pub delta: Duration,
+    now: Instant,
 }
 
 impl Default for Time {
@@ -44,7 +44,7 @@ impl Time {
 
     pub fn tick(&mut self) {
         let new_time = std::time::Instant::now();
-        let frame_time = new_time - self.now; // from ns to s
+        let frame_time = new_time - self.now;
         self.now = new_time;
         self.accumulator += frame_time;
     }

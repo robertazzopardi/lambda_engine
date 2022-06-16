@@ -23,6 +23,12 @@ impl Resolution {
     }
 }
 
+impl Default for Resolution {
+    fn default() -> Self {
+        Self::ResHD
+    }
+}
+
 impl From<Resolution> for LogicalSize<u32> {
     fn from(res: Resolution) -> Self {
         match res {

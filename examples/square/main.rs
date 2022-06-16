@@ -11,5 +11,5 @@ fn main() {
 
     let objects: Geometries = vec![square.into()];
 
-    Engine::new(Resolution::ResHD, objects, None).run()
+    EngineBuilder::default().geometries(objects).build().run()
 }

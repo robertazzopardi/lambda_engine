@@ -20,5 +20,5 @@ fn main() {
 
     let objects: Geometries = vec![cube_model.into()];
 
-    Engine::new(Resolution::ResHD, objects, None).run()
+    EngineBuilder::default().geometries(objects).build().run()
 }
