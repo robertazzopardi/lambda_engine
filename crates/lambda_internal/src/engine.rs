@@ -1,7 +1,7 @@
 use crate::time::Time;
 use derive_builder::Builder;
 use lambda_camera::camera::Camera;
-use lambda_geometry::{GeomBehavior, Geometries};
+use lambda_geometry::{Behavior, GeomBuilder, Geometries};
 use lambda_vulkan::{debug::Debugger, renderer, Vulkan};
 use lambda_window::{
     prelude::Resolution,
@@ -50,6 +50,8 @@ impl EngineRunner {
                 &mut self.camera,
                 &mut mouse_pressed,
             );
+
+            self.geometries.iter_mut().for_each(|geom| geom.actions());
 
             self.time.step(&mut self.camera, backend);
 

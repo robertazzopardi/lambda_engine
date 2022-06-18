@@ -1,7 +1,7 @@
 use lambda_engine::prelude::*;
 
 fn main() {
-    let cube = Cube::new(
+    let box_cube = Cube::new(
         GeometryBuilder::default()
             .properties(CubeBuilder::default().radius(0.5).build())
             .cull_mode(CullMode::Back)
@@ -9,7 +9,7 @@ fn main() {
             .build(),
     );
 
-    let objects: Geometries = vec![cube.into()];
+    let objects: Geometries = vec![box_cube.into()];
 
     // DebugMessageProperties::new(
     //     MessageLevel::builder().error().verbose().warning(),

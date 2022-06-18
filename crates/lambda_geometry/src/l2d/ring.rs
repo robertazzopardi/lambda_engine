@@ -1,4 +1,4 @@
-use crate::{utility, GeomBehavior, Geometry, VerticesAndIndices};
+use crate::{utility, Behavior, GeomBuilder, Geometry, VerticesAndIndices};
 use derive_builder::Builder;
 use derive_more::{Deref, DerefMut};
 use lambda_space::space::{Coordinate3, Orientation};
@@ -31,7 +31,13 @@ impl RingBuilder {
 #[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Ring(Geometry<RingInfo>);
 
-impl GeomBehavior for Ring {
+impl Behavior for Ring {
+    fn actions(&mut self) {
+        todo!()
+    }
+}
+
+impl GeomBuilder for Ring {
     fn vertices_and_indices(&self) -> VerticesAndIndices {
         assert!(
             self.properties.inner_radius <= self.properties.outer_radius,

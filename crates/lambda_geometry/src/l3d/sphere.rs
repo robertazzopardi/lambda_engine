@@ -1,4 +1,6 @@
-use crate::{utility::spherical_indices, GeomBehavior, Geometry, VerticesAndIndices, WHITE};
+use crate::{
+    utility::spherical_indices, Behavior, GeomBuilder, Geometry, VerticesAndIndices, WHITE,
+};
 use derive_builder::Builder;
 use derive_more::{Deref, DerefMut};
 use lambda_space::{
@@ -35,7 +37,13 @@ impl SphereBuilder {
 #[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Sphere(Geometry<SphereInfo>);
 
-impl GeomBehavior for Sphere {
+impl Behavior for Sphere {
+    fn actions(&mut self) {
+        todo!()
+    }
+}
+
+impl GeomBuilder for Sphere {
     fn vertices_and_indices(&self) -> VerticesAndIndices {
         let length = 1. / self.properties.radius;
 

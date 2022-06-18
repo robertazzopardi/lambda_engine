@@ -1,7 +1,7 @@
 use crate::{
     l2d::square::square_from_vertices,
     utility::{self, calculate_indices},
-    GeomBehavior, Geometry, VerticesAndIndices,
+    Behavior, GeomBuilder, Geometry, VerticesAndIndices,
 };
 use derive_builder::Builder;
 use derive_more::{Deref, DerefMut};
@@ -69,7 +69,13 @@ impl CubeBuilder {
 #[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Cube(Geometry<CubeInfo>);
 
-impl GeomBehavior for Cube {
+impl Behavior for Cube {
+    fn actions(&mut self) {
+        println!("foo");
+    }
+}
+
+impl GeomBuilder for Cube {
     fn vertices_and_indices(&self) -> VerticesAndIndices {
         let mut vertices = square_from_vertices(&CUBE_VERTICES);
 

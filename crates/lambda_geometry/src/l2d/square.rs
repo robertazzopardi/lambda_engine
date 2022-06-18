@@ -1,4 +1,4 @@
-use crate::{vector2, GeomBehavior, Geometry, VerticesAndIndices, WHITE};
+use crate::{vector2, Behavior, GeomBuilder, Geometry, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
 use derive_more::{Deref, DerefMut};
 use lambda_space::{
@@ -34,7 +34,13 @@ impl SquareBuilder {
 #[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Square(Geometry<SquareInfo>);
 
-impl GeomBehavior for Square {
+impl Behavior for Square {
+    fn actions(&mut self) {
+        todo!()
+    }
+}
+
+impl GeomBuilder for Square {
     fn vertices_and_indices(&self) -> VerticesAndIndices {
         let mut vertices = square_from_vertices(&[
             [-0.5, -0.5, 0.5],

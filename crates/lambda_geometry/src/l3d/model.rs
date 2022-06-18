@@ -1,6 +1,6 @@
 use crate::{
     utility::{self, calculate_indices},
-    GeomBehavior, Geometry, VerticesAndIndices, WHITE,
+    Behavior, GeomBuilder, Geometry, VerticesAndIndices, WHITE,
 };
 use derive_builder::Builder;
 use derive_more::{Deref, DerefMut};
@@ -35,7 +35,13 @@ impl ModelBuilder {
 #[derive(new, Deref, DerefMut, Debug, Clone)]
 pub struct Model(Geometry<ModelInfo>);
 
-impl GeomBehavior for Model {
+impl Behavior for Model {
+    fn actions(&mut self) {
+        todo!()
+    }
+}
+
+impl GeomBuilder for Model {
     fn vertices_and_indices(&self) -> VerticesAndIndices {
         let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
 

@@ -27,7 +27,7 @@ pub mod prelude {
             model::{Model, ModelBuilder},
             sphere::{Sphere, SphereBuilder},
         },
-        Geometries, GeometryBuilder,
+        Behavior, Geometries, GeometryBuilder,
     };
 }
 
@@ -45,10 +45,22 @@ impl Default for Indexed {
     }
 }
 
-#[derive(Clone, Debug, Deref)]
+#[derive(Clone, Debug, Deref, Default)]
 pub struct TextureBuffer(Vec<u8>);
 
 #[enum_dispatch]
+pub trait GeomBuilder {
+    fn vertices_and_indices(&self) -> VerticesAndIndices;
+
+    fn features(&self) -> GeomProperties;
+}
+
+#[enum_dispatch]
+pub trait Behavior {
+    fn actions(&mut self);
+}
+
+#[enum_dispatch(GeomBuilder, Behavior)]
 #[derive(Debug, Clone)]
 pub enum Geom {
     Cube,
@@ -58,19 +70,12 @@ pub enum Geom {
     Model,
 }
 
-#[enum_dispatch(Geom)]
-pub trait GeomBehavior {
-    fn vertices_and_indices(&self) -> VerticesAndIndices;
-
-    fn features(&self) -> GeomProperties;
-}
-
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(build_fn(skip))]
 pub struct Geometry<T> {
     pub properties: T,
     #[builder(setter(custom))]
-    pub texture: Vec<u8>,
+    pub texture: TextureBuffer,
     #[builder(setter(custom))]
     pub indexed: Indexed,
     pub topology: ModelTopology,
@@ -87,7 +92,7 @@ impl<T> GeometryBuilder<T> {
             texture_file
                 .read_to_end(&mut data)
                 .expect("Failed to read contents of texture file");
-            self.texture = Some(data);
+            self.texture = Some(TextureBuffer(data));
         }
 
         self
