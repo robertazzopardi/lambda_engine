@@ -23,11 +23,11 @@ pub mod prelude {
             square::{Square, SquareBuilder},
         },
         l3d::{
-            cube::{Cube, CubeBuilder},
+            cube::{Cube, CubeBuilder, CubeInfo},
             model::{Model, ModelBuilder},
             sphere::{Sphere, SphereBuilder},
         },
-        Behavior, Geometries, GeometryBuilder,
+        Behavior, Geometries, GeometryBuilder, Indexed, TextureBuffer,
     };
 }
 
@@ -37,7 +37,7 @@ pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
 pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
 
 #[derive(Clone, Copy, Debug, Deref)]
-pub struct Indexed(bool);
+pub struct Indexed(pub bool);
 
 impl Default for Indexed {
     fn default() -> Self {
@@ -46,7 +46,7 @@ impl Default for Indexed {
 }
 
 #[derive(Clone, Debug, Deref, Default)]
-pub struct TextureBuffer(Vec<u8>);
+pub struct TextureBuffer(pub Vec<u8>);
 
 #[enum_dispatch]
 pub trait GeomBuilder {

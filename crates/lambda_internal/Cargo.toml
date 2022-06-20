@@ -7,7 +7,9 @@ include = ["src/**/*"]
 [dependencies]
 derive_builder = "0.11.2"
 winit = "0.26.1"
-lambda_geometry = { path = "../lambda_geometry" }
-lambda_vulkan = { path = "../lambda_vulkan" }
 lambda_camera = { path = "../lambda_camera" }
+lambda_geometry = { path = "../lambda_geometry" }
+lambda_proc_macro = { path = "../lambda_proc_macro" }
+lambda_space = { path = "../lambda_space" }
+lambda_vulkan = { path = "../lambda_vulkan" }
 lambda_window = { path = "../lambda_window" }

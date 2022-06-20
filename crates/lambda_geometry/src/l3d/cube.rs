@@ -70,9 +70,7 @@ impl CubeBuilder {
 pub struct Cube(Geometry<CubeInfo>);
 
 impl Behavior for Cube {
-    fn actions(&mut self) {
-        println!("foo");
-    }
+    fn actions(&mut self) {}
 }
 
 impl GeomBuilder for Cube {
