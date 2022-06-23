@@ -11,8 +11,3 @@ pub(crate) fn geometry_fields() -> proc_macro2::TokenStream {
     });
     struct_fields
 }
-
-pub(crate) fn primative_geometry_vertices() -> proc_macro2::TokenStream {
-    let mut function = proc_macro2::TokenStream::default();
-    function
-}

@@ -2,17 +2,62 @@ extern crate proc_macro;
 
 mod utility;
 
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
+use quote::ToTokens;
 
 #[proc_macro_attribute]
 pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
+    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
+
+    let mut actions: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut vertices_and_indices: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut features: Vec<proc_macro2::TokenStream> = Vec::new();
+
+    args.clone().into_iter().for_each(|arg| {
+        let cased = arg.to_token_stream().to_string().to_case(Case::Snake);
+
+        let cased_tokens = syn::Ident::new(&cased, proc_macro2::Span::call_site());
+
+        actions.push(quote::quote! { Self::#arg(#cased_tokens) => #cased_tokens.actions() });
+        vertices_and_indices.push(
+            quote::quote! { Self::#arg(#cased_tokens) => #cased_tokens.vertices_and_indices() },
+        );
+        features.push(quote::quote! { Self::#arg(#cased_tokens) => #cased_tokens.features() });
+    });
+
     let item_struct = syn::parse_macro_input!(input as syn::ItemStruct);
+
     let vis = item_struct.vis;
     let struct_name = item_struct.ident;
 
     quote::quote! {
+        #[lambda_internal::lambda_geometry::enum_dispatch(GeomBuilder, Behavior)]
+        #[derive(Debug, Clone)]
         #vis enum #struct_name {
+            #(#args ,)*
+        }
 
+        impl Behavior for Geom {
+            fn actions(&mut self) {
+                match self {
+                    #(#actions ,)*
+                }
+            }
+        }
+
+        impl GeomBuilder for Geom {
+            fn vertices_and_indices(&self) -> VerticesAndIndices {
+                match self {
+                    #(#vertices_and_indices ,)*
+                }
+            }
+
+            fn features(&self) -> lambda_engine::lambda_vulkan::GeomProperties {
+                match self {
+                    #(#features ,)*
+                }
+            }
         }
     }
     .into()
@@ -25,7 +70,7 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let item_struct = syn::parse_macro_input!(input as syn::ItemStruct);
 
-    dbg!(item_struct.clone());
+    // dbg!(item_struct.clone());
 
     let vis = item_struct.vis;
     let struct_name = item_struct.ident;
@@ -83,9 +128,13 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
                 self.indexed = Indexed(false);
                 self
             }
+
+            #vis fn build(&mut self) -> Self {
+                self.to_owned()
+            }
         }
 
-        impl lambda_internal::lambda_geometry::GeomBuilder for #struct_name {
+        impl GeomBuilder for #struct_name {
             fn features(&self) -> lambda_internal::lambda_vulkan::GeomProperties {
                 lambda_internal::lambda_vulkan::GeomProperties::new(
                     &self.texture,
@@ -98,7 +147,7 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             fn vertices_and_indices(&self) -> lambda_internal::lambda_space::space::VerticesAndIndices {
-                todo!()
+                self.properties.vertices_and_indices()
             }
         }
 

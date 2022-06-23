@@ -1,28 +1,25 @@
-use crate::{vector2, Behavior, GeomBuilder, Geometry, VerticesAndIndices, WHITE};
+use crate::{vector2, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
-use derive_more::{Deref, DerefMut};
 use lambda_space::{
     space::{Orientation, Vertex, Vertices},
     vertex,
 };
-use lambda_vulkan::GeomProperties;
 use nalgebra::{Point3, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
-#[builder(name = "SquareBuilder")]
-pub struct SquareInfo {
+pub struct Plane {
     pub position: Point3<f32>,
     pub orientation: Orientation,
     pub radius: f32,
     pub has_depth: bool,
 }
 
-impl SquareBuilder {
-    pub fn build(&mut self) -> SquareInfo {
-        SquareInfo {
+impl PlaneBuilder {
+    pub fn build(&mut self) -> Plane {
+        Plane {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
@@ -31,17 +28,8 @@ impl SquareBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
-pub struct Square(Geometry<SquareInfo>);
-
-impl Behavior for Square {
-    fn actions(&mut self) {
-        todo!()
-    }
-}
-
-impl GeomBuilder for Square {
-    fn vertices_and_indices(&self) -> VerticesAndIndices {
+impl Plane {
+    pub fn vertices_and_indices(&self) -> VerticesAndIndices {
         let mut vertices = square_from_vertices(&[
             [-0.5, -0.5, 0.5],
             [0.5, -0.5, 0.5],
@@ -50,21 +38,10 @@ impl GeomBuilder for Square {
         ]);
 
         vertices.iter_mut().for_each(|vert| {
-            vert.pos += self.properties.position.coords;
+            vert.pos += self.position.coords;
         });
 
         VerticesAndIndices::new(vertices, SQUARE_INDICES.to_vec().into())
-    }
-
-    fn features(&self) -> GeomProperties {
-        GeomProperties::new(
-            &self.texture,
-            self.vertices_and_indices(),
-            self.topology,
-            self.cull_mode,
-            self.shader,
-            *self.indexed,
-        )
     }
 }
 

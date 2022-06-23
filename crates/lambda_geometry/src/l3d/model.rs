@@ -1,20 +1,17 @@
 use crate::{
     utility::{self, calculate_indices},
-    Behavior, GeomBuilder, Geometry, VerticesAndIndices, WHITE,
+    VerticesAndIndices, WHITE,
 };
 use derive_builder::Builder;
-use derive_more::{Deref, DerefMut};
 use lambda_space::{
     space::{Coordinate3, Orientation, Vertices},
     vertex,
 };
-use lambda_vulkan::GeomProperties;
 use nalgebra::{Point3, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
-#[builder(name = "ModelBuilder")]
-pub struct ModelInfo {
+pub struct Model {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
@@ -22,8 +19,8 @@ pub struct ModelInfo {
 }
 
 impl ModelBuilder {
-    pub fn build(&mut self) -> ModelInfo {
-        ModelInfo {
+    pub fn build(&mut self) -> Model {
+        Model {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
@@ -32,18 +29,9 @@ impl ModelBuilder {
     }
 }
 
-#[derive(new, Deref, DerefMut, Debug, Clone)]
-pub struct Model(Geometry<ModelInfo>);
-
-impl Behavior for Model {
-    fn actions(&mut self) {
-        todo!()
-    }
-}
-
-impl GeomBuilder for Model {
-    fn vertices_and_indices(&self) -> VerticesAndIndices {
-        let mut vertices_and_indices = load_model_obj(self.properties.model_path.to_string());
+impl Model {
+    pub fn vertices_and_indices(&self) -> VerticesAndIndices {
+        let mut vertices_and_indices = load_model_obj(self.model_path.to_string());
 
         // vertices_and_indices.vertices.iter_mut().for_each(|vert| {
         //     vert.pos += self.properties.position.coords;
@@ -53,21 +41,10 @@ impl GeomBuilder for Model {
             .vertices
             .chunks_mut(4)
             .for_each(|face| {
-                utility::scale(face, self.properties.radius);
+                utility::scale(face, self.radius);
             });
 
         vertices_and_indices
-    }
-
-    fn features(&self) -> GeomProperties {
-        GeomProperties::new(
-            &self.texture,
-            self.vertices_and_indices(),
-            self.topology,
-            self.cull_mode,
-            self.shader,
-            *self.indexed,
-        )
     }
 }
 

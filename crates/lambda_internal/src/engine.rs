@@ -1,7 +1,11 @@
 use crate::time::Time;
 use derive_builder::Builder;
 use lambda_camera::camera::Camera;
-use lambda_geometry::{Behavior, GeomBuilder, Geometries};
+use lambda_geometry::{
+    Behavior,
+    GeomBuilder,
+    //  Geometries
+};
 use lambda_vulkan::{debug::Debugger, renderer, Vulkan};
 use lambda_window::{
     prelude::Resolution,
@@ -12,18 +16,19 @@ use winit::platform::run_return::EventLoopExtRunReturn;
 #[derive(Default, Builder)]
 #[builder(build_fn(skip))]
 #[builder(name = "Engine")]
-pub struct EngineRunner {
+pub struct EngineRunner<T: GeomBuilder + Behavior> {
     current_frame: usize,
     is_frame_buffer_resized: bool,
-    geometries: Geometries,
+    // geometries: Geometries,
+    geometries: Vec<T>,
     time: Time,
     resolution: Resolution,
     camera: Camera,
     debugging: Option<Debugger>,
 }
 
-impl Engine {
-    pub fn build(&mut self) -> EngineRunner {
+impl<T: GeomBuilder + Behavior> Engine<T> {
+    pub fn build(&mut self) -> EngineRunner<T> {
         EngineRunner {
             current_frame: self.current_frame.unwrap_or_default(),
             is_frame_buffer_resized: self.is_frame_buffer_resized.unwrap_or_default(),
@@ -34,9 +39,19 @@ impl Engine {
             debugging: self.debugging.unwrap_or_default(),
         }
     }
+
+    pub fn register(&mut self, geom: T) -> &mut Self {
+        if self.geometries.is_none() {
+            self.geometries = Some(Vec::new());
+        }
+        let mut geometries = self.geometries.take().unwrap();
+        geometries.push(geom);
+        self.geometries = Some(geometries);
+        self
+    }
 }
 
-impl EngineRunner {
+impl<T: GeomBuilder + Behavior> EngineRunner<T> {
     fn main_loop(&mut self, display: &mut Display, backend: &mut Vulkan) {
         let mut mouse_pressed = false;
 

@@ -1,2 +1,2 @@
 pub mod ring;
-pub mod square;
+pub mod plane;

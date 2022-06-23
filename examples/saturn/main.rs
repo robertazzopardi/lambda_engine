@@ -3,11 +3,28 @@ use lambda_engine::prelude::*;
 const SATURN_TEXTURE: &str = "./examples/assets/textures/2k_saturn.jpg";
 const RING_TEXTURE: &str = "./examples/assets/textures/2k_saturn_ring_alpha.png";
 
+#[geometry(Sphere)]
+struct SphereGeom;
+
+impl Behavior for SphereGeom {
+    fn actions(&mut self) {}
+}
+
+#[geometry(Ring)]
+struct RingGeom;
+
+impl Behavior for RingGeom {
+    fn actions(&mut self) {}
+}
+
+#[geometry_system(SphereGeom, RingGeom)]
+struct Geom;
+
 fn main() {
     let sections = 50;
 
-    let sphere = Sphere::new(
-        GeometryBuilder::default()
+    let sphere = Geom::SphereGeom(
+        SphereGeom::default()
             .properties(
                 SphereBuilder::default()
                     .radius(0.4)
@@ -21,8 +38,8 @@ fn main() {
             .build(),
     );
 
-    let ring = Ring::new(
-        GeometryBuilder::default()
+    let ring = Geom::RingGeom(
+        RingGeom::default()
             .properties(
                 RingBuilder::default()
                     .inner_radius(0.5)
@@ -38,7 +55,8 @@ fn main() {
             .build(),
     );
 
-    let objects: Geometries = vec![sphere.into(), ring.into()];
-
-    Engine::default().geometries(objects).build().run()
+    Engine::default()
+        .geometries(vec![sphere, ring])
+        .build()
+        .run()
 }

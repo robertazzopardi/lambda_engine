@@ -3,9 +3,19 @@ use lambda_engine::prelude::*;
 const VIKING_MODEL: &str = "./examples/assets/models/viking_room_model/viking_room.obj";
 const VIKING_MODEL_TEXTURE: &str = "./examples/assets/models/viking_room_model/viking_room.png";
 
+#[geometry(Model)]
+struct ModelGeom;
+
+impl Behavior for ModelGeom {
+    fn actions(&mut self) {}
+}
+
+#[geometry_system(ModelGeom)]
+struct Geom;
+
 fn main() {
-    let viking_model = Model::new(
-        GeometryBuilder::default()
+    let viking_model = Geom::ModelGeom(
+        ModelGeom::default()
             .properties(
                 ModelBuilder::default()
                     .radius(0.5)
@@ -18,7 +28,8 @@ fn main() {
             .build(),
     );
 
-    let objects: Geometries = vec![viking_model.into()];
-
-    Engine::default().geometries(objects).build().run()
+    Engine::default()
+        .geometries(vec![viking_model])
+        .build()
+        .run()
 }

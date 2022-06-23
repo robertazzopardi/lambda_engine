@@ -1,15 +1,23 @@
 use lambda_engine::prelude::*;
 
+#[geometry(Plane)]
+struct PlaneGeom;
+
+impl Behavior for PlaneGeom {
+    fn actions(&mut self) {}
+}
+
+#[geometry_system(PlaneGeom)]
+struct Geom;
+
 fn main() {
-    let square = Square::new(
-        GeometryBuilder::default()
-            .properties(SquareBuilder::default().radius(0.5).build())
+    let plane = Geom::PlaneGeom(
+        PlaneGeom::default()
+            .properties(PlaneBuilder::default().radius(0.5).build())
             .cull_mode(CullMode::None)
             .shader(Shader::Vertex)
             .build(),
     );
 
-    let objects: Geometries = vec![square.into()];
-
-    Engine::default().geometries(objects).build().run()
+    Engine::default().geometries(vec![plane]).build().run()
 }
