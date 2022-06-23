@@ -23,6 +23,7 @@ use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::{CommandPool, VkCommander};
 use debug::{Debug, Debugger};
+use derive_more::{Deref, DerefMut};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
@@ -40,7 +41,7 @@ use utility::{EntryInstance, InstanceDevices};
 pub mod prelude {
     pub use crate::{
         debug::{Debugger, MessageLevel, MessageType},
-        CullMode, ModelTopology, Shader,
+        CullMode, ModelTopology, Shader, TextureBuffer,
     };
 }
 
@@ -235,6 +236,9 @@ impl Drop for Vulkan {
 
 #[derive(Default, Debug, Clone, new)]
 pub(crate) struct RenderPass(vk::RenderPass);
+
+#[derive(Clone, Debug, Deref, DerefMut, Default)]
+pub struct TextureBuffer(pub Vec<u8>);
 
 #[derive(Debug, Clone, new)]
 pub struct GeomProperties<'a> {

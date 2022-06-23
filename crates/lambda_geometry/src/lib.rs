@@ -23,7 +23,7 @@ pub mod prelude {
             model::{Model, ModelBuilder},
             sphere::{Sphere, SphereBuilder},
         },
-        Behavior, GeomBuilder, Indexed, TextureBuffer,
+        Behavior, GeomBuilder, Indexed,
     };
 }
 
@@ -38,9 +38,6 @@ impl Default for Indexed {
         Self(true)
     }
 }
-
-#[derive(Clone, Debug, Deref, Default)]
-pub struct TextureBuffer(pub Vec<u8>);
 
 #[enum_dispatch]
 pub trait GeomBuilder {

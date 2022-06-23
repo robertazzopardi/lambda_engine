@@ -11,8 +11,3 @@ macro_rules! pos3d {
         nalgebra::Point3::new($a1, $a2, $a3)
     };
 }
-
-#[macro_export]
-macro_rules! geom_vec {
-    () => {};
-}

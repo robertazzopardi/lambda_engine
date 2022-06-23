@@ -10,9 +10,9 @@ use quote::ToTokens;
 pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = syn::parse_macro_input!(args as syn::AttributeArgs);
 
-    let mut actions: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut vertices_and_indices: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut features: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut actions = Vec::new();
+    let mut vertices_and_indices = Vec::new();
+    let mut features = Vec::new();
 
     args.clone().into_iter().for_each(|arg| {
         let cased = arg.to_token_stream().to_string().to_case(Case::Snake);
@@ -70,8 +70,6 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let item_struct = syn::parse_macro_input!(input as syn::ItemStruct);
 
-    // dbg!(item_struct.clone());
-
     let vis = item_struct.vis;
     let struct_name = item_struct.ident;
 
@@ -107,19 +105,25 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
 
             #vis fn texture(&mut self, path: &str) -> &mut Self {
                 use std::io::Read;
-                // use std::thread;
 
-                // thread::spawn(move || {
+                let path = path.to_owned();
+
+                let texture_handle = std::thread::spawn(move || {
                     let file = std::fs::File::open(path);
 
                     if let Ok(mut texture_file) = file {
                         let mut data = Vec::new();
                         texture_file
-                        .read_to_end(&mut data)
-                        .expect("Failed to read contents of texture file");
-                        self.texture = TextureBuffer(data);
+                            .read_to_end(&mut data)
+                            .expect("Failed to read contents of texture file");
+                        return Some(data);
                     }
-                // });
+                    None
+                });
+
+                if let Some(mut texture) = texture_handle.join().unwrap() {
+                    self.texture.append(&mut texture);
+                }
 
                 self
             }
@@ -135,7 +139,7 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         impl GeomBuilder for #struct_name {
-            fn features(&self) -> lambda_internal::lambda_vulkan::GeomProperties {
+            #vis fn features(&self) -> lambda_internal::lambda_vulkan::GeomProperties {
                 lambda_internal::lambda_vulkan::GeomProperties::new(
                     &self.texture,
                     self.vertices_and_indices(),
@@ -146,12 +150,10 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
                 )
             }
 
-            fn vertices_and_indices(&self) -> lambda_internal::lambda_space::space::VerticesAndIndices {
+            #vis fn vertices_and_indices(&self) -> lambda_internal::lambda_space::space::VerticesAndIndices {
                 self.properties.vertices_and_indices()
             }
         }
-
-        // impl lambda_internal::lambda_geometry::Behavior for #struct_name {}
     }
     .into()
 }
