@@ -4,7 +4,30 @@ use lambda_engine::prelude::*;
 struct BoxGeom;
 
 impl Behavior for BoxGeom {
-    fn actions(&mut self) {}
+    fn actions(&mut self) {
+        println!("hello");
+        // self.rotate()
+        self.translate()
+    }
+}
+
+impl Transformation for BoxGeom {
+    fn rotate_x(&mut self, amount: f32) {
+        let rot = scaled_axis_matrix_4(amount);
+        // object.model *= rot;
+    }
+
+    fn translate(&mut self) {
+        self.properties.position.z -= 0.1;
+    }
+
+    fn rotate_y(&mut self, amount: f32) {
+        todo!()
+    }
+
+    fn rotate_z(&mut self, amount: f32) {
+        todo!()
+    }
 }
 
 #[geometry_system(BoxGeom)]

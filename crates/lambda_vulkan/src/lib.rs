@@ -23,7 +23,7 @@ use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::{CommandPool, VkCommander};
 use debug::{Debug, Debugger};
-use derive_more::{Deref, DerefMut};
+use derive_more::{Deref, DerefMut, From};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
@@ -41,9 +41,12 @@ use utility::{EntryInstance, InstanceDevices};
 pub mod prelude {
     pub use crate::{
         debug::{Debugger, MessageLevel, MessageType},
-        CullMode, ModelTopology, Shader, TextureBuffer,
+        CullMode, ModelMatrix, ModelTopology, Shader, TextureBuffer,
     };
 }
+
+#[derive(Clone, Debug, Deref, DerefMut, Default, From)]
+pub struct ModelMatrix(Matrix4<f32>);
 
 #[derive(Clone)]
 pub(crate) struct VulkanObjects(Vec<VulkanObject>);
@@ -65,6 +68,7 @@ pub struct Vulkan {
 }
 
 impl Vulkan {
+    #[inline]
     pub fn wait_device_idle(&self) {
         unsafe {
             self.instance_devices
@@ -139,7 +143,7 @@ impl Vulkan {
                         property,
                     )
                 })
-                .collect::<Vec<VulkanObject>>(),
+                .collect(),
         );
 
         let command_buffers = command_buffer::create_command_buffers(
@@ -257,7 +261,7 @@ pub(crate) struct VulkanObject {
     graphics_pipeline: GraphicsPipeline,
     buffers: ModelBuffers,
     indexed: bool,
-    model: Matrix4<f32>,
+    model: ModelMatrix,
 }
 
 impl VulkanObject {
@@ -301,7 +305,7 @@ impl VulkanObject {
             graphics_pipeline,
             buffers,
             indexed: properties.indexed,
-            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()).into(),
         }
     }
 }

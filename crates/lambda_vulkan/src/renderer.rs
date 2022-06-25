@@ -102,7 +102,7 @@ pub(crate) fn create_render_pass(
             .expect("Failed to create render pass!")
     })
 }
-//
+
 pub fn render(
     vulkan: &mut Vulkan,
     window: &Window,

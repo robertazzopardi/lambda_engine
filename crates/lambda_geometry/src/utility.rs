@@ -1,10 +1,22 @@
 use super::WHITE;
 use lambda_space::space::{Coordinate3, Indices, Vertex, Vertices};
-use nalgebra::{Point3, Vector2, Vector3};
+use nalgebra::{Matrix4, Point3, Rotation3, Vector2, Vector3};
 use std::{
     collections::HashMap,
     ops::{Mul, Sub},
 };
+
+pub trait Transformation {
+    fn rotate_x(&mut self, amount: f32);
+    fn rotate_y(&mut self, amount: f32);
+    fn rotate_z(&mut self, amount: f32);
+    fn translate(&mut self);
+}
+
+#[inline]
+pub fn scaled_axis_matrix_4(amount: f32) -> Matrix4<f32> {
+    Matrix4::from_scaled_axis(Vector3::x() * amount)
+}
 
 pub(crate) fn scale(model: &mut [Vertex], radius: f32) {
     model.iter_mut().for_each(|face| {

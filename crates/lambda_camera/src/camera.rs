@@ -1,5 +1,5 @@
-use lambda_space::space;
-use nalgebra::{Matrix4, Vector3};
+use lambda_space::space::{self, Coordinate3};
+use nalgebra::{matrix, Matrix4, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
@@ -13,29 +13,17 @@ pub fn look_to_rh(eye: Vector3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Mat
     let s = f.cross(&up).normalize();
     let u = s.cross(&f);
 
-    Matrix4::new(
-        s.x,
-        s.y,
-        s.z,
-        -eye.dot(&s),
-        u.x,
-        u.y,
-        u.z,
-        -eye.dot(&u),
-        -f.x,
-        -f.y,
-        -f.z,
-        eye.dot(&f),
-        0.,
-        0.,
-        0.,
-        1.,
-    )
+    matrix![
+         s.x, s.y, s.z, -eye.dot(&s);
+         u.x, u.y, u.z, -eye.dot(&u);
+        -f.x, -f.y, -f.z, eye.dot(&f);
+          0., 0., 0., 1.
+    ]
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Camera {
-    pub pos: Vector3<f32>,
+    pub pos: Coordinate3,
     rotation: space::Rotation,
     orientation: space::Orientation,
     sensitivity: f32,
@@ -53,7 +41,7 @@ impl Default for Camera {
 impl Camera {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
-            pos: Vector3::new(x, y, z),
+            pos: Coordinate3::new(x, y, z),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
             sensitivity: 0.9,
@@ -67,7 +55,7 @@ impl Camera {
         let space::Orientation { yaw, pitch, .. } = self.orientation;
 
         look_to_rh(
-            self.pos,
+            *self.pos,
             Vector3::new(yaw.cos(), pitch.sin(), yaw.sin()),
             Vector3::y(),
         )
@@ -166,10 +154,10 @@ mod tests {
     fn test_camera_new() {
         let camera = Camera::new(0.91, 0.3, 0.7);
 
-        assert_eq!(camera.pos, Vector3::new(0.91, 0.3, 0.7));
+        assert_eq!(*camera.pos, Vector3::new(0.91, 0.3, 0.7));
 
         let expected_camera = Camera {
-            pos: Vector3::new(0.91, 0.3, 0.7),
+            pos: Coordinate3::new(0.91, 0.3, 0.7),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
             sensitivity: 0.9,

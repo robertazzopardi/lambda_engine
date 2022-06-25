@@ -7,7 +7,7 @@ pub(crate) fn geometry_fields() -> proc_macro2::TokenStream {
         pub indexed: lambda_internal::lambda_geometry::Indexed,
         pub topology: lambda_internal::lambda_vulkan::ModelTopology,
         pub cull_mode: lambda_internal::lambda_vulkan::CullMode,
-        pub shader: lambda_internal::lambda_vulkan::Shader
+        pub shader: lambda_internal::lambda_vulkan::Shader,
     });
     struct_fields
 }

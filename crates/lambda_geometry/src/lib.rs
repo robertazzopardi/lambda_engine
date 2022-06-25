@@ -14,15 +14,9 @@ use nalgebra::Vector3;
 pub mod prelude {
     pub use crate::{
         enum_dispatch,
-        l2d::{
-            plane::{Plane, PlaneBuilder},
-            ring::{Ring, RingBuilder},
-        },
-        l3d::{
-            cube::{Cube, CubeBuilder},
-            model::{Model, ModelBuilder},
-            sphere::{Sphere, SphereBuilder},
-        },
+        l2d::prelude::*,
+        l3d::prelude::*,
+        utility::{scaled_axis_matrix_4, Transformation},
         Behavior, GeomBuilder, Indexed,
     };
 }

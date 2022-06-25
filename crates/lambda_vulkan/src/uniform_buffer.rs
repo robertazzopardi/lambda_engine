@@ -1,11 +1,10 @@
 use crate::{memory, Vulkan};
 use ash::vk;
 use lambda_camera::camera::Camera;
-use nalgebra::{Matrix4, Perspective3};
+use nalgebra::{Matrix4, Perspective3, Vector3};
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct UniformBufferObject {
-    model: Option<Matrix4<f32>>,
     view: Matrix4<f32>,
     proj: Matrix4<f32>,
 }
@@ -20,7 +19,6 @@ pub struct UniformBuffer {
 impl UniformBufferObject {
     pub fn new(extent: &vk::Extent2D, camera: &Camera) -> Self {
         let mut mvp = Self {
-            model: None,
             view: Matrix4::identity(),
             proj: Matrix4::identity(),
         };
@@ -39,19 +37,22 @@ impl UniformBufferObject {
 }
 
 pub fn update_uniform_buffers(
-    vulkan: &Vulkan,
+    vulkan: &mut Vulkan,
     _camera: &mut Camera,
     current_image: usize,
     _dt: f32,
 ) {
-    // let axis_angle = Vector3::y() * 0.05;
-    // let rot = Rotation3::new(axis_angle);
-    // camera.pos = rot * camera.pos;
+    // let axis_angle = nalgebra::Vector3::y() * 0.05;
+    // let rot = nalgebra::Rotation3::new(axis_angle);
+    // *camera.pos = rot * *camera.pos;
 
     let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
 
-    vulkan.objects.0.iter().for_each(|object| {
-        let uniform_buffer = UniformBuffer::new(object.model, vulkan.ubo.view, vulkan.ubo.proj);
+    vulkan.objects.0.iter_mut().for_each(|object| {
+        // let rot = Matrix4::from_scaled_axis(&Vector3::y() * 0.01);
+        // *object.model *= rot;
+
+        let uniform_buffer = UniformBuffer::new(*object.model, vulkan.ubo.view, vulkan.ubo.proj);
 
         memory::map_memory(
             &vulkan.instance_devices.devices.logical.device,
@@ -64,7 +65,7 @@ pub fn update_uniform_buffers(
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::Vector3;
+    use lambda_space::space::Coordinate3;
 
     use super::*;
 
@@ -75,7 +76,6 @@ mod tests {
         let ubo = UniformBufferObject::new(&extent, &camera);
 
         let expected_ubo = UniformBufferObject {
-            model: None,
             view: Matrix4::new(
                 0., 0., 1., -7., 0., 1., 0., -6., -1., -0., -0., 5., 0., 0., 0., 1.,
             ),
@@ -94,11 +94,10 @@ mod tests {
         let mut camera = Camera::new(5., 6., 7.);
         let mut ubo = UniformBufferObject::new(&extent, &camera);
 
-        camera.pos = Vector3::new(-5., -1., 3.);
+        camera.pos = Coordinate3::new(-5., -1., 3.);
         ubo.update(&extent, &camera);
 
         let expected_ubo = UniformBufferObject {
-            model: None,
             view: Matrix4::new(
                 0., 0., 1., -3., 0., 1., 0., 1., -1., -0., -0., -5., 0., 0., 0., 1.,
             ),

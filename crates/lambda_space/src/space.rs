@@ -11,11 +11,11 @@ impl Coordinate2 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
-pub struct Coordinate3(pub(crate) Point3<f32>);
+pub struct Coordinate3(pub(crate) Vector3<f32>);
 
 impl Coordinate3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self(Point3::new(x, y, z))
+        Self(Vector3::new(x, y, z))
     }
 }
 
