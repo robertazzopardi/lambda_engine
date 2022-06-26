@@ -19,7 +19,7 @@ fn main() {
             .properties(
                 ModelBuilder::default()
                     .radius(0.5)
-                    .model_path(VIKING_MODEL.to_owned())
+                    .model_path(VIKING_MODEL)
                     .build(),
             )
             .texture(VIKING_MODEL_TEXTURE)

@@ -23,14 +23,15 @@ use ash::{extensions::khr::Surface, vk};
 use buffer::ModelBuffers;
 use command_buffer::{CommandPool, VkCommander};
 use debug::{Debug, Debugger};
-use derive_more::{Deref, DerefMut, From};
+use derive_more::{Deref, DerefMut};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
 use lambda_camera::prelude::Camera;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
-use nalgebra::{Matrix4, Vector3};
+use nalgebra::Matrix4;
+use renderer::RenderPass;
 use resource::Resources;
 use swap_chain::SwapChain;
 use sync_objects::SyncObjects;
@@ -41,17 +42,12 @@ use utility::{EntryInstance, InstanceDevices};
 pub mod prelude {
     pub use crate::{
         debug::{Debugger, MessageLevel, MessageType},
-        CullMode, ModelMatrix, ModelTopology, Shader, TextureBuffer,
+        CullMode, ModelTopology, Shader, TextureBuffer,
     };
 }
 
-#[derive(Clone, Debug, Deref, DerefMut, Default, From)]
-pub struct ModelMatrix(Matrix4<f32>);
-
-#[derive(Clone)]
 pub(crate) struct VulkanObjects(Vec<VulkanObject>);
 
-#[derive(Clone)]
 pub struct Vulkan {
     pub(crate) commander: VkCommander,
     pub(crate) render_pass: RenderPass,
@@ -83,7 +79,7 @@ impl Vulkan {
     pub fn new(
         display: &Display,
         camera: &Camera,
-        geom_properties: Vec<GeomProperties>,
+        geom_properties: &[GeomProperties],
         debugging: Option<Debugger>,
     ) -> Self {
         let entry_instance = EntryInstance::new(&display.window, debugging);
@@ -132,7 +128,7 @@ impl Vulkan {
 
         let objects = VulkanObjects(
             geom_properties
-                .into_iter()
+                .iter()
                 .map(|property| {
                     VulkanObject::new(
                         &command_pool,
@@ -238,13 +234,10 @@ impl Drop for Vulkan {
     }
 }
 
-#[derive(Default, Debug, Clone, new)]
-pub(crate) struct RenderPass(vk::RenderPass);
-
 #[derive(Clone, Debug, Deref, DerefMut, Default)]
 pub struct TextureBuffer(pub Vec<u8>);
 
-#[derive(Debug, Clone, new)]
+#[derive(Debug, new)]
 pub struct GeomProperties<'a> {
     texture_buffer: &'a [u8],
     vertices_and_indices: VerticesAndIndices,
@@ -252,16 +245,17 @@ pub struct GeomProperties<'a> {
     cull_mode: CullMode,
     shader: Shader,
     indexed: bool,
+    model: Matrix4<f32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct VulkanObject {
     vertices_and_indices: VerticesAndIndices,
     texture: Option<Texture>,
     graphics_pipeline: GraphicsPipeline,
     buffers: ModelBuffers,
     indexed: bool,
-    model: ModelMatrix,
+    model: Matrix4<f32>,
 }
 
 impl VulkanObject {
@@ -271,7 +265,7 @@ impl VulkanObject {
         swap_chain: &SwapChain,
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
-        properties: GeomProperties,
+        properties: &GeomProperties,
     ) -> Self {
         let mut texture = None;
         if !properties.texture_buffer.is_empty() {
@@ -300,12 +294,13 @@ impl VulkanObject {
         );
 
         Self {
-            vertices_and_indices: properties.vertices_and_indices,
+            vertices_and_indices: properties.vertices_and_indices.clone(),
             texture,
             graphics_pipeline,
             buffers,
             indexed: properties.indexed,
-            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()).into(),
+            // model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()).into(),
+            model: properties.model,
         }
     }
 }

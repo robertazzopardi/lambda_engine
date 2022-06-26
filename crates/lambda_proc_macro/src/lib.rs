@@ -147,6 +147,7 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
                     self.cull_mode,
                     self.shader,
                     *self.indexed,
+                    self.properties.model
                 )
             }
 

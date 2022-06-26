@@ -5,20 +5,19 @@ struct BoxGeom;
 
 impl Behavior for BoxGeom {
     fn actions(&mut self) {
-        println!("hello");
-        // self.rotate()
-        self.translate()
+        // println!("hello");
+        self.rotate_x(1.1);
+        // self.translate()
     }
 }
 
 impl Transformation for BoxGeom {
     fn rotate_x(&mut self, amount: f32) {
         let rot = scaled_axis_matrix_4(amount);
-        // object.model *= rot;
-    }
+        // dbg!(rot);
+        self.properties.model *= rot;
 
-    fn translate(&mut self) {
-        self.properties.position.z -= 0.1;
+        println!("outer {:?}", self.properties.model);
     }
 
     fn rotate_y(&mut self, amount: f32) {
@@ -27,6 +26,10 @@ impl Transformation for BoxGeom {
 
     fn rotate_z(&mut self, amount: f32) {
         todo!()
+    }
+
+    fn translate(&mut self) {
+        // self.properties.position.z -= 0.1;
     }
 }
 

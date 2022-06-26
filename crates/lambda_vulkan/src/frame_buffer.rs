@@ -1,4 +1,6 @@
-use crate::{resource::Resources, swap_chain::SwapChain, utility::InstanceDevices, RenderPass};
+use crate::{
+    renderer::RenderPass, resource::Resources, swap_chain::SwapChain, utility::InstanceDevices,
+};
 use ash::vk;
 use derive_more::{Deref, From};
 

@@ -7,7 +7,7 @@ use lambda_space::{
     space::{Coordinate3, Orientation, Vertices},
     vertex,
 };
-use nalgebra::{Point3, Vector2, Vector3};
+use nalgebra::{Matrix4, Point3, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
@@ -15,7 +15,8 @@ pub struct Model {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
-    model_path: String,
+    model_path: &'static str,
+    pub model: Matrix4<f32>,
 }
 
 impl ModelBuilder {
@@ -25,6 +26,7 @@ impl ModelBuilder {
             orientation: self.orientation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
             model_path: self.model_path.take().expect("Field `model_path` expected"),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
     }
 }

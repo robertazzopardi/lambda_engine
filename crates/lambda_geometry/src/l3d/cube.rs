@@ -5,6 +5,7 @@ use crate::{
 };
 use derive_builder::Builder;
 use lambda_space::space::{Coordinate3, Orientation};
+use nalgebra::{Matrix4, Vector3};
 
 pub const CUBE_VERTICES: [[f32; 3]; 36] = [
     [1.0, 1.0, -1.0],
@@ -45,12 +46,13 @@ pub const CUBE_VERTICES: [[f32; 3]; 36] = [
     [1.0, -1.0, -1.0],
 ];
 
-#[derive(Builder, Default, Debug, Clone, Copy)]
+#[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Cube {
     pub position: Coordinate3,
     pub orientation: Orientation,
     pub radius: f32,
+    pub model: Matrix4<f32>,
 }
 
 impl CubeBuilder {
@@ -59,6 +61,7 @@ impl CubeBuilder {
             position: self.position.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` Expected"),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
     }
 }

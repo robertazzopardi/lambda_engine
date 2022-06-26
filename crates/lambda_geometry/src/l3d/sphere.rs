@@ -4,10 +4,10 @@ use lambda_space::{
     space::{Coordinate3, Orientation, Vertices},
     vertex,
 };
-use nalgebra::{Point3, Vector2};
+use nalgebra::{Matrix4, Point3, Vector2, Vector3};
 use std::ops::Mul;
 
-#[derive(Builder, Default, Debug, Clone, Copy)]
+#[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Sphere {
     pub position: Coordinate3,
@@ -15,6 +15,7 @@ pub struct Sphere {
     pub radius: f32,
     pub sector_count: u32,
     pub stack_count: u32,
+    pub model: Matrix4<f32>,
 }
 
 impl SphereBuilder {
@@ -25,6 +26,7 @@ impl SphereBuilder {
             radius: self.radius.expect("Field `Radius` expected"),
             sector_count: self.sector_count.unwrap_or_default(),
             stack_count: self.stack_count.unwrap_or_default(),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
     }
 }

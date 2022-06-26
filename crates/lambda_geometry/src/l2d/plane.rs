@@ -4,7 +4,7 @@ use lambda_space::{
     space::{Orientation, Vertex, Vertices},
     vertex,
 };
-use nalgebra::{Point3, Vector3};
+use nalgebra::{Matrix4, Point3, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
@@ -15,6 +15,7 @@ pub struct Plane {
     pub orientation: Orientation,
     pub radius: f32,
     pub has_depth: bool,
+    pub model: Matrix4<f32>,
 }
 
 impl PlaneBuilder {
@@ -24,6 +25,7 @@ impl PlaneBuilder {
             orientation: self.orientation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
             has_depth: self.has_depth.unwrap_or_default(),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
     }
 }

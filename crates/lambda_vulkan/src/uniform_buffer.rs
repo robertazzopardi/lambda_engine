@@ -1,9 +1,9 @@
-use crate::{memory, Vulkan};
-use ash::vk;
+use crate::{memory, VulkanObjects};
+use ash::{vk, Device};
 use lambda_camera::camera::Camera;
-use nalgebra::{Matrix4, Perspective3, Vector3};
+use nalgebra::{Matrix4, Perspective3};
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default)]
 pub struct UniformBufferObject {
     view: Matrix4<f32>,
     proj: Matrix4<f32>,
@@ -36,8 +36,10 @@ impl UniformBufferObject {
     }
 }
 
-pub fn update_uniform_buffers(
-    vulkan: &mut Vulkan,
+pub(crate) fn update_uniform_buffers(
+    device: &Device,
+    objects: &mut VulkanObjects,
+    ubo: &UniformBufferObject,
     _camera: &mut Camera,
     current_image: usize,
     _dt: f32,
@@ -48,14 +50,16 @@ pub fn update_uniform_buffers(
 
     let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
 
-    vulkan.objects.0.iter_mut().for_each(|object| {
-        // let rot = Matrix4::from_scaled_axis(&Vector3::y() * 0.01);
-        // *object.model *= rot;
+    objects.0.iter_mut().for_each(|object| {
+        // let rot = nalgebra::Matrix4::from_scaled_axis(&nalgebra::Vector3::y() * 0.01);
+        // object.model *= rot;
 
-        let uniform_buffer = UniformBuffer::new(*object.model, vulkan.ubo.view, vulkan.ubo.proj);
+        println!("inner {:?}", object.model);
+
+        let uniform_buffer = UniformBuffer::new(object.model, ubo.view, ubo.proj);
 
         memory::map_memory(
-            &vulkan.instance_devices.devices.logical.device,
+            device,
             object.graphics_pipeline.descriptors.uniform_buffers[current_image].memory,
             buffer_size,
             &[uniform_buffer],

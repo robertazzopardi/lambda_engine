@@ -1,6 +1,6 @@
 use super::WHITE;
 use lambda_space::space::{Coordinate3, Indices, Vertex, Vertices};
-use nalgebra::{Matrix4, Point3, Rotation3, Vector2, Vector3};
+use nalgebra::{Matrix4, Point3, Vector2, Vector3};
 use std::{
     collections::HashMap,
     ops::{Mul, Sub},

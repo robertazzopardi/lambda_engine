@@ -19,7 +19,7 @@ fn main() {
             .properties(
                 ModelBuilder::default()
                     .radius(0.3)
-                    .model_path(CUBE_MODEL.to_owned())
+                    .model_path(CUBE_MODEL)
                     .build(),
             )
             .texture(SATURN_TEXTURE)

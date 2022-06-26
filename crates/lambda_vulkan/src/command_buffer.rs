@@ -1,6 +1,6 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, swap_chain::SwapChain, utility::InstanceDevices,
-    RenderPass, VulkanObject,
+    device, frame_buffer::FrameBuffers, renderer::RenderPass, swap_chain::SwapChain,
+    utility::InstanceDevices, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
@@ -46,7 +46,7 @@ pub(crate) fn create_command_buffers(
     instance_devices: &InstanceDevices,
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
-    models: &[VulkanObject],
+    objects: &[VulkanObject],
 ) -> CommandBuffers {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(**command_pool)
@@ -130,7 +130,7 @@ pub(crate) fn create_command_buffers(
                 std::slice::from_ref(&scissor),
             );
 
-            models.iter().for_each(|model| {
+            objects.iter().for_each(|model| {
                 bind_index_and_vertex_buffers(model, device, command_buffers[i], &offsets, i)
             });
 

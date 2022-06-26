@@ -4,12 +4,15 @@ use crate::{
     sync_objects::MAX_FRAMES_IN_FLIGHT,
     uniform_buffer::update_uniform_buffers,
     utility::InstanceDevices,
-    RenderPass, Vulkan,
+    Vulkan,
 };
 use ash::vk;
 use lambda_camera::prelude::Camera;
 use std::ptr;
 use winit::window::Window;
+
+#[derive(Default, Debug, Clone, new)]
+pub(crate) struct RenderPass(pub vk::RenderPass);
 
 pub(crate) fn create_render_pass(
     instance_devices: &InstanceDevices,
@@ -111,12 +114,10 @@ pub fn render(
     resized: &mut bool,
     dt: f32,
 ) {
+    let device = &mut vulkan.instance_devices.devices.logical.device;
+
     unsafe {
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
+        device
             .wait_for_fences(&vulkan.sync_objects.in_flight_fences, true, std::u64::MAX)
             .expect("Failed to wait for Fence!");
 
@@ -139,14 +140,17 @@ pub fn render(
             }
         };
 
-        update_uniform_buffers(vulkan, camera, image_index.try_into().unwrap(), dt);
+        update_uniform_buffers(
+            device,
+            &mut vulkan.objects,
+            &vulkan.ubo,
+            camera,
+            image_index.try_into().unwrap(),
+            dt,
+        );
 
         if vulkan.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
-            vulkan
-                .instance_devices
-                .devices
-                .logical
-                .device
+            device
                 .wait_for_fences(
                     &[vulkan.sync_objects.images_in_flight[image_index as usize]],
                     true,
@@ -173,19 +177,11 @@ pub fn render(
             p_signal_semaphores: signal_semaphores.as_ptr(),
         }];
 
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
+        device
             .reset_fences(&[vulkan.sync_objects.in_flight_fences[*current_frame]])
             .expect("Failed to reset Fence!");
 
-        vulkan
-            .instance_devices
-            .devices
-            .logical
-            .device
+        device
             .queue_submit(
                 vulkan.instance_devices.devices.logical.queues.present,
                 &submit_infos,

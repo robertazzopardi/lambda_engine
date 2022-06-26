@@ -1,7 +1,7 @@
 use crate::{utility, VerticesAndIndices};
 use derive_builder::Builder;
 use lambda_space::space::{Coordinate3, Orientation};
-use nalgebra::Vector2;
+use nalgebra::{Matrix4, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
@@ -11,6 +11,7 @@ pub struct Ring {
     pub inner_radius: f32,
     pub outer_radius: f32,
     pub sector_count: u32,
+    pub model: Matrix4<f32>,
 }
 
 impl RingBuilder {
@@ -21,6 +22,7 @@ impl RingBuilder {
             inner_radius: self.inner_radius.unwrap_or_default(),
             outer_radius: self.outer_radius.unwrap_or_default(),
             sector_count: self.sector_count.unwrap_or_default(),
+            model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
     }
 }

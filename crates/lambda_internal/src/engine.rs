@@ -1,12 +1,8 @@
 use crate::time::Time;
 use derive_builder::Builder;
 use lambda_camera::camera::Camera;
-use lambda_geometry::{
-    Behavior,
-    GeomBuilder,
-    //  Geometries
-};
-use lambda_vulkan::{debug::Debugger, renderer, Vulkan};
+use lambda_geometry::{Behavior, GeomBuilder};
+use lambda_vulkan::{debug::Debugger, renderer, GeomProperties, Vulkan};
 use lambda_window::{
     prelude::Resolution,
     window::{self, Display},
@@ -19,7 +15,6 @@ use winit::platform::run_return::EventLoopExtRunReturn;
 pub struct EngineRunner<T: GeomBuilder + Behavior> {
     current_frame: usize,
     is_frame_buffer_resized: bool,
-    // geometries: Geometries,
     geometries: Vec<T>,
     time: Time,
     resolution: Resolution,
@@ -66,7 +61,7 @@ impl<T: GeomBuilder + Behavior> EngineRunner<T> {
                 &mut mouse_pressed,
             );
 
-            self.geometries.iter_mut().for_each(|geom| geom.actions());
+            self.geometries.iter_mut().for_each(Behavior::actions);
 
             self.time.step(&mut self.camera, backend);
 
@@ -86,11 +81,11 @@ impl<T: GeomBuilder + Behavior> EngineRunner<T> {
 
         let geom_properties = self
             .geometries
-            .iter()
+            .iter_mut()
             .map(|model| model.features())
-            .collect();
+            .collect::<Vec<GeomProperties>>();
 
-        let mut backend = Vulkan::new(&display, &self.camera, geom_properties, self.debugging);
+        let mut backend = Vulkan::new(&display, &self.camera, &geom_properties, self.debugging);
 
         self.main_loop(&mut display, &mut backend);
 
