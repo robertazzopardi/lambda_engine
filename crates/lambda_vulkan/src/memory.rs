@@ -30,7 +30,11 @@ pub fn map_memory<T: Copy>(
         let data = device
             .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
             .expect("Failed to map memory");
-        let mut vert_align = Align::new(data, std::mem::align_of::<T>() as u64, device_size);
+        let mut vert_align = Align::new(
+            data,
+            std::mem::align_of::<T>().try_into().unwrap(),
+            device_size,
+        );
         vert_align.copy_from_slice(to_map);
         device.unmap_memory(device_memory);
     }

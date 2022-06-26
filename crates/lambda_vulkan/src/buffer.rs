@@ -49,7 +49,7 @@ impl ModelBuffers {
 }
 
 pub(crate) fn create_vertex_index_buffer<T: Copy>(
-    buffer_size: u64,
+    buffer_size: vk::DeviceSize,
     data: &[T],
     usage_flags: vk::BufferUsageFlags,
     command_pool: &vk::CommandPool,
@@ -95,7 +95,7 @@ fn copy_buffer(
     devices: &Devices,
     command_pool: &vk::CommandPool,
     _command_buffer_count: u32,
-    size: u64,
+    size: vk::DeviceSize,
     src_buffer: vk::Buffer,
     dst_buffer: vk::Buffer,
 ) {

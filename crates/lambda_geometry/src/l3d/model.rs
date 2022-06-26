@@ -4,7 +4,7 @@ use crate::{
 };
 use derive_builder::Builder;
 use lambda_space::{
-    space::{Coordinate3, Orientation, Vertices},
+    space::{Orientation, Pos3, Vertices},
     vertex,
 };
 use nalgebra::{Matrix4, Point3, Vector2, Vector3};
@@ -12,7 +12,7 @@ use nalgebra::{Matrix4, Point3, Vector2, Vector3};
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Model {
-    pub position: Coordinate3,
+    pub position: Pos3,
     pub orientation: Orientation,
     pub radius: f32,
     model_path: &'static str,

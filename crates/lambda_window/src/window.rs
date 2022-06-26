@@ -1,4 +1,4 @@
-use lambda_camera::camera::Camera;
+use lambda_camera::prelude::CameraInternal;
 use winit::{
     dpi::LogicalSize,
     event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
@@ -88,7 +88,7 @@ pub fn handle_inputs(
     control_flow: &mut ControlFlow,
     event: Event<()>,
     window: &Window,
-    camera: &mut Camera,
+    camera: &mut CameraInternal,
     mouse_pressed: &mut bool,
 ) {
     *control_flow = ControlFlow::Poll;

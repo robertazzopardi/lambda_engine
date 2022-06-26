@@ -681,6 +681,7 @@ dependencies = [
 name = "lambda_camera"
 version = "0.1.0"
 dependencies = [
+ "derive_builder",
  "lambda_space",
  "nalgebra",
  "winit",

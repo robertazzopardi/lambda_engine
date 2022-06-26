@@ -1,4 +1,5 @@
-use lambda_space::space::{self, Coordinate3};
+use derive_builder::Builder;
+use lambda_space::space::{self, Pos3};
 use nalgebra::{matrix, Matrix4, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
@@ -21,41 +22,61 @@ pub fn look_to_rh(eye: Vector3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Mat
     ]
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct Camera {
-    pub pos: Coordinate3,
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sensitivity(f32);
+
+impl Default for Sensitivity {
+    fn default() -> Self {
+        Self(1.)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CameraSpeed(f32);
+
+impl Default for CameraSpeed {
+    fn default() -> Self {
+        Self(0.5)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct MouseScroll(f32);
+
+#[derive(PartialEq, Debug, Clone, Copy, Builder, Default)]
+#[builder(build_fn(skip))]
+#[builder(name = "Camera")]
+pub struct CameraInternal {
+    #[builder(default = "self.default_pos()")]
+    pub pos: Pos3,
     rotation: space::Rotation,
     orientation: space::Orientation,
-    sensitivity: f32,
-    speed: f32,
-    scroll: f32,
+    sensitivity: Sensitivity,
+    speed: CameraSpeed,
+    scroll: MouseScroll,
     direction: space::LookDirection,
 }
 
-impl Default for Camera {
-    fn default() -> Self {
-        Self::new(-2., 1., 0.)
+impl Camera {
+    pub fn build(&mut self) -> CameraInternal {
+        CameraInternal {
+            pos: self.pos.unwrap_or_else(|| Pos3::new(-2., 1., 0.)),
+            rotation: self.rotation.unwrap_or_default(),
+            orientation: self.orientation.unwrap_or_default(),
+            sensitivity: self.sensitivity.unwrap_or_default(),
+            speed: self.speed.unwrap_or_default(),
+            scroll: self.scroll.unwrap_or_default(),
+            direction: self.direction.unwrap_or_default(),
+        }
     }
 }
 
-impl Camera {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self {
-            pos: Coordinate3::new(x, y, z),
-            rotation: space::Rotation::default(),
-            orientation: space::Orientation::default(),
-            sensitivity: 0.9,
-            speed: 0.5,
-            scroll: 0.0,
-            direction: space::LookDirection::default(),
-        }
-    }
-
+impl CameraInternal {
     pub fn calc_matrix(&self) -> Matrix4<f32> {
         let space::Orientation { yaw, pitch, .. } = self.orientation;
 
         look_to_rh(
-            *self.pos,
+            self.pos.0,
             Vector3::new(yaw.cos(), pitch.sin(), yaw.sin()),
             Vector3::y(),
         )
@@ -97,11 +118,17 @@ impl Camera {
     }
 
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
-        self.scroll = -match delta {
-            // I'm assuming a line is about 100 pixels
-            MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
-            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
-        };
+        // TODO improve
+        self.scroll = MouseScroll(
+            -match delta {
+                // I'm assuming a line is about 100 pixels
+                MouseScrollDelta::LineDelta(_, scroll) => MouseScroll(scroll * 100.),
+                MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                    MouseScroll(*scroll as f32)
+                }
+            }
+            .0,
+        );
     }
 
     pub fn rotate(&mut self, dt: f32) {
@@ -118,20 +145,20 @@ impl Camera {
         let (yaw_sin, yaw_cos) = self.orientation.yaw.sin_cos();
         let forward_dir = Vector3::new(yaw_cos, 0.0, yaw_sin);
         let right_dir = Vector3::new(-yaw_sin, 0.0, yaw_cos);
-        self.pos += forward_dir * (forward - backward) * self.speed * dt;
-        self.pos += right_dir * (right - left) * self.speed * dt;
+        self.pos.0 += forward_dir * (forward - backward) * self.speed.0 * dt;
+        self.pos.0 += right_dir * (right - left) * self.speed.0 * dt;
 
         // Zoom
         let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
         let scroll_dir = Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin);
-        self.pos += scroll_dir * self.scroll * self.speed * self.sensitivity * dt;
-        self.scroll = 0.0;
+        self.pos.0 += scroll_dir * self.scroll.0 * self.speed.0 * self.sensitivity.0 * dt;
+        self.scroll = MouseScroll::default();
 
-        self.pos.y += (up - down) * self.speed * dt;
+        self.pos.0.y += (up - down) * self.speed.0 * dt;
 
         // Rotation
-        self.orientation.yaw += space::Angle(self.rotation.horizontal * self.sensitivity * dt);
-        self.orientation.pitch += space::Angle(-self.rotation.vertical * self.sensitivity * dt);
+        self.orientation.yaw += space::Angle(self.rotation.horizontal * self.sensitivity.0 * dt);
+        self.orientation.pitch += space::Angle(-self.rotation.vertical * self.sensitivity.0 * dt);
 
         self.rotation.horizontal = 0.0;
         self.rotation.vertical = 0.0;
@@ -152,17 +179,17 @@ mod tests {
 
     #[test]
     fn test_camera_new() {
-        let camera = Camera::new(0.91, 0.3, 0.7);
+        let camera = Camera::default().pos(Pos3::new(0.91, 0.3, 0.7)).build();
 
         assert_eq!(*camera.pos, Vector3::new(0.91, 0.3, 0.7));
 
-        let expected_camera = Camera {
-            pos: Coordinate3::new(0.91, 0.3, 0.7),
+        let expected_camera = CameraInternal {
+            pos: Pos3::new(0.91, 0.3, 0.7),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
-            sensitivity: 0.9,
-            speed: 0.5,
-            scroll: 0.0,
+            sensitivity: Sensitivity(0.9),
+            speed: CameraSpeed(0.5),
+            scroll: MouseScroll(0.),
             direction: space::LookDirection::default(),
         };
 
@@ -171,21 +198,20 @@ mod tests {
 
     #[test]
     fn test_camera_calc_matrix() {
-        let camera = Camera::new(5., 5., 5.);
+        let camera = Camera::default().pos(Pos3::new(5., 5., 5.)).build();
 
         let matrix = camera.calc_matrix();
 
-        let expected_matrix = Matrix4::new(
-            0.0, 0.0, -1.0, 0.0, 0.0, 1.0, -0.0, 0.0, 1.0, 0.0, -0.0, 0.0, -5.0, -5.0, 5.0, 1.0,
-        )
-        .transpose();
+        let expected_matrix =
+            matrix![0., 0., -1., 0., 0., 1., -0., 0., 1., 0., -0., 0., -5., -5., 5., 1.]
+                .transpose();
 
         assert_eq!(expected_matrix, matrix)
     }
 
     #[test]
     fn test_camera_process_keyboard() {
-        let mut camera = Camera::new(0., 0., 0.);
+        let mut camera = Camera::default().pos(Pos3::new(0., 0., 0.)).build();
 
         camera.process_keyboard(VirtualKeyCode::W, ElementState::Pressed);
         assert_eq!(camera.direction.forward, 1.);
@@ -236,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_camera_process_mouse() {
-        let mut camera = Camera::new(0., 0., 0.);
+        let mut camera = Camera::default().pos(Pos3::new(0., 0., 0.)).build();
 
         camera.process_mouse(-65., 32.);
 
@@ -246,15 +272,15 @@ mod tests {
 
     #[test]
     fn test_camera_process_scroll() {
-        let mut camera = Camera::new(0., 0., 0.);
+        let mut camera = Camera::default().pos(Pos3::new(0., 0., 0.)).build();
 
         camera.process_scroll(&MouseScrollDelta::LineDelta(1.2, 4.5));
-        assert_eq!(camera.scroll, -4.5 * 100.);
+        assert_eq!(camera.scroll.0, -4.5 * 100.);
         camera.process_scroll(&MouseScrollDelta::PixelDelta(PhysicalPosition {
             y: 30.,
             ..Default::default()
         }));
-        assert_eq!(camera.scroll, -30.);
+        assert_eq!(camera.scroll.0, -30.);
     }
 
     // #[test]

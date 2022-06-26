@@ -1,7 +1,7 @@
 use crate::{utility::spherical_indices, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
 use lambda_space::{
-    space::{Coordinate3, Orientation, Vertices},
+    space::{Orientation, Pos3, Vertices},
     vertex,
 };
 use nalgebra::{Matrix4, Point3, Vector2, Vector3};
@@ -10,7 +10,7 @@ use std::ops::Mul;
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Sphere {
-    pub position: Coordinate3,
+    pub position: Pos3,
     pub orientation: Orientation,
     pub radius: f32,
     pub sector_count: u32,

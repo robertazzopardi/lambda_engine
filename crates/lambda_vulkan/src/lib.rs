@@ -1,7 +1,5 @@
-extern crate ash;
 #[macro_use]
 extern crate derive_new;
-extern crate derive_builder;
 
 mod buffer;
 mod command_buffer;
@@ -27,7 +25,7 @@ use derive_more::{Deref, DerefMut};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
-use lambda_camera::prelude::Camera;
+use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
 use nalgebra::Matrix4;
@@ -78,7 +76,7 @@ impl Vulkan {
 
     pub fn new(
         display: &Display,
-        camera: &Camera,
+        camera: &CameraInternal,
         geom_properties: &[GeomProperties],
         debugging: Option<Debugger>,
     ) -> Self {

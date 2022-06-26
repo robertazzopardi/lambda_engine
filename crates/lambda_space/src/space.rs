@@ -1,43 +1,53 @@
 use derive_more::{AddAssign, Deref, DerefMut, From, Neg};
-use nalgebra::{Point2, Point3, Vector2, Vector3};
+use nalgebra::{vector, Point3, Vector2, Vector3};
+
+pub trait Pos {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
-pub struct Coordinate2(pub(crate) Point2<f32>);
+pub struct Coordinate2(pub(crate) Vector2<f32>);
 
 impl Coordinate2 {
     pub fn new(x: f32, y: f32) -> Self {
-        Self(Point2::new(x, y))
+        Self(vector![x, y])
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From)]
-pub struct Coordinate3(pub(crate) Vector3<f32>);
+#[derive(Clone, Copy, Debug, PartialEq, Deref, DerefMut, From, Default)]
+pub struct Pos3(pub Vector3<f32>);
 
-impl Coordinate3 {
+impl Pos3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self(Vector3::new(x, y, z))
+        Self(vector![x, y, z])
     }
 
     pub fn x() -> Self {
         Self(Vector3::x())
     }
 
+    pub fn from_x(x: f32) -> Self {
+        Self(vector![x, 0., 0.])
+    }
+
     pub fn y() -> Self {
         Self(Vector3::y())
+    }
+
+    pub fn from_y(y: f32) -> Self {
+        Self(vector![0., y, 0.])
     }
 
     pub fn z() -> Self {
         Self(Vector3::z())
     }
-}
 
-impl Default for Coordinate3 {
-    fn default() -> Self {
-        Self::new(0., 0., 0.)
+    pub fn from_z(z: f32) -> Self {
+        Self(vector![0., 0., z])
     }
 }
 
-impl std::ops::AddAssign<Vector3<f32>> for Coordinate3 {
+impl Pos for Pos3 {}
+
+impl std::ops::AddAssign<Vector3<f32>> for Pos3 {
     fn add_assign(&mut self, rhs: Vector3<f32>) {
         self.0 += rhs
     }

@@ -1,12 +1,12 @@
 use crate::{utility, VerticesAndIndices};
 use derive_builder::Builder;
-use lambda_space::space::{Coordinate3, Orientation};
+use lambda_space::space::{Orientation, Pos3};
 use nalgebra::{Matrix4, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Ring {
-    pub position: Coordinate3,
+    pub position: Pos3,
     pub orientation: Orientation,
     pub inner_radius: f32,
     pub outer_radius: f32,

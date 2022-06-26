@@ -1,6 +1,6 @@
 use crate::{memory, VulkanObjects};
 use ash::{vk, Device};
-use lambda_camera::camera::Camera;
+use lambda_camera::prelude::CameraInternal;
 use nalgebra::{Matrix4, Perspective3};
 
 #[derive(Debug, PartialEq, Default)]
@@ -17,7 +17,7 @@ pub struct UniformBuffer {
 }
 
 impl UniformBufferObject {
-    pub fn new(extent: &vk::Extent2D, camera: &Camera) -> Self {
+    pub fn new(extent: &vk::Extent2D, camera: &CameraInternal) -> Self {
         let mut mvp = Self {
             view: Matrix4::identity(),
             proj: Matrix4::identity(),
@@ -26,7 +26,7 @@ impl UniformBufferObject {
         mvp
     }
 
-    pub fn update(&mut self, extent: &vk::Extent2D, camera: &Camera) {
+    pub fn update(&mut self, extent: &vk::Extent2D, camera: &CameraInternal) {
         self.view = camera.calc_matrix();
 
         let aspect = extent.width as f32 / extent.height as f32;
@@ -40,7 +40,7 @@ pub(crate) fn update_uniform_buffers(
     device: &Device,
     objects: &mut VulkanObjects,
     ubo: &UniformBufferObject,
-    _camera: &mut Camera,
+    _camera: &mut CameraInternal,
     current_image: usize,
     _dt: f32,
 ) {
@@ -48,7 +48,9 @@ pub(crate) fn update_uniform_buffers(
     // let rot = nalgebra::Rotation3::new(axis_angle);
     // *camera.pos = rot * *camera.pos;
 
-    let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
+    let buffer_size = std::mem::size_of::<UniformBufferObject>()
+        .try_into()
+        .unwrap();
 
     objects.0.iter_mut().for_each(|object| {
         let uniform_buffer = UniformBuffer::new(object.model, ubo.view, ubo.proj);
@@ -64,14 +66,14 @@ pub(crate) fn update_uniform_buffers(
 
 #[cfg(test)]
 mod tests {
-    use lambda_space::space::Coordinate3;
-
     use super::*;
+    use lambda_camera::camera::Camera;
+    use lambda_space::space::Pos3;
 
     #[test]
     fn test_new_uniform_buffer_object() {
         let extent = vk::Extent2D::builder().height(1920).width(1080);
-        let camera = Camera::new(5., 6., 7.);
+        let camera = Camera::default().pos(Pos3::new(5., 6., 7.)).build();
         let ubo = UniformBufferObject::new(&extent, &camera);
 
         let expected_ubo = UniformBufferObject {
@@ -90,10 +92,10 @@ mod tests {
     #[test]
     fn test_ubo_update() {
         let extent = vk::Extent2D::builder().height(1920).width(1080);
-        let mut camera = Camera::new(5., 6., 7.);
+        let mut camera = Camera::default().pos(Pos3::new(5., 6., 7.)).build();
         let mut ubo = UniformBufferObject::new(&extent, &camera);
 
-        camera.pos = Coordinate3::new(-5., -1., 3.);
+        camera.pos = Pos3::new(-5., -1., 3.);
         ubo.update(&extent, &camera);
 
         let expected_ubo = UniformBufferObject {

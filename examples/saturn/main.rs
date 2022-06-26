@@ -57,6 +57,7 @@ fn main() {
 
     Engine::default()
         .geometries(vec![sphere, ring])
+        .camera(Camera::default().build())
         .build()
         .run()
 }

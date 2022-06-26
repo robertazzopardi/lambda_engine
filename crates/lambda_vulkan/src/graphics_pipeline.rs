@@ -204,7 +204,7 @@ fn create_uniform_buffers(
 
     for _i in 0..swap_chain_image_count {
         let buffer = texture::create_buffer(
-            mem::size_of::<UniformBufferObject>() as u64,
+            mem::size_of::<UniformBufferObject>().try_into().unwrap(),
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             instance_devices,
@@ -479,7 +479,7 @@ fn create_descriptor_sets(
             let buffer_info = vk::DescriptorBufferInfo::builder()
                 .buffer(uniform_buffers[i].buffer)
                 .offset(0)
-                .range(mem::size_of::<UniformBufferObject>() as u64);
+                .range(mem::size_of::<UniformBufferObject>().try_into().unwrap());
 
             let mut descriptor_writes: SmallVec<[vk::WriteDescriptorSet; 2]> =
                 smallvec![vk::WriteDescriptorSet {

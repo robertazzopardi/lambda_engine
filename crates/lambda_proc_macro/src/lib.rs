@@ -158,19 +158,27 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
 
         impl Transformation for #struct_name {
             fn rotate_x(&mut self, angle: f32) {
-                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Coordinate3::x(), angle);
+                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Pos3::x(), angle);
             }
 
             fn rotate_y(&mut self, angle: f32) {
-                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Coordinate3::y(), angle);
+                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Pos3::y(), angle);
             }
 
             fn rotate_z(&mut self, angle: f32) {
-                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Coordinate3::z(), angle);
+                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Pos3::z(), angle);
             }
 
-            fn translate(&mut self) {
-                // self.properties.position.z -= 0.1;
+            fn translate_x(&mut self, distance: f32) {
+                self.properties.model *= lambda_internal::lambda_geometry::utility::translate(lambda_internal::lambda_space::space::Pos3::from_x(distance));
+            }
+
+            fn translate_y(&mut self, distance: f32) {
+                self.properties.model *= lambda_internal::lambda_geometry::utility::translate(lambda_internal::lambda_space::space::Pos3::from_y(distance));
+            }
+
+            fn translate_z(&mut self, distance: f32) {
+                self.properties.model *= lambda_internal::lambda_geometry::utility::translate(lambda_internal::lambda_space::space::Pos3::from_z(distance));
             }
         }
     }

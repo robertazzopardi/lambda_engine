@@ -1,5 +1,3 @@
-extern crate derive_builder;
-
 pub mod l2d;
 pub mod l3d;
 pub mod macros;

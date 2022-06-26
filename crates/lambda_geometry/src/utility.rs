@@ -1,5 +1,5 @@
 use super::WHITE;
-use lambda_space::space::{Coordinate3, Indices, Vertex, Vertices};
+use lambda_space::space::{Indices, Pos3, Vertex, Vertices};
 use nalgebra::{Matrix4, Point3, Vector2, Vector3};
 use std::{
     collections::HashMap,
@@ -7,15 +7,22 @@ use std::{
 };
 
 pub trait Transformation {
-    fn rotate_x(&mut self, amount: f32);
-    fn rotate_y(&mut self, amount: f32);
-    fn rotate_z(&mut self, amount: f32);
-    fn translate(&mut self);
+    fn rotate_x(&mut self, angle: f32);
+    fn rotate_y(&mut self, angle: f32);
+    fn rotate_z(&mut self, angle: f32);
+    fn translate_x(&mut self, distance: f32);
+    fn translate_y(&mut self, distance: f32);
+    fn translate_z(&mut self, distance: f32);
 }
 
 #[inline]
-pub fn scaled_axis_matrix_4(axis: Coordinate3, angle: f32) -> Matrix4<f32> {
+pub fn scaled_axis_matrix_4(axis: Pos3, angle: f32) -> Matrix4<f32> {
     Matrix4::from_scaled_axis(*axis * angle)
+}
+
+#[inline]
+pub fn translate(distance: Pos3) -> Matrix4<f32> {
+    Matrix4::new_translation(&distance)
 }
 
 pub(crate) fn scale(model: &mut [Vertex], radius: f32) {
@@ -44,7 +51,7 @@ pub(crate) fn make_point(
     step: f32,
     length: f32,
     tex_coord: Vector2<f32>,
-    pos: &Coordinate3,
+    pos: &Pos3,
 ) -> Vertex {
     let x = (angle.to_radians().cos() * radius) + pos.x;
     let y = (angle.to_radians().sin() * radius) + pos.y;

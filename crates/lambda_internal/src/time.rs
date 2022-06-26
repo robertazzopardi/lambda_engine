@@ -1,4 +1,4 @@
-use lambda_camera::camera::Camera;
+use lambda_camera::camera::CameraInternal;
 use lambda_vulkan::Vulkan;
 use std::time::{Duration, Instant};
 
@@ -49,7 +49,7 @@ impl Time {
         self.accumulator += frame_time;
     }
 
-    pub fn step(&mut self, camera: &mut Camera, backend: &mut Vulkan) {
+    pub fn step(&mut self, camera: &mut CameraInternal, backend: &mut Vulkan) {
         while self.accumulator >= self.delta {
             camera.rotate(self.delta.as_secs_f32());
             backend.ubo.update(&backend.swap_chain.extent, camera);

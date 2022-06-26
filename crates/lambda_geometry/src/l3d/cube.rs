@@ -4,7 +4,7 @@ use crate::{
     VerticesAndIndices,
 };
 use derive_builder::Builder;
-use lambda_space::space::{Coordinate3, Orientation};
+use lambda_space::space::{Orientation, Pos3};
 use nalgebra::{Matrix4, Vector3};
 
 pub const CUBE_VERTICES: [[f32; 3]; 36] = [
@@ -49,7 +49,7 @@ pub const CUBE_VERTICES: [[f32; 3]; 36] = [
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Cube {
-    pub position: Coordinate3,
+    pub position: Pos3,
     pub orientation: Orientation,
     pub radius: f32,
     pub model: Matrix4<f32>,

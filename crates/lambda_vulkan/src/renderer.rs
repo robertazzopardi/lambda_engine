@@ -7,7 +7,7 @@ use crate::{
     Vulkan,
 };
 use ash::vk;
-use lambda_camera::prelude::Camera;
+use lambda_camera::prelude::CameraInternal;
 use std::ptr;
 use winit::window::Window;
 
@@ -109,7 +109,7 @@ pub(crate) fn create_render_pass(
 pub fn render(
     vulkan: &mut Vulkan,
     window: &Window,
-    camera: &mut Camera,
+    camera: &mut CameraInternal,
     current_frame: &mut usize,
     resized: &mut bool,
     dt: f32,
@@ -118,13 +118,17 @@ pub fn render(
 
     unsafe {
         device
-            .wait_for_fences(&vulkan.sync_objects.in_flight_fences, true, std::u64::MAX)
+            .wait_for_fences(
+                &vulkan.sync_objects.in_flight_fences,
+                true,
+                vk::DeviceSize::MAX,
+            )
             .expect("Failed to wait for Fence!");
 
         let (image_index, _is_sub_optimal) = {
             let result = vulkan.swap_chain.loader.acquire_next_image(
                 vulkan.swap_chain.swap_chain,
-                std::u64::MAX,
+                vk::DeviceSize::MAX,
                 vulkan.sync_objects.image_available_semaphores[*current_frame],
                 vk::Fence::null(),
             );
@@ -154,7 +158,7 @@ pub fn render(
                 .wait_for_fences(
                     &[vulkan.sync_objects.images_in_flight[image_index as usize]],
                     true,
-                    std::u64::MAX,
+                    vk::DeviceSize::MAX,
                 )
                 .expect("Could not wait for images in flight");
         }

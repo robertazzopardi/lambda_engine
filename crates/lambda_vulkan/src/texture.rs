@@ -148,7 +148,7 @@ fn create_texture_image(
 }
 
 pub(crate) fn create_buffer(
-    size: u64,
+    size: vk::DeviceSize,
     usage: vk::BufferUsageFlags,
     properties: vk::MemoryPropertyFlags,
     instance_devices: &InstanceDevices,

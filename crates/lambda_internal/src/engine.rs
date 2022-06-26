@@ -1,6 +1,6 @@
 use crate::time::Time;
 use derive_builder::Builder;
-use lambda_camera::camera::Camera;
+use lambda_camera::prelude::{Camera, CameraInternal};
 use lambda_geometry::{Behavior, GeomBuilder};
 use lambda_vulkan::{debug::Debugger, renderer, GeomProperties, Vulkan};
 use lambda_window::{
@@ -18,7 +18,7 @@ pub struct EngineRunner<T: GeomBuilder + Behavior> {
     geometries: Vec<T>,
     time: Time,
     resolution: Resolution,
-    camera: Camera,
+    camera: CameraInternal,
     debugging: Option<Debugger>,
 }
 
@@ -30,7 +30,7 @@ impl<T: GeomBuilder + Behavior> Engine<T> {
             geometries: self.geometries.take().unwrap_or_default(),
             time: self.time.unwrap_or_default(),
             resolution: self.resolution.unwrap_or_default(),
-            camera: self.camera.unwrap_or_default(),
+            camera: self.camera.unwrap_or_else(|| Camera::default().build()),
             debugging: self.debugging.unwrap_or_default(),
         }
     }
