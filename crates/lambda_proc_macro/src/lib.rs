@@ -155,6 +155,28 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
                 self.properties.vertices_and_indices()
             }
         }
+
+        impl Transformation for #struct_name {
+            fn rotate_x(&mut self, amount: f32) {
+                let rot = scaled_axis_matrix_4(amount);
+                // dbg!(rot);
+                self.properties.model *= rot;
+
+                println!("outer {:?}", self.properties.model);
+            }
+
+            fn rotate_y(&mut self, amount: f32) {
+                todo!()
+            }
+
+            fn rotate_z(&mut self, amount: f32) {
+                todo!()
+            }
+
+            fn translate(&mut self) {
+                // self.properties.position.z -= 0.1;
+            }
+        }
     }
     .into()
 }
