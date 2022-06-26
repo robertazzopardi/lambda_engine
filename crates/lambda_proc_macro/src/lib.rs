@@ -157,20 +157,16 @@ pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         impl Transformation for #struct_name {
-            fn rotate_x(&mut self, amount: f32) {
-                let rot = scaled_axis_matrix_4(amount);
-                // dbg!(rot);
-                self.properties.model *= rot;
-
-                println!("outer {:?}", self.properties.model);
+            fn rotate_x(&mut self, angle: f32) {
+                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Coordinate3::x(), angle);
             }
 
-            fn rotate_y(&mut self, amount: f32) {
-                todo!()
+            fn rotate_y(&mut self, angle: f32) {
+                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Coordinate3::y(), angle);
             }
 
-            fn rotate_z(&mut self, amount: f32) {
-                todo!()
+            fn rotate_z(&mut self, angle: f32) {
+                self.properties.model *= lambda_internal::lambda_geometry::utility::scaled_axis_matrix_4(lambda_internal::lambda_space::space::Coordinate3::z(), angle);
             }
 
             fn translate(&mut self) {

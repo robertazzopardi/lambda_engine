@@ -17,6 +17,18 @@ impl Coordinate3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self(Vector3::new(x, y, z))
     }
+
+    pub fn x() -> Self {
+        Self(Vector3::x())
+    }
+
+    pub fn y() -> Self {
+        Self(Vector3::y())
+    }
+
+    pub fn z() -> Self {
+        Self(Vector3::z())
+    }
 }
 
 impl Default for Coordinate3 {

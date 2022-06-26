@@ -14,8 +14,8 @@ pub trait Transformation {
 }
 
 #[inline]
-pub fn scaled_axis_matrix_4(amount: f32) -> Matrix4<f32> {
-    Matrix4::from_scaled_axis(Vector3::x() * amount)
+pub fn scaled_axis_matrix_4(axis: Coordinate3, angle: f32) -> Matrix4<f32> {
+    Matrix4::from_scaled_axis(*axis * angle)
 }
 
 pub(crate) fn scale(model: &mut [Vertex], radius: f32) {

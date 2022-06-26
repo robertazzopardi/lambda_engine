@@ -170,6 +170,16 @@ impl Vulkan {
             objects,
         }
     }
+
+    pub fn update_objects(&mut self, properties: &[GeomProperties]) {
+        self.objects
+            .0
+            .iter_mut()
+            .zip(properties)
+            .for_each(|(object, properties)| {
+                object.model = properties.model;
+            });
+    }
 }
 
 impl Drop for Vulkan {

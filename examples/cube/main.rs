@@ -1,12 +1,10 @@
 use lambda_engine::prelude::*;
-
 #[geometry(Cube)]
 struct BoxGeom;
 
 impl Behavior for BoxGeom {
     fn actions(&mut self) {
-        // println!("hello");
-        self.rotate_x(1.1);
+        self.rotate_y(0.001);
         // self.translate()
     }
 }

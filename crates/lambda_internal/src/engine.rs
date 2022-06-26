@@ -62,6 +62,7 @@ impl<T: GeomBuilder + Behavior> EngineRunner<T> {
             );
 
             self.geometries.iter_mut().for_each(Behavior::actions);
+            backend.update_objects(&self.get_geom_properties());
 
             self.time.step(&mut self.camera, backend);
 
@@ -76,14 +77,18 @@ impl<T: GeomBuilder + Behavior> EngineRunner<T> {
         });
     }
 
+    #[inline]
+    fn get_geom_properties(&self) -> Vec<GeomProperties> {
+        self.geometries
+            .iter()
+            .map(|model| model.features())
+            .collect::<Vec<GeomProperties>>()
+    }
+
     pub fn run(&mut self) {
         let mut display = Display::new(self.resolution);
 
-        let geom_properties = self
-            .geometries
-            .iter_mut()
-            .map(|model| model.features())
-            .collect::<Vec<GeomProperties>>();
+        let geom_properties = self.get_geom_properties();
 
         let mut backend = Vulkan::new(&display, &self.camera, &geom_properties, self.debugging);
 

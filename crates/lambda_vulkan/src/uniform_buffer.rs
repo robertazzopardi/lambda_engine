@@ -51,11 +51,6 @@ pub(crate) fn update_uniform_buffers(
     let buffer_size = std::mem::size_of::<UniformBufferObject>() as u64;
 
     objects.0.iter_mut().for_each(|object| {
-        // let rot = nalgebra::Matrix4::from_scaled_axis(&nalgebra::Vector3::y() * 0.01);
-        // object.model *= rot;
-
-        println!("inner {:?}", object.model);
-
         let uniform_buffer = UniformBuffer::new(object.model, ubo.view, ubo.proj);
 
         memory::map_memory(
