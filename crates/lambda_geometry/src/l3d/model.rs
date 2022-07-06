@@ -7,7 +7,7 @@ use lambda_space::{
     space::{Orientation, Pos3, Vertices},
     vertex,
 };
-use nalgebra::{Matrix4, Point3, Vector2, Vector3};
+use nalgebra::{vector, Matrix4, Point3, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
@@ -66,15 +66,15 @@ fn load_model_obj(model_path: String) -> VerticesAndIndices {
                 mesh.positions[i * 3 + 2],
             );
 
-            let normal = Vector3::new(
+            let normal = vector![
                 mesh.normals[i * 3],
                 mesh.normals[i * 3 + 1],
-                mesh.normals[i * 3 + 2],
-            );
+                mesh.normals[i * 3 + 2]
+            ];
 
-            let texcoord = Vector2::new(mesh.texcoords[i * 2], mesh.texcoords[i * 2 + 1]);
+            let tex_coord = Vector2::new(mesh.texcoords[i * 2], mesh.texcoords[i * 2 + 1]);
 
-            let vertex = vertex!(pos, WHITE, normal, texcoord);
+            let vertex = vertex!(pos, WHITE, normal, tex_coord);
 
             vertices.push(vertex);
         });

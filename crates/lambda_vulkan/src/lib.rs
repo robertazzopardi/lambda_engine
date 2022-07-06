@@ -169,6 +169,7 @@ impl Vulkan {
         }
     }
 
+    #[inline]
     pub fn update_objects(&mut self, properties: &[GeomProperties]) {
         self.objects
             .0
@@ -307,7 +308,6 @@ impl VulkanObject {
             graphics_pipeline,
             buffers,
             indexed: properties.indexed,
-            // model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()).into(),
             model: properties.model,
         }
     }
@@ -316,11 +316,12 @@ impl VulkanObject {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct WindowSize(vk::Extent2D);
 
+#[inline]
 pub(crate) fn create_surface(entry_instance: &EntryInstance) -> Surface {
     Surface::new(&entry_instance.entry, &entry_instance.instance)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum ModelTopology {
     LineList,
     LineListWithAdjacency,
@@ -329,6 +330,7 @@ pub enum ModelTopology {
     PatchList,
     PointList,
     TriangleFan,
+    #[default]
     TriangleList,
     TriangleListWithAdjacency,
     TriangleStrip,
@@ -359,17 +361,12 @@ impl From<ModelTopology> for vk::PrimitiveTopology {
     }
 }
 
-impl Default for ModelTopology {
-    fn default() -> Self {
-        Self::TriangleList
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum CullMode {
     Back,
     Front,
     FrontAndBack,
+    #[default]
     None,
 }
 
@@ -384,29 +381,18 @@ impl From<CullMode> for vk::CullModeFlags {
     }
 }
 
-impl Default for CullMode {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 const LIGHT: &str = "light";
 const LIGHT_TEXTURE: &str = "light_texture";
 const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shader {
+    #[default]
     Light,
     LightTexture,
     Texture,
     Vertex,
-}
-
-impl Default for Shader {
-    fn default() -> Self {
-        Self::Light
-    }
 }
 
 impl From<Shader> for &str {

@@ -9,7 +9,7 @@ use lambda_window::{
 };
 use winit::platform::run_return::EventLoopExtRunReturn;
 
-#[derive(Default, Builder)]
+#[derive(Builder)]
 #[builder(build_fn(skip))]
 #[builder(name = "Engine")]
 pub struct EngineRunner<T: GeomBuilder + Behavior> {
@@ -62,6 +62,7 @@ impl<T: GeomBuilder + Behavior> EngineRunner<T> {
             );
 
             self.geometries.iter_mut().for_each(Behavior::actions);
+
             backend.update_objects(&self.get_geom_properties());
 
             self.time.step(&mut self.camera, backend);

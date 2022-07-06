@@ -1,6 +1,6 @@
 use super::WHITE;
 use lambda_space::space::{Indices, Pos3, Vertex, Vertices};
-use nalgebra::{Matrix4, Point3, Vector2, Vector3};
+use nalgebra::{vector, Matrix4, Point3, Vector2};
 use std::{
     collections::HashMap,
     ops::{Mul, Sub},
@@ -58,7 +58,7 @@ pub(crate) fn make_point(
 
     *angle += step;
 
-    let pos = Vector3::new(x, y, pos.z);
+    let pos = vector![x, y, pos.z];
 
     Vertex::new(pos.into(), WHITE, pos.mul(length), tex_coord)
 }

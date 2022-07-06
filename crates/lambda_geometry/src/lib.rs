@@ -7,7 +7,7 @@ use derive_more::Deref;
 pub use enum_dispatch::enum_dispatch;
 use lambda_space::space::{Vertex, VerticesAndIndices};
 use lambda_vulkan::GeomProperties;
-use nalgebra::Vector3;
+use nalgebra::{vector, Vector3};
 
 pub mod prelude {
     pub use crate::{
@@ -19,8 +19,8 @@ pub mod prelude {
     };
 }
 
-pub const WHITE: Vector3<f32> = Vector3::new(1., 1., 1.);
-pub const VEC3_ZERO: Vector3<f32> = Vector3::new(0., 0., 0.);
+pub const WHITE: Vector3<f32> = vector![1., 1., 1.];
+pub const VEC3_ZERO: Vector3<f32> = vector![0., 0., 0.];
 
 #[derive(Clone, Copy, Debug, Deref)]
 pub struct Indexed(pub bool);

@@ -6,9 +6,10 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum Resolution {
     ResSD,
+    #[default]
     ResHD,
     ResFullHD,
     ResQHD,
@@ -20,12 +21,6 @@ pub enum Resolution {
 impl Resolution {
     pub fn sized(w: u32, h: u32) -> LogicalSize<u32> {
         LogicalSize::new(w, h)
-    }
-}
-
-impl Default for Resolution {
-    fn default() -> Self {
-        Self::ResHD
     }
 }
 
@@ -66,21 +61,9 @@ impl Default for Display {
 impl Display {
     pub fn new(res: Resolution) -> Self {
         let display = Self::default();
-
         let logical_size: LogicalSize<u32> = res.into();
         display.window.set_inner_size(logical_size);
-
         display
-
-        // let event_loop = EventLoop::new();
-
-        // let logical_size: LogicalSize<u32> = res.into();
-        // let window = WindowBuilder::new()
-        //     .with_inner_size(logical_size)
-        //     .build(&event_loop)
-        //     .unwrap();
-
-        // Self { event_loop, window }
     }
 }
 

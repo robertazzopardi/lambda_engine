@@ -1,6 +1,6 @@
 use derive_builder::Builder;
 use lambda_space::space::{self, Pos3};
-use nalgebra::{matrix, Matrix4, Vector3};
+use nalgebra::{matrix, vector, Matrix4, Rotation, Rotation3, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 use winit::{
     dpi::PhysicalPosition,
@@ -15,10 +15,10 @@ pub fn look_to_rh(eye: Vector3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Mat
     let u = s.cross(&f);
 
     matrix![
-         s.x, s.y, s.z, -eye.dot(&s);
-         u.x, u.y, u.z, -eye.dot(&u);
-        -f.x, -f.y, -f.z, eye.dot(&f);
-          0., 0., 0., 1.
+         s.x,  s.y,  s.z, -eye.dot(&s);
+         u.x,  u.y,  u.z, -eye.dot(&u);
+        -f.x, -f.y, -f.z,  eye.dot(&f);
+          0.,   0.,   0.,            1.
     ]
 }
 
@@ -43,12 +43,12 @@ impl Default for CameraSpeed {
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct MouseScroll(f32);
 
-#[derive(PartialEq, Debug, Clone, Copy, Builder, Default)]
+#[derive(PartialEq, Debug, Clone, Copy, Builder)]
 #[builder(build_fn(skip))]
 #[builder(name = "Camera")]
 pub struct CameraInternal {
-    #[builder(default = "self.default_pos()")]
     pub pos: Pos3,
+    rot: Rotation3<f32>,
     rotation: space::Rotation,
     orientation: space::Orientation,
     sensitivity: Sensitivity,
@@ -59,8 +59,12 @@ pub struct CameraInternal {
 
 impl Camera {
     pub fn build(&mut self) -> CameraInternal {
+        let space::Orientation { yaw, pitch, .. } = self.orientation.unwrap_or_default();
+        let pos = self.pos.unwrap_or_else(|| Pos3::new(-2., 1., 0.));
+
         CameraInternal {
-            pos: self.pos.unwrap_or_else(|| Pos3::new(-2., 1., 0.)),
+            pos,
+            rot: Rotation3::default(),
             rotation: self.rotation.unwrap_or_default(),
             orientation: self.orientation.unwrap_or_default(),
             sensitivity: self.sensitivity.unwrap_or_default(),
@@ -72,12 +76,12 @@ impl Camera {
 }
 
 impl CameraInternal {
-    pub fn calc_matrix(&self) -> Matrix4<f32> {
+    pub fn matrix(&self) -> Matrix4<f32> {
         let space::Orientation { yaw, pitch, .. } = self.orientation;
 
         look_to_rh(
             self.pos.0,
-            Vector3::new(yaw.cos(), pitch.sin(), yaw.sin()),
+            vector![yaw.cos(), pitch.sin(), yaw.sin()],
             Vector3::y(),
         )
     }
@@ -131,7 +135,7 @@ impl CameraInternal {
         );
     }
 
-    pub fn rotate(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) {
         let space::LookDirection {
             left,
             right,
@@ -143,17 +147,16 @@ impl CameraInternal {
 
         // Movement
         let (yaw_sin, yaw_cos) = self.orientation.yaw.sin_cos();
-        let forward_dir = Vector3::new(yaw_cos, 0.0, yaw_sin);
-        let right_dir = Vector3::new(-yaw_sin, 0.0, yaw_cos);
+        let forward_dir = vector![yaw_cos, 0.0, yaw_sin];
+        let right_dir = vector![-yaw_sin, 0.0, yaw_cos];
         self.pos.0 += forward_dir * (forward - backward) * self.speed.0 * dt;
         self.pos.0 += right_dir * (right - left) * self.speed.0 * dt;
 
         // Zoom
         let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
-        let scroll_dir = Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin);
+        let scroll_dir = vector![pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin];
         self.pos.0 += scroll_dir * self.scroll.0 * self.speed.0 * self.sensitivity.0 * dt;
         self.scroll = MouseScroll::default();
-
         self.pos.0.y += (up - down) * self.speed.0 * dt;
 
         // Rotation
@@ -181,10 +184,11 @@ mod tests {
     fn test_camera_new() {
         let camera = Camera::default().pos(Pos3::new(0.91, 0.3, 0.7)).build();
 
-        assert_eq!(*camera.pos, Vector3::new(0.91, 0.3, 0.7));
+        assert_eq!(*camera.pos, vector![0.91, 0.3, 0.7]);
 
         let expected_camera = CameraInternal {
             pos: Pos3::new(0.91, 0.3, 0.7),
+            rot: Rotation3::default(),
             rotation: space::Rotation::default(),
             orientation: space::Orientation::default(),
             sensitivity: Sensitivity(0.9),
@@ -200,7 +204,7 @@ mod tests {
     fn test_camera_calc_matrix() {
         let camera = Camera::default().pos(Pos3::new(5., 5., 5.)).build();
 
-        let matrix = camera.calc_matrix();
+        let matrix = camera.matrix();
 
         let expected_matrix =
             matrix![0., 0., -1., 0., 0., 1., -0., 0., 1., 0., -0., 0., -5., -5., 5., 1.]

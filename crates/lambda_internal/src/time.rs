@@ -51,7 +51,7 @@ impl Time {
 
     pub fn step(&mut self, camera: &mut CameraInternal, backend: &mut Vulkan) {
         while self.accumulator >= self.delta {
-            camera.rotate(self.delta.as_secs_f32());
+            camera.update(self.delta.as_secs_f32());
             backend.ubo.update(&backend.swap_chain.extent, camera);
 
             self.accumulator -= self.delta;

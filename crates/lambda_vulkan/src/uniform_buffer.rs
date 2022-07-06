@@ -1,7 +1,7 @@
 use crate::{memory, VulkanObjects};
 use ash::{vk, Device};
 use lambda_camera::prelude::CameraInternal;
-use nalgebra::{Matrix4, Perspective3};
+use nalgebra::{Matrix, Matrix4, Perspective3};
 
 #[derive(Debug, PartialEq, Default)]
 pub struct UniformBufferObject {
@@ -27,7 +27,7 @@ impl UniformBufferObject {
     }
 
     pub fn update(&mut self, extent: &vk::Extent2D, camera: &CameraInternal) {
-        self.view = camera.calc_matrix();
+        self.view = camera.matrix();
 
         let aspect = extent.width as f32 / extent.height as f32;
 
@@ -52,8 +52,10 @@ pub(crate) fn update_uniform_buffers(
         .try_into()
         .unwrap();
 
+    let mut uniform_buffer = UniformBuffer::new(Matrix::default(), ubo.view, ubo.proj);
+
     objects.0.iter_mut().for_each(|object| {
-        let uniform_buffer = UniformBuffer::new(object.model, ubo.view, ubo.proj);
+        uniform_buffer.model = object.model;
 
         memory::map_memory(
             device,
