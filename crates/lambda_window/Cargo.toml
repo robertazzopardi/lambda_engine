@@ -9,4 +9,4 @@ edition = "2021"
 ash = { version = "0.37.0", default-features = false }
 ash-window = "0.10.0"
 winit = "0.26.1"
-lambda_camera = { path = "../lambda_camera" }
+lambda_space = { path = "../lambda_space" }

@@ -67,8 +67,8 @@ pub struct Orientation {
 
 #[derive(Default, Debug, PartialEq, Clone, Copy, new)]
 pub struct Rotation {
-    pub horizontal: f32,
-    pub vertical: f32,
+    pub x: f32,
+    pub y: f32,
 }
 
 #[derive(Default, Debug, PartialEq, Clone, Copy)]

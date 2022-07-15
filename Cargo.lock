@@ -683,6 +683,7 @@ version = "0.1.0"
 dependencies = [
  "derive_builder",
  "lambda_space",
+ "lambda_window",
  "nalgebra",
  "winit",
 ]
@@ -774,7 +775,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
- "lambda_camera",
+ "lambda_space",
  "winit",
 ]
 

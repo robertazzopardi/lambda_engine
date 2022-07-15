@@ -1,7 +1,10 @@
-use lambda_camera::prelude::CameraInternal;
+use lambda_space::space;
 use winit::{
-    dpi::LogicalSize,
-    event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent},
+    dpi::{LogicalSize, PhysicalPosition},
+    event::{
+        DeviceEvent, ElementState, Event, KeyboardInput, MouseScrollDelta, VirtualKeyCode,
+        WindowEvent,
+    },
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -67,70 +70,92 @@ impl Display {
     }
 }
 
+fn process_keyboard(input: &mut Input, key: VirtualKeyCode, state: ElementState) {
+    let amount = (state == ElementState::Pressed) as u32 as f32;
+    match key {
+        VirtualKeyCode::W | VirtualKeyCode::Up => {
+            input.direction.forward = amount;
+        }
+        VirtualKeyCode::S | VirtualKeyCode::Down => {
+            input.direction.backward = amount;
+        }
+        VirtualKeyCode::A | VirtualKeyCode::Left => {
+            input.direction.left = amount;
+        }
+        VirtualKeyCode::D | VirtualKeyCode::Right => {
+            input.direction.right = amount;
+        }
+        VirtualKeyCode::Space => {
+            input.direction.up = amount;
+        }
+        VirtualKeyCode::LShift => {
+            input.direction.down = amount;
+        }
+        _ => (),
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Input {
+    pub mouse_pressed: bool,
+    pub mouse_scroll: f32,
+    pub mouse_delta: (f64, f64),
+    pub direction: space::LookDirection,
+}
+
 pub fn handle_inputs(
     control_flow: &mut ControlFlow,
     event: Event<()>,
     window: &Window,
-    camera: &mut CameraInternal,
-    mouse_pressed: &mut bool,
+    input: &mut Input,
 ) {
     *control_flow = ControlFlow::Poll;
 
-    match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            window_id,
-        } if window_id == window.id() => *control_flow = ControlFlow::Exit,
-        Event::WindowEvent {
-            event:
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(key),
-                            state,
-                            ..
-                        },
-                    ..
-                },
-            ..
-        } => camera.process_keyboard(key, state),
-        Event::WindowEvent {
-            event: WindowEvent::MouseInput { state, .. },
-            ..
-        } => {
-            *mouse_pressed = state == ElementState::Pressed;
-            // println!("mouse")
+    if let Event::WindowEvent {
+        window_id,
+        event: WindowEvent::CloseRequested,
+    } = event
+    {
+        if window_id == window.id() {
+            *control_flow = ControlFlow::Exit;
         }
-        Event::DeviceEvent { event, .. } => match event {
-            // DeviceEvent::MouseWheel { delta } => match delta {
-            //     winit::event::MouseScrollDelta::LineDelta(x, y) => {
-            //         println!("mouse wheel Line Delta: ({},{})", x, y);
-            //         let pixels_per_line = 120.0;
-            //         let mut pos = window.outer_position().unwrap();
-            //         pos.x -= (x * pixels_per_line) as i32;
-            //         pos.y -= (y * pixels_per_line) as i32;
-            //         window.set_outer_position(pos)
-            //     }
-            //     winit::event::MouseScrollDelta::PixelDelta(p) => {
-            //         println!("mouse wheel Pixel Delta: ({},{})", p.x, p.y);
-            //         let mut pos = window.outer_position().unwrap();
-            //         pos.x -= p.x as i32;
-            //         pos.y -= p.y as i32;
-            //         window.set_outer_position(pos)
-            //     }
-            // },
-            DeviceEvent::MouseWheel { delta, .. } => {
-                camera.process_scroll(&delta);
-            }
-            DeviceEvent::MouseMotion { delta } => {
-                if *mouse_pressed {
-                    // println!("{:?}", delta);
-                    camera.process_mouse(delta.0, delta.1);
-                }
-            }
-            _ => {}
-        },
-        _ => (),
+    }
+
+    if let Event::WindowEvent {
+        event:
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state,
+                        ..
+                    },
+                ..
+            },
+        ..
+    } = event
+    {
+        process_keyboard(input, key, state);
+    }
+
+    if let Event::WindowEvent {
+        event: WindowEvent::MouseInput { state, .. },
+        ..
+    } = event
+    {
+        input.mouse_pressed = state == ElementState::Pressed;
+    }
+
+    if let Event::DeviceEvent { event, .. } = event {
+        if let DeviceEvent::MouseWheel { delta, .. } = event {
+            input.mouse_scroll = -match delta {
+                MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.,
+                MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => scroll as f32,
+            };
+        }
+        if let DeviceEvent::MouseMotion { delta } = event {
+            input.mouse_delta = delta
+        }
     }
 }
 

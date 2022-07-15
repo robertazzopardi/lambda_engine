@@ -5,7 +5,7 @@ use lambda_geometry::{Behavior, GeomBuilder};
 use lambda_vulkan::{debug::Debugger, renderer, GeomProperties, Vulkan};
 use lambda_window::{
     prelude::Resolution,
-    window::{self, Display},
+    window::{self, Display, Input},
 };
 use winit::platform::run_return::EventLoopExtRunReturn;
 
@@ -20,6 +20,8 @@ pub struct EngineRunner<T: GeomBuilder + Behavior> {
     resolution: Resolution,
     camera: CameraInternal,
     debugging: Option<Debugger>,
+    #[builder(setter(skip))]
+    input: Input,
 }
 
 impl<T: GeomBuilder + Behavior> Engine<T> {
@@ -32,6 +34,7 @@ impl<T: GeomBuilder + Behavior> Engine<T> {
             resolution: self.resolution.unwrap_or_default(),
             camera: self.camera.unwrap_or_else(|| Camera::default().build()),
             debugging: self.debugging.unwrap_or_default(),
+            input: Input::default(),
         }
     }
 
@@ -48,24 +51,16 @@ impl<T: GeomBuilder + Behavior> Engine<T> {
 
 impl<T: GeomBuilder + Behavior> EngineRunner<T> {
     fn main_loop(&mut self, display: &mut Display, backend: &mut Vulkan) {
-        let mut mouse_pressed = false;
-
         display.event_loop.run_return(|event, _, control_flow| {
             self.time.tick();
 
-            window::handle_inputs(
-                control_flow,
-                event,
-                &display.window,
-                &mut self.camera,
-                &mut mouse_pressed,
-            );
+            window::handle_inputs(control_flow, event, &display.window, &mut self.input);
 
             self.geometries.iter_mut().for_each(Behavior::actions);
 
             backend.update_objects(&self.get_geom_properties());
 
-            self.time.step(&mut self.camera, backend);
+            self.time.step(&mut self.camera, backend, &mut self.input);
 
             renderer::render(
                 backend,

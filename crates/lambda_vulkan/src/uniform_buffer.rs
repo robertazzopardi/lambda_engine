@@ -27,6 +27,7 @@ impl UniformBufferObject {
     }
 
     pub fn update(&mut self, extent: &vk::Extent2D, camera: &CameraInternal) {
+        // self.view = camera.model;
         self.view = camera.matrix();
 
         let aspect = extent.width as f32 / extent.height as f32;

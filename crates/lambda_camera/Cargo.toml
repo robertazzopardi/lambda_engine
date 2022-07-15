@@ -10,3 +10,4 @@ derive_builder = "0.11.2"
 nalgebra = "0.31.0"
 winit = "0.26.1"
 lambda_space = { path = "../lambda_space" }
+lambda_window = { path = "../lambda_window" }
