@@ -73,20 +73,13 @@ impl CameraInternal {
     }
 
     pub fn update(&mut self, input: &mut Input, dt: f32) {
-        let space::LookDirection {
-            left,
-            right,
-            up,
-            down,
-            forward,
-            backward,
-        } = input.direction;
+        let space::LookDirection { l, r, u, d, f, b } = input.direction;
 
         // Movement
         let (yaw_sin, yaw_cos) = self.orientation.yaw.sin_cos();
         let speed = self.speed.0 * dt;
-        let forward_dir = vector![yaw_cos, 0., yaw_sin] * (forward - backward) * speed;
-        let right_dir = vector![-yaw_sin, 0., yaw_cos] * (right - left) * speed;
+        let forward_dir = vector![yaw_cos, 0., yaw_sin] * (f - b) * speed;
+        let right_dir = vector![-yaw_sin, 0., yaw_cos] * (r - l) * speed;
         self.pos.0 += forward_dir + right_dir;
 
         // Zoom
@@ -96,8 +89,9 @@ impl CameraInternal {
         // self.pos.0.y += (up - down) * speed;
 
         // Rotation
-        self.orientation.yaw += space::Angle(input.mouse_delta.0 as f32 * 0.1 * dt);
-        self.orientation.pitch += space::Angle(-input.mouse_delta.1 as f32 * 0.1 * dt);
+        self.orientation.yaw += space::Angle(input.mouse_delta.0 as f32 * self.sensitivity.0 * dt);
+        self.orientation.pitch +=
+            space::Angle(-input.mouse_delta.1 as f32 * self.sensitivity.0 * dt);
 
         input.mouse_delta = Default::default();
 

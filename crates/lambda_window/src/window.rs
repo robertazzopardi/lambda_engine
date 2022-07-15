@@ -72,26 +72,23 @@ impl Display {
 
 fn process_keyboard(input: &mut Input, key: VirtualKeyCode, state: ElementState) {
     let amount = (state == ElementState::Pressed) as u32 as f32;
-    match key {
-        VirtualKeyCode::W | VirtualKeyCode::Up => {
-            input.direction.forward = amount;
-        }
-        VirtualKeyCode::S | VirtualKeyCode::Down => {
-            input.direction.backward = amount;
-        }
-        VirtualKeyCode::A | VirtualKeyCode::Left => {
-            input.direction.left = amount;
-        }
-        VirtualKeyCode::D | VirtualKeyCode::Right => {
-            input.direction.right = amount;
-        }
-        VirtualKeyCode::Space => {
-            input.direction.up = amount;
-        }
-        VirtualKeyCode::LShift => {
-            input.direction.down = amount;
-        }
-        _ => (),
+    if let VirtualKeyCode::W | VirtualKeyCode::Up = key {
+        input.direction.f = amount;
+    }
+    if let VirtualKeyCode::S | VirtualKeyCode::Down = key {
+        input.direction.b = amount;
+    }
+    if let VirtualKeyCode::A | VirtualKeyCode::Left = key {
+        input.direction.l = amount;
+    }
+    if let VirtualKeyCode::D | VirtualKeyCode::Right = key {
+        input.direction.r = amount;
+    }
+    if let VirtualKeyCode::Space = key {
+        input.direction.u = amount;
+    }
+    if let VirtualKeyCode::LShift = key {
+        input.direction.d = amount;
     }
 }
 

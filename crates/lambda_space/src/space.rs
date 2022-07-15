@@ -73,12 +73,12 @@ pub struct Rotation {
 
 #[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct LookDirection {
-    pub left: f32,
-    pub right: f32,
-    pub up: f32,
-    pub down: f32,
-    pub forward: f32,
-    pub backward: f32,
+    pub l: f32,
+    pub r: f32,
+    pub u: f32,
+    pub d: f32,
+    pub f: f32,
+    pub b: f32,
 }
 
 #[derive(Clone, Copy, Debug, new)]
