@@ -58,6 +58,7 @@ impl std::ops::AddAssign<Vector3<f32>> for Pos3 {
 )]
 pub struct Angle(pub f32);
 
+// NOTE remove this
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Orientation {
     pub yaw: Angle,

@@ -1,10 +1,10 @@
 use derive_builder::Builder;
 use lambda_space::space::{self, Pos3};
 use lambda_window::window::Input;
-use nalgebra::{matrix, vector, Matrix4, Vector3};
+use nalgebra::{matrix, vector, Matrix4, UnitQuaternion, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 
-const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+// const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 pub fn look_to_rh(eye: Vector3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Matrix4<f32> {
     let f = dir.normalize();
@@ -42,19 +42,16 @@ impl Default for CameraSpeed {
 #[builder(name = "Camera")]
 pub struct CameraInternal {
     pub pos: Pos3,
-    orientation: space::Orientation,
+    rotation: UnitQuaternion<f32>,
     sensitivity: Sensitivity,
     speed: CameraSpeed,
 }
 
 impl Camera {
     pub fn build(&mut self) -> CameraInternal {
-        let pos = self.pos.unwrap_or_else(|| Pos3::new(-2., 1., 0.));
-        let orientation = self.orientation.unwrap_or_default();
-
         CameraInternal {
-            pos,
-            orientation,
+            pos: self.pos.unwrap_or_else(|| Pos3::new(-2., 1., 0.)),
+            rotation: UnitQuaternion::from_euler_angles(0., 0., 0.),
             sensitivity: self.sensitivity.unwrap_or_default(),
             speed: self.speed.unwrap_or_default(),
         }
@@ -63,7 +60,7 @@ impl Camera {
 
 impl CameraInternal {
     pub fn matrix(&self) -> Matrix4<f32> {
-        let space::Orientation { yaw, pitch, .. } = self.orientation;
+        let (_, pitch, yaw) = self.rotation.euler_angles();
 
         look_to_rh(
             self.pos.0,
@@ -75,33 +72,37 @@ impl CameraInternal {
     pub fn update(&mut self, input: &mut Input, dt: f32) {
         let space::LookDirection { l, r, u, d, f, b } = input.direction;
 
+        let (_, _, yaw) = self.rotation.euler_angles();
+
         // Movement
-        let (yaw_sin, yaw_cos) = self.orientation.yaw.sin_cos();
+        let (yaw_sin, yaw_cos) = yaw.sin_cos();
         let speed = self.speed.0 * dt;
-        let forward_dir = vector![yaw_cos, 0., yaw_sin] * (f - b) * speed;
-        let right_dir = vector![-yaw_sin, 0., yaw_cos] * (r - l) * speed;
-        self.pos.0 += forward_dir + right_dir;
+        let forward = vector![yaw_cos, 0., yaw_sin] * (f - b) * speed;
+        let right = vector![-yaw_sin, 0., yaw_cos] * (r - l) * speed;
+        self.pos.0 += forward + right;
+        self.pos.0.y += (u - d) * speed;
 
         // Zoom
         // let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
         // let scroll_dir = vector![pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin];
         // self.pos.0 += scroll_dir * input.mouse_scroll * self.speed.0 * self.sensitivity.0 * dt;
-        // self.pos.0.y += (up - down) * speed;
 
         // Rotation
-        self.orientation.yaw += space::Angle(input.mouse_delta.0 as f32 * self.sensitivity.0 * dt);
-        self.orientation.pitch +=
-            space::Angle(-input.mouse_delta.1 as f32 * self.sensitivity.0 * dt);
+        self.rotation =
+            UnitQuaternion::from_euler_angles(0., 0., input.mouse_delta.0 as f32 * 0.1 * dt)
+                * self.rotation;
+        self.rotation *=
+            UnitQuaternion::from_euler_angles(0., -input.mouse_delta.1 as f32 * 0.1 * dt, 0.);
 
         input.mouse_delta = Default::default();
 
         // Keep the camera's angle from going too high/low.
-        let angle = space::Angle(SAFE_FRAC_PI_2);
-        if self.orientation.pitch < -angle {
-            self.orientation.pitch.0 = -angle.0;
-        } else if self.orientation.pitch > angle {
-            self.orientation.pitch.0 = angle.0;
-        }
+        // let angle = space::Angle(SAFE_FRAC_PI_2);
+        // if pitch < -*angle {
+        //     pitch = -angle.0;
+        // } else if pitch > *angle {
+        //     pitch = angle.0;
+        // }
     }
 }
 
@@ -117,7 +118,7 @@ mod tests {
 
         let expected_camera = CameraInternal {
             pos: Pos3::new(0.91, 0.3, 0.7),
-            orientation: space::Orientation::default(),
+            rotation: UnitQuaternion::from_axis_angle(&Vector3::y_axis(), 0.1),
             sensitivity: Sensitivity(0.9),
             speed: CameraSpeed(0.5),
         };
