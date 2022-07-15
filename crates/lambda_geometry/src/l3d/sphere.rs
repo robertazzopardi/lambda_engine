@@ -1,17 +1,17 @@
 use crate::{utility::spherical_indices, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
 use lambda_space::{
-    space::{Orientation, Pos3, Vertices},
+    space::{Pos3, Vertices},
     vertex,
 };
-use nalgebra::{Matrix4, Point3, Vector2, Vector3};
+use nalgebra::{Matrix4, Point3, UnitQuaternion, Vector2, Vector3};
 use std::ops::Mul;
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Sphere {
     pub position: Pos3,
-    pub orientation: Orientation,
+    pub rotation: UnitQuaternion<f32>,
     pub radius: f32,
     pub sector_count: u32,
     pub stack_count: u32,
@@ -22,7 +22,7 @@ impl SphereBuilder {
     pub fn build(&mut self) -> Sphere {
         Sphere {
             position: self.position.unwrap_or_default(),
-            orientation: self.orientation.unwrap_or_default(),
+            rotation: self.rotation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
             sector_count: self.sector_count.unwrap_or_default(),
             stack_count: self.stack_count.unwrap_or_default(),

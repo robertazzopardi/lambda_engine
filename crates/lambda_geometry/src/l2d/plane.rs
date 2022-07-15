@@ -1,10 +1,10 @@
 use crate::{vector2, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
 use lambda_space::{
-    space::{Orientation, Vertex, Vertices},
+    space::{Vertex, Vertices},
     vertex,
 };
-use nalgebra::{Matrix4, Point3, Vector3};
+use nalgebra::{Matrix4, Point3, UnitQuaternion, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
@@ -12,7 +12,7 @@ const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 #[builder(default, build_fn(skip))]
 pub struct Plane {
     pub position: Point3<f32>,
-    pub orientation: Orientation,
+    pub rotation: UnitQuaternion<f32>,
     pub radius: f32,
     pub has_depth: bool,
     pub model: Matrix4<f32>,
@@ -22,7 +22,7 @@ impl PlaneBuilder {
     pub fn build(&mut self) -> Plane {
         Plane {
             position: self.position.unwrap_or_default(),
-            orientation: self.orientation.unwrap_or_default(),
+            rotation: self.rotation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
             has_depth: self.has_depth.unwrap_or_default(),
             model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),

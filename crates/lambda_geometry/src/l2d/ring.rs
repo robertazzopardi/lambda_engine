@@ -1,13 +1,13 @@
 use crate::{utility, VerticesAndIndices};
 use derive_builder::Builder;
-use lambda_space::space::{Orientation, Pos3};
-use nalgebra::{Matrix4, Vector2, Vector3};
+use lambda_space::space::Pos3;
+use nalgebra::{Matrix4, UnitQuaternion, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Ring {
     pub position: Pos3,
-    pub orientation: Orientation,
+    pub rotation: UnitQuaternion<f32>,
     pub inner_radius: f32,
     pub outer_radius: f32,
     pub sector_count: u32,
@@ -18,7 +18,7 @@ impl RingBuilder {
     pub fn build(&mut self) -> Ring {
         Ring {
             position: self.position.unwrap_or_default(),
-            orientation: self.orientation.unwrap_or_default(),
+            rotation: self.rotation.unwrap_or_default(),
             inner_radius: self.inner_radius.unwrap_or_default(),
             outer_radius: self.outer_radius.unwrap_or_default(),
             sector_count: self.sector_count.unwrap_or_default(),

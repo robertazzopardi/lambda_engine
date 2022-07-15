@@ -4,16 +4,16 @@ use crate::{
 };
 use derive_builder::Builder;
 use lambda_space::{
-    space::{Orientation, Pos3, Vertices},
+    space::{Pos3, Vertices},
     vertex,
 };
-use nalgebra::{vector, Matrix4, Point3, Vector2, Vector3};
+use nalgebra::{vector, Matrix4, Point3, UnitQuaternion, Vector2, Vector3};
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default, build_fn(skip))]
 pub struct Model {
     pub position: Pos3,
-    pub orientation: Orientation,
+    pub rotation: UnitQuaternion<f32>,
     pub radius: f32,
     model_path: &'static str,
     pub model: Matrix4<f32>,
@@ -23,7 +23,7 @@ impl ModelBuilder {
     pub fn build(&mut self) -> Model {
         Model {
             position: self.position.unwrap_or_default(),
-            orientation: self.orientation.unwrap_or_default(),
+            rotation: self.rotation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` expected"),
             model_path: self.model_path.take().expect("Field `model_path` expected"),
             model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),

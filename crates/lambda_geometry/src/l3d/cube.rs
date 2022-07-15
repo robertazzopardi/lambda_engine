@@ -4,8 +4,8 @@ use crate::{
     VerticesAndIndices,
 };
 use derive_builder::Builder;
-use lambda_space::space::{Orientation, Pos3};
-use nalgebra::{Matrix4, Vector3};
+use lambda_space::space::Pos3;
+use nalgebra::{Matrix4, UnitQuaternion, Vector3};
 
 pub const CUBE_VERTICES: [[f32; 3]; 36] = [
     [1.0, 1.0, -1.0],
@@ -50,7 +50,7 @@ pub const CUBE_VERTICES: [[f32; 3]; 36] = [
 #[builder(default, build_fn(skip))]
 pub struct Cube {
     pub position: Pos3,
-    pub orientation: Orientation,
+    pub rotation: UnitQuaternion<f32>,
     pub radius: f32,
     pub model: Matrix4<f32>,
 }
@@ -59,7 +59,7 @@ impl CubeBuilder {
     pub fn build(&mut self) -> Cube {
         Cube {
             position: self.position.unwrap_or_default(),
-            orientation: self.orientation.unwrap_or_default(),
+            rotation: self.rotation.unwrap_or_default(),
             radius: self.radius.expect("Field `Radius` Expected"),
             model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
         }
