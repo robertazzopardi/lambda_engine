@@ -1,15 +1,15 @@
 use derive_builder::Builder;
 use lambda_space::space::{self, Pos3};
 use lambda_window::window::Input;
-use nalgebra::{matrix, vector, Matrix4, UnitQuaternion, Vector3};
+use nalgebra::{matrix, point, vector, Matrix4, Point3, UnitQuaternion, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
 
-// const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 pub fn look_to_rh(eye: Vector3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Matrix4<f32> {
     let f = dir.normalize();
     let s = f.cross(&up).normalize();
-    let u = s.cross(&f);
+    let u = s.cross(&f).normalize();
 
     matrix![
          s.x,  s.y,  s.z, -eye.dot(&s);
@@ -51,7 +51,7 @@ impl Camera {
     pub fn build(&mut self) -> CameraInternal {
         CameraInternal {
             pos: self.pos.unwrap_or_else(|| Pos3::new(-2., 1., 0.)),
-            rotation: UnitQuaternion::from_euler_angles(0., 0., 0.),
+            rotation: UnitQuaternion::default(),
             sensitivity: self.sensitivity.unwrap_or_default(),
             speed: self.speed.unwrap_or_default(),
         }
@@ -70,17 +70,17 @@ impl CameraInternal {
     }
 
     pub fn update(&mut self, input: &mut Input, dt: f32) {
-        let space::LookDirection { l, r, u, d, f, b } = input.direction;
+        let (_, pitch, yaw) = self.rotation.euler_angles();
 
-        let (_, _, yaw) = self.rotation.euler_angles();
+        let look = input.look;
 
         // Movement
         let (yaw_sin, yaw_cos) = yaw.sin_cos();
         let speed = self.speed.0 * dt;
-        let forward = vector![yaw_cos, 0., yaw_sin] * (f - b) * speed;
-        let right = vector![-yaw_sin, 0., yaw_cos] * (r - l) * speed;
+        let forward = vector![yaw_cos, 0., yaw_sin] * (look.forward() - look.back()) as f32 * speed;
+        let right = vector![-yaw_sin, 0., yaw_cos] * (look.right() - look.left()) as f32 * speed;
         self.pos.0 += forward + right;
-        self.pos.0.y += (u - d) * speed;
+        self.pos.0.y += (look.up() - look.down()) as f32 * speed;
 
         // Zoom
         // let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
@@ -88,20 +88,24 @@ impl CameraInternal {
         // self.pos.0 += scroll_dir * input.mouse_scroll * self.speed.0 * self.sensitivity.0 * dt;
 
         // Rotation
-        self.rotation =
-            UnitQuaternion::from_euler_angles(0., 0., input.mouse_delta.0 as f32 * 0.1 * dt)
+        let rot_speed = self.sensitivity.0 * dt;
+        let mut rot =
+            UnitQuaternion::from_euler_angles(0., 0., input.mouse_delta.0 as f32 * rot_speed)
                 * self.rotation;
-        self.rotation *=
-            UnitQuaternion::from_euler_angles(0., -input.mouse_delta.1 as f32 * 0.1 * dt, 0.);
+        rot *= UnitQuaternion::from_euler_angles(0., -input.mouse_delta.1 as f32 * rot_speed, 0.);
+
+        self.rotation = self.rotation.slerp(&rot, 0.2);
 
         input.mouse_delta = Default::default();
+
+        // dbg!(self.rotation.euler_angles());
 
         // Keep the camera's angle from going too high/low.
         // let angle = space::Angle(SAFE_FRAC_PI_2);
         // if pitch < -*angle {
-        //     pitch = -angle.0;
+        //     self.rotation *= UnitQuaternion::from_euler_angles(0., -angle.0, 0.);
         // } else if pitch > *angle {
-        //     pitch = angle.0;
+        //     self.rotation *= UnitQuaternion::from_euler_angles(0., angle.0, 0.);
         // }
     }
 }

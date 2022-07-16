@@ -1,12 +1,12 @@
 use lambda_space::space;
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
+    dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
     event::{
         DeviceEvent, ElementState, Event, KeyboardInput, MouseScrollDelta, VirtualKeyCode,
         WindowEvent,
     },
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::{CursorIcon, Window, WindowBuilder},
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -57,6 +57,18 @@ impl Default for Display {
             .build(&event_loop)
             .unwrap();
 
+        // NOTE/TODO add these properties to the public api
+        window.set_resizable(false);
+        window.set_cursor_icon(CursorIcon::Crosshair);
+        let PhysicalSize { width, height } = window.inner_size();
+        window
+            .set_cursor_position(PhysicalPosition::new(width / 2, height / 2))
+            .expect("Could not center the mouse");
+        // window
+        //     .set_cursor_grab(true)
+        //     .expect("Could not container mouse");
+        // window.set_cursor_visible(false);
+
         Self { window, event_loop }
     }
 }
@@ -71,24 +83,33 @@ impl Display {
 }
 
 fn process_keyboard(input: &mut Input, key: VirtualKeyCode, state: ElementState) {
-    let amount = (state == ElementState::Pressed) as u32 as f32;
+    let amount = (state == ElementState::Pressed) as i8;
     if let VirtualKeyCode::W | VirtualKeyCode::Up = key {
-        input.direction.f = amount;
+        input.look.set_forward(amount)
     }
     if let VirtualKeyCode::S | VirtualKeyCode::Down = key {
-        input.direction.b = amount;
+        input.look.set_back(amount);
     }
     if let VirtualKeyCode::A | VirtualKeyCode::Left = key {
-        input.direction.l = amount;
+        input.look.set_left(amount);
     }
     if let VirtualKeyCode::D | VirtualKeyCode::Right = key {
-        input.direction.r = amount;
+        input.look.set_right(amount);
     }
     if let VirtualKeyCode::Space = key {
-        input.direction.u = amount;
+        input.look.set_up(amount);
     }
     if let VirtualKeyCode::LShift = key {
-        input.direction.d = amount;
+        input.look.set_down(amount);
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FirstCheck(bool);
+
+impl Default for FirstCheck {
+    fn default() -> Self {
+        Self(true)
     }
 }
 
@@ -97,7 +118,8 @@ pub struct Input {
     pub mouse_pressed: bool,
     pub mouse_scroll: f32,
     pub mouse_delta: (f64, f64),
-    pub direction: space::LookDirection,
+    pub look: space::LookDirection,
+    first_mouse_event: FirstCheck,
 }
 
 pub fn handle_inputs(
@@ -151,7 +173,10 @@ pub fn handle_inputs(
             };
         }
         if let DeviceEvent::MouseMotion { delta } = event {
-            input.mouse_delta = delta
+            if !input.first_mouse_event.0 {
+                input.mouse_delta = delta
+            }
+            input.first_mouse_event.0 = false;
         }
     }
 }

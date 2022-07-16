@@ -15,12 +15,10 @@ pub trait Transformation {
     fn translate_z(&mut self, distance: f32);
 }
 
-#[inline]
 pub fn scaled_axis_matrix_4(axis: Pos3, angle: f32) -> Matrix4<f32> {
     Matrix4::from_scaled_axis(*axis * angle)
 }
 
-#[inline]
 pub fn translate(distance: Pos3) -> Matrix4<f32> {
     Matrix4::new_translation(&distance)
 }
@@ -40,9 +38,7 @@ pub(crate) fn calculate_normals(model: &mut [Vertex]) {
 }
 
 fn normal(p1: Point3<f32>, p2: Point3<f32>, p3: Point3<f32>) -> Point3<f32> {
-    let a = p3.sub(p2);
-    let b = p1.sub(p2);
-    Point3::from(a.cross(&b))
+    Point3::from(p3.sub(p2).cross(&p1.sub(p2)))
 }
 
 pub(crate) fn make_point(

@@ -64,14 +64,55 @@ pub struct Rotation {
     pub y: f32,
 }
 
-#[derive(Default, Debug, PartialEq, Clone, Copy)]
-pub struct LookDirection {
-    pub l: f32,
-    pub r: f32,
-    pub u: f32,
-    pub d: f32,
-    pub f: f32,
-    pub b: f32,
+/// Look direction to map mouse movement and scroll
+///
+/// Stored as: \
+/// up \
+/// down \
+/// left \
+/// right \
+/// forward (forward scroll) \
+/// back (back scroll)
+#[derive(Deref, DerefMut, Default, Debug, PartialEq, Clone, Copy)]
+pub struct LookDirection([i8; 6]);
+
+impl LookDirection {
+    pub fn set_up(&mut self, value: i8) {
+        self[0] = value
+    }
+    pub fn set_down(&mut self, value: i8) {
+        self[1] = value
+    }
+    pub fn set_left(&mut self, value: i8) {
+        self[2] = value
+    }
+    pub fn set_right(&mut self, value: i8) {
+        self[3] = value
+    }
+    pub fn set_forward(&mut self, value: i8) {
+        self[4] = value
+    }
+    pub fn set_back(&mut self, value: i8) {
+        self[5] = value
+    }
+    pub fn up(&self) -> i8 {
+        self[0]
+    }
+    pub fn down(&self) -> i8 {
+        self[1]
+    }
+    pub fn left(&self) -> i8 {
+        self[2]
+    }
+    pub fn right(&self) -> i8 {
+        self[3]
+    }
+    pub fn forward(&self) -> i8 {
+        self[4]
+    }
+    pub fn back(&self) -> i8 {
+        self[5]
+    }
 }
 
 #[derive(Clone, Copy, Debug, new)]
