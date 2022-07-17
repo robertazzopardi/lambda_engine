@@ -95,23 +95,14 @@ impl LookDirection {
     pub fn set_back(&mut self, value: i8) {
         self[5] = value
     }
-    pub fn up(&self) -> i8 {
-        self[0]
+    pub fn x(&self) -> i8 {
+        self[3] - self[2]
     }
-    pub fn down(&self) -> i8 {
-        self[1]
+    pub fn y(&self) -> i8 {
+        self[0] - self[1]
     }
-    pub fn left(&self) -> i8 {
-        self[2]
-    }
-    pub fn right(&self) -> i8 {
-        self[3]
-    }
-    pub fn forward(&self) -> i8 {
-        self[4]
-    }
-    pub fn back(&self) -> i8 {
-        self[5]
+    pub fn z(&self) -> i8 {
+        self[4] - self[5]
     }
 }
 

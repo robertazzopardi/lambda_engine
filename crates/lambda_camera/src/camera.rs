@@ -61,10 +61,10 @@ impl Camera {
 impl CameraInternal {
     pub fn matrix(&self) -> Matrix4<f32> {
         let (_, pitch, yaw) = self.rotation.euler_angles();
-
+        let (yaw_sin, yaw_cos) = yaw.sin_cos();
         look_to_rh(
             self.pos.0,
-            vector![yaw.cos(), pitch.sin(), yaw.sin()],
+            vector![yaw_cos, pitch.sin(), yaw_sin],
             Vector3::y(),
         )
     }
@@ -75,12 +75,17 @@ impl CameraInternal {
         let look = input.look;
 
         // Movement
+        // let (yaw_sin, yaw_cos) = yaw.sin_cos();
+        // let speed = self.speed.0 * dt;
+        // let forward = vector![yaw_cos, 0., yaw_sin].normalize() * look.z() as f32 * speed;
+        // let right = vector![-yaw_sin, 0., yaw_cos].normalize() * look.x() as f32 * speed;
+        // self.pos.0 += forward + right;
         let (yaw_sin, yaw_cos) = yaw.sin_cos();
-        let speed = self.speed.0 * dt;
-        let forward = vector![yaw_cos, 0., yaw_sin] * (look.forward() - look.back()) as f32 * speed;
-        let right = vector![-yaw_sin, 0., yaw_cos] * (look.right() - look.left()) as f32 * speed;
-        self.pos.0 += forward + right;
-        self.pos.0.y += (look.up() - look.down()) as f32 * speed;
+        let forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
+        let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+        self.pos += forward * look.z() as f32 * self.speed.0 * dt;
+        self.pos += right * look.x() as f32 * self.speed.0 * dt;
+        self.pos.0.y += look.y() as f32 * self.speed.0;
 
         // Zoom
         // let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
@@ -92,7 +97,8 @@ impl CameraInternal {
         let mut rot =
             UnitQuaternion::from_euler_angles(0., 0., input.mouse_delta.0 as f32 * rot_speed)
                 * self.rotation;
-        rot *= UnitQuaternion::from_euler_angles(0., -input.mouse_delta.1 as f32 * rot_speed, 0.);
+        rot = UnitQuaternion::from_euler_angles(0., -input.mouse_delta.1 as f32 * rot_speed, 0.)
+            * rot;
 
         self.rotation = self.rotation.slerp(&rot, 0.2);
 

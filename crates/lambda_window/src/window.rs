@@ -64,9 +64,9 @@ impl Default for Display {
         window
             .set_cursor_position(PhysicalPosition::new(width / 2, height / 2))
             .expect("Could not center the mouse");
-        // window
-        //     .set_cursor_grab(true)
-        //     .expect("Could not container mouse");
+        window
+            .set_cursor_grab(true)
+            .expect("Could not container mouse");
         // window.set_cursor_visible(false);
 
         Self { window, event_loop }
@@ -84,23 +84,24 @@ impl Display {
 
 fn process_keyboard(input: &mut Input, key: VirtualKeyCode, state: ElementState) {
     let amount = (state == ElementState::Pressed) as i8;
-    if let VirtualKeyCode::W | VirtualKeyCode::Up = key {
-        input.look.set_forward(amount)
-    }
-    if let VirtualKeyCode::S | VirtualKeyCode::Down = key {
-        input.look.set_back(amount);
-    }
-    if let VirtualKeyCode::A | VirtualKeyCode::Left = key {
-        input.look.set_left(amount);
-    }
-    if let VirtualKeyCode::D | VirtualKeyCode::Right = key {
-        input.look.set_right(amount);
-    }
-    if let VirtualKeyCode::Space = key {
-        input.look.set_up(amount);
-    }
-    if let VirtualKeyCode::LShift = key {
-        input.look.set_down(amount);
+    match key {
+        VirtualKeyCode::W | VirtualKeyCode::Up => input.look.set_forward(amount),
+        VirtualKeyCode::S | VirtualKeyCode::Down => {
+            input.look.set_back(amount);
+        }
+        VirtualKeyCode::A | VirtualKeyCode::Left => {
+            input.look.set_left(amount);
+        }
+        VirtualKeyCode::D | VirtualKeyCode::Right => {
+            input.look.set_right(amount);
+        }
+        VirtualKeyCode::Space => {
+            input.look.set_up(amount);
+        }
+        VirtualKeyCode::LShift => {
+            input.look.set_down(amount);
+        }
+        _ => (),
     }
 }
 
