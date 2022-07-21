@@ -239,38 +239,7 @@ fn create_pipeline_and_layout(
     cull_mode: CullMode,
     shader_type: Shader,
 ) -> GraphicsPipelineFeatures {
-    let entry_point = CString::new("main").unwrap();
-
-    let shader_folder: &str = shader_type.into();
-
-    let vert_shader_module = create_shader_module(
-        devices,
-        &format!(
-            "./crates/lambda_internal/src/shaders/{}/vert.spv",
-            shader_folder
-        ),
-    );
-
-    let frag_shader_module = create_shader_module(
-        devices,
-        &format!(
-            "./crates/lambda_internal/src/shaders/{}/frag.spv",
-            shader_folder
-        ),
-    );
-
-    let shader_stages = [
-        vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::VERTEX)
-            .module(vert_shader_module)
-            .name(&entry_point)
-            .build(),
-        vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::FRAGMENT)
-            .module(frag_shader_module)
-            .name(&entry_point)
-            .build(),
-    ];
+    let shader_modules = create_shader_stages(shader_type, devices);
 
     let binding_description = vk::VertexInputBindingDescription::builder()
         .binding(0)
@@ -408,7 +377,7 @@ fn create_pipeline_and_layout(
             .expect("Failed to create pipeline layout!");
 
         let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
-            .stages(&shader_stages)
+            .stages(&shader_modules.stages)
             .vertex_input_state(&vertex_input_info)
             .input_assembly_state(&input_assembly)
             .viewport_state(&view_port_state)
@@ -432,16 +401,66 @@ fn create_pipeline_and_layout(
             )
             .expect("Failed to create graphics pipeline!");
 
-        devices
-            .logical
-            .device
-            .destroy_shader_module(vert_shader_module, None);
-        devices
-            .logical
-            .device
-            .destroy_shader_module(frag_shader_module, None);
+        destroy_shader_modules(devices, shader_modules.vert, shader_modules.frag);
 
         GraphicsPipelineFeatures::new(pipeline[0], layout)
+    }
+}
+
+pub unsafe fn destroy_shader_modules(
+    devices: &Devices,
+    vert_shader_module: vk::ShaderModule,
+    frag_shader_module: vk::ShaderModule,
+) {
+    devices
+        .logical
+        .device
+        .destroy_shader_module(vert_shader_module, None);
+    devices
+        .logical
+        .device
+        .destroy_shader_module(frag_shader_module, None);
+}
+
+pub(crate) struct ShaderModules<const N: usize> {
+    pub vert: vk::ShaderModule,
+    pub frag: vk::ShaderModule,
+    pub stages: [vk::PipelineShaderStageCreateInfo; N],
+}
+
+pub(crate) fn create_shader_stages(shader_type: Shader, devices: &Devices) -> ShaderModules<2> {
+    let shader_folder: &str = shader_type.into();
+    let vert_shader_module = create_shader_module(
+        devices,
+        &format!(
+            "./crates/lambda_internal/src/shaders/{}/vert.spv",
+            shader_folder
+        ),
+    );
+    let frag_shader_module = create_shader_module(
+        devices,
+        &format!(
+            "./crates/lambda_internal/src/shaders/{}/frag.spv",
+            shader_folder
+        ),
+    );
+    let entry_point = CString::new("main").unwrap();
+    let shader_stages = [
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::VERTEX)
+            .module(vert_shader_module)
+            .name(&entry_point)
+            .build(),
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::FRAGMENT)
+            .module(frag_shader_module)
+            .name(&entry_point)
+            .build(),
+    ];
+    ShaderModules {
+        vert: vert_shader_module,
+        frag: frag_shader_module,
+        stages: shader_stages,
     }
 }
 

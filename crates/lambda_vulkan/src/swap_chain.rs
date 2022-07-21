@@ -235,8 +235,8 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
         );
     });
 
-    vulkan.commander.buffers = command_buffer::create_command_buffers(
-        &vulkan.commander.pool,
+    vulkan.command_buffers = command_buffer::create_command_buffers(
+        &vulkan.command_pool,
         &vulkan.swap_chain,
         &vulkan.instance_devices,
         &vulkan.render_pass,

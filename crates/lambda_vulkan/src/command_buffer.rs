@@ -12,12 +12,6 @@ pub struct CommandBuffers(Vec<vk::CommandBuffer>);
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandPool(vk::CommandPool);
 
-#[derive(new, Debug, Clone)]
-pub struct VkCommander {
-    pub buffers: CommandBuffers,
-    pub pool: CommandPool,
-}
-
 pub fn create_command_pool(
     instance_devices: &InstanceDevices,
     surface_loader: &Surface,

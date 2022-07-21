@@ -16,26 +16,33 @@ mod texture;
 mod uniform_buffer;
 mod utility;
 
+use std::ops::Deref;
+
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
-use ash::{extensions::khr::Surface, vk};
-use buffer::ModelBuffers;
-use command_buffer::{CommandPool, VkCommander};
+use ash::{
+    extensions::khr::Surface,
+    vk::{self, Extent3D, Queue},
+    Device,
+};
+use buffer::{Buffer, ModelBuffers};
+use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
 use derive_more::{Deref, DerefMut};
-use device::Devices;
+use device::{destroy, Devices};
 use frame_buffer::FrameBuffers;
-use graphics_pipeline::GraphicsPipeline;
+use graphics_pipeline::{create_shader_stages, destroy_shader_modules, GraphicsPipeline};
+use imgui::{Condition, Context, DrawData, DrawIdx, DrawVert, Window};
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
-use nalgebra::Matrix4;
+use nalgebra::{matrix, vector, Matrix4, Vector2};
 use renderer::RenderPass;
 use resource::Resources;
 use swap_chain::SwapChain;
 use sync_objects::SyncObjects;
-use texture::Texture;
+use texture::{create_buffer, Texture};
 use uniform_buffer::UniformBufferObject;
-use utility::{EntryInstance, InstanceDevices};
+use utility::{EntryInstance, ImageInfo, InstanceDevices};
 
 pub mod prelude {
     pub use crate::{
@@ -44,10 +51,740 @@ pub mod prelude {
     };
 }
 
+struct ImGui {
+    context: Context,
+    sampler: vk::Sampler,
+    vertex_buffer: Option<Buffer>,
+    index_buffer: Option<Buffer>,
+    vertex_count: u32,
+    index_count: u32,
+    font_memory: vk::DeviceMemory,
+    font_image: vk::Image,
+    font_view: vk::ImageView,
+    pipeline_cache: vk::PipelineCache,
+    pipeline_layout: vk::PipelineLayout,
+    pipeline: vk::Pipeline,
+    descriptor_pool: vk::DescriptorPool,
+    descriptor_set_layout: vk::DescriptorSetLayout,
+    descriptor_set: vk::DescriptorSet,
+    push_constant_block: Push,
+}
+
+impl ImGui {
+    fn new(
+        instance_devices: &InstanceDevices,
+        command_pool: &vk::CommandPool,
+        copy_queue: &Queue,
+        render_pass: &RenderPass,
+    ) -> Self {
+        let mut context = Context::create();
+        let style = context.style_mut();
+        style.use_classic_colors();
+
+        let device = &instance_devices.devices.logical.device;
+
+        let width;
+        let height;
+        let mut data: Vec<u8> = vec![];
+        {
+            let mut font_atlas = context.fonts();
+            let font_atlas_texture = font_atlas.build_rgba32_texture();
+            width = font_atlas_texture.width;
+            height = font_atlas_texture.height;
+            data.extend(font_atlas_texture.data.iter())
+        }
+        let upload_size = width * height * 4;
+
+        let image_info = ImageInfo::new(
+            (width, height),
+            1,
+            vk::SampleCountFlags::TYPE_1,
+            vk::Format::R8G8B8A8_UNORM,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        );
+
+        let image = utility::create_image(image_info, instance_devices);
+        let font_image = image.image;
+        let font_memory = image.memory;
+
+        let image_view = utility::create_image_view(
+            &image,
+            vk::Format::R8G8B8A8_UNORM,
+            vk::ImageAspectFlags::COLOR,
+            device,
+        );
+        let font_view = image_view;
+
+        let staging = texture::create_buffer(
+            upload_size as u64 as vk::DeviceSize,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            instance_devices,
+        );
+
+        memory::map_memory(
+            device,
+            staging.memory,
+            upload_size as u64 as vk::DeviceSize,
+            data.as_slice(),
+        );
+
+        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
+            s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: *command_pool,
+            level: vk::CommandBufferLevel::PRIMARY,
+            command_buffer_count: 1,
+        };
+
+        let copy_cmd = unsafe {
+            device
+                .allocate_command_buffers(&command_buffer_allocate_info)
+                .expect("Could not allocate command buffers!")
+        }[0];
+        let cmd_buffer_info = vk::CommandBufferBeginInfo::default();
+        unsafe {
+            device
+                .begin_command_buffer(copy_cmd, &cmd_buffer_info)
+                .expect("Could not begin command buffer!");
+        }
+
+        let sub_resource_range = vk::ImageSubresourceRange {
+            aspect_mask: vk::ImageAspectFlags::COLOR,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+        };
+        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .old_layout(vk::ImageLayout::UNDEFINED)
+            .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+            .image(font_image)
+            .subresource_range(sub_resource_range)
+            .src_access_mask(vk::AccessFlags::empty())
+            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+            .build();
+        unsafe {
+            device.cmd_pipeline_barrier(
+                copy_cmd,
+                vk::PipelineStageFlags::HOST,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[image_memory_barrier],
+            )
+        }
+
+        let buffer_copy_region = vk::BufferImageCopy::builder()
+            .image_subresource(
+                vk::ImageSubresourceLayers::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .layer_count(1)
+                    .build(),
+            )
+            .image_extent(
+                Extent3D::builder()
+                    .width(width)
+                    .height(height)
+                    .depth(1)
+                    .build(),
+            )
+            .build();
+
+        unsafe {
+            device.cmd_copy_buffer_to_image(
+                copy_cmd,
+                staging.buffer,
+                font_image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[buffer_copy_region],
+            )
+        }
+
+        let sub_resource_range = vk::ImageSubresourceRange {
+            aspect_mask: vk::ImageAspectFlags::COLOR,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+        };
+        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+            .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .image(font_image)
+            .subresource_range(sub_resource_range)
+            .src_access_mask(vk::AccessFlags::empty())
+            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+            .build();
+        unsafe {
+            device.cmd_pipeline_barrier(
+                copy_cmd,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[image_memory_barrier],
+            )
+        }
+
+        unsafe {
+            device
+                .end_command_buffer(copy_cmd)
+                .expect("Could not end command buffer!");
+        }
+        let submit_info = vk::SubmitInfo::builder()
+            .command_buffers(&[copy_cmd])
+            .build();
+        let fence_info = vk::FenceCreateInfo::default();
+        unsafe {
+            let fence = device
+                .create_fence(&fence_info, None)
+                .expect("Could not create fence!");
+            device
+                .queue_submit(*copy_queue, &[submit_info], fence)
+                .expect("Could not submit queue!");
+            device
+                .wait_for_fences(&[fence], true, 100000000000)
+                .expect("Wait for fences failed!");
+            device.destroy_fence(fence, None);
+            device.free_command_buffers(*command_pool, &[copy_cmd]);
+
+            device.destroy_buffer(staging.buffer, None);
+            device.free_memory(staging.memory, None);
+        };
+
+        let sampler_info = vk::SamplerCreateInfo::builder()
+            .max_anisotropy(1.)
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+            .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+            .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+            .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE)
+            .build();
+        let sampler = unsafe {
+            device
+                .create_sampler(&sampler_info, None)
+                .expect("Could not create sampler!")
+        };
+
+        // Descriptor Pool
+        let pool_sizes = [vk::DescriptorPoolSize::builder()
+            .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(1)
+            .build()];
+        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&pool_sizes)
+            .max_sets(2)
+            .build();
+        let descriptor_pool = unsafe {
+            device
+                .create_descriptor_pool(&descriptor_pool_info, None)
+                .expect("Could not create descriptor pool!")
+        };
+
+        // Descriptor Set Layout
+        let set_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .binding(0)
+            .descriptor_count(1)
+            .build()];
+        let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
+            .bindings(&set_layout_bindings)
+            .build();
+        let descriptor_set_layout = unsafe {
+            device
+                .create_descriptor_set_layout(&descriptor_layout, None)
+                .expect("Could not create descriptor set layout!")
+        };
+
+        // Descriptor Set
+        let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(descriptor_pool)
+            .set_layouts(&[descriptor_set_layout])
+            .build();
+        let descriptor_set = unsafe {
+            device
+                .allocate_descriptor_sets(&descriptor_set_alloc_info)
+                .expect("Could not allocate descriptor set!")[0]
+        };
+        let font_descriptor = vk::DescriptorImageInfo::builder()
+            .sampler(sampler)
+            .image_view(font_view)
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .build();
+        let write_descriptor_set = [vk::WriteDescriptorSet::builder()
+            .dst_set(descriptor_set)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .dst_binding(0)
+            .image_info(&[font_descriptor])
+            .build()];
+        unsafe { device.update_descriptor_sets(&write_descriptor_set, &[]) }
+
+        let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
+        let pipeline_cache = unsafe {
+            device
+                .create_pipeline_cache(&pipeline_cache_create_info, None)
+                .expect("Could not create pipeline cache")
+        };
+
+        let push_constant_range = vk::PushConstantRange::builder()
+            .stage_flags(vk::ShaderStageFlags::VERTEX)
+            .size(std::mem::size_of::<Push>().try_into().unwrap())
+            .offset(0)
+            .build();
+        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&[descriptor_set_layout])
+            .push_constant_ranges(&[push_constant_range])
+            .build();
+        let pipeline_layout = unsafe {
+            device
+                .create_pipeline_layout(&pipeline_layout_create_info, None)
+                .expect("Could not create pipeline layout!")
+        };
+
+        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+            .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+            .primitive_restart_enable(false)
+            .build();
+        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+            .polygon_mode(vk::PolygonMode::FILL)
+            .cull_mode(vk::CullModeFlags::NONE)
+            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+            .depth_clamp_enable(false)
+            .line_width(1.)
+            .build();
+
+        let blend_attachment_state = vk::PipelineColorBlendAttachmentState::builder()
+            .blend_enable(true)
+            .color_write_mask(vk::ColorComponentFlags::RGBA)
+            .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+            .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+            .color_blend_op(vk::BlendOp::ADD)
+            .src_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+            .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+            .alpha_blend_op(vk::BlendOp::ADD)
+            .build();
+
+        let colour_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+            .attachments(&[blend_attachment_state])
+            .build();
+
+        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
+            .depth_test_enable(false)
+            .depth_write_enable(false)
+            .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL)
+            .back(
+                vk::StencilOpState::builder()
+                    .compare_op(vk::CompareOp::ALWAYS)
+                    .build(),
+            )
+            .build();
+
+        let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
+            .viewport_count(1)
+            .scissor_count(1)
+            .build();
+
+        let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+            .rasterization_samples(vk::SampleCountFlags::TYPE_1)
+            .build();
+
+        let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+        let dynamic_state = vk::PipelineDynamicStateCreateInfo::builder()
+            .dynamic_states(&dynamic_state_enables)
+            .build();
+
+        let vertex_input_bindings = [vk::VertexInputBindingDescription::builder()
+            .binding(0)
+            .stride(std::mem::size_of::<DrawVert>().try_into().unwrap())
+            .input_rate(vk::VertexInputRate::VERTEX)
+            .build()];
+        let vertex_input_attributes = [
+            vk::VertexInputAttributeDescription::builder()
+                .location(0)
+                .binding(0)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(memoffset::offset_of!(DrawVert, pos) as u32)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .location(0)
+                .binding(1)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(memoffset::offset_of!(DrawVert, uv) as u32)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .location(0)
+                .binding(2)
+                .format(vk::Format::R8G8B8A8_UNORM)
+                .offset(memoffset::offset_of!(DrawVert, col) as u32)
+                .build(),
+        ];
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&vertex_input_attributes)
+            .vertex_binding_descriptions(&vertex_input_bindings)
+            .build();
+
+        let shader_modules = create_shader_stages(Shader::Vertex, &instance_devices.devices);
+
+        dbg!(1);
+
+        let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
+            .layout(pipeline_layout)
+            .render_pass(render_pass.0)
+            .base_pipeline_index(-1)
+            .input_assembly_state(&input_assembly_state)
+            .rasterization_state(&rasterization_state)
+            .color_blend_state(&colour_blend_state)
+            .multisample_state(&multi_sample_state)
+            .viewport_state(&view_port_state)
+            .depth_stencil_state(&depth_stencil_state)
+            .dynamic_state(&dynamic_state)
+            .stages(&shader_modules.stages)
+            .vertex_input_state(&vertex_input_state)
+            .base_pipeline_handle(vk::Pipeline::null())
+            .subpass(0)
+            .build();
+
+        dbg!(2);
+
+        let pipeline = unsafe {
+            device
+                .create_graphics_pipelines(
+                    pipeline_cache,
+                    std::slice::from_ref(&pipeline_create_info),
+                    None,
+                )
+                .expect("Could not create graphics pipeline!")[0]
+        };
+
+        dbg!(3);
+
+        unsafe {
+            destroy_shader_modules(
+                &instance_devices.devices,
+                shader_modules.vert,
+                shader_modules.frag,
+            )
+        };
+
+        Self {
+            context,
+            sampler,
+            vertex_buffer: None,
+            index_buffer: None,
+            vertex_count: 0,
+            index_count: 0,
+            font_memory,
+            font_image,
+            font_view,
+            pipeline_cache,
+            pipeline_layout,
+            pipeline,
+            descriptor_pool,
+            descriptor_set_layout,
+            descriptor_set,
+            push_constant_block: Push {
+                scale: Vector2::default(),
+                translate: Vector2::default(),
+            },
+        }
+    }
+
+    pub fn new_frame(&mut self) -> &DrawData {
+        let ui = self.context.frame();
+
+        let mut value = 0;
+        let choices = ["test test this is 1", "test test this is 2"];
+
+        Window::new("Hello world")
+            .size([300.0, 100.0], Condition::FirstUseEver)
+            .build(&ui, || {
+                ui.text_wrapped("Hello world!");
+                ui.text_wrapped("こんにちは世界！");
+                if ui.button(choices[value]) {
+                    value += 1;
+                    value %= 2;
+                }
+
+                ui.button("This...is...imgui-rs!");
+                ui.separator();
+                let mouse_pos = ui.io().mouse_pos;
+                ui.text(format!(
+                    "Mouse Position: ({:.1},{:.1})",
+                    mouse_pos[0], mouse_pos[1]
+                ));
+            });
+
+        ui.render()
+    }
+
+    pub fn update_buffers(&mut self, instance_devices: &InstanceDevices) {
+        let device = &instance_devices.devices.logical.device;
+
+        let draw_data = self.new_frame();
+
+        let vertex_buffer_size =
+            draw_data.total_vtx_count as usize * std::mem::size_of::<DrawVert>();
+        let index_buffer_size = draw_data.total_idx_count as usize * std::mem::size_of::<DrawIdx>();
+
+        if vertex_buffer_size == 0 || index_buffer_size == 0 {
+            return;
+        }
+
+        let total_vtx_count = draw_data.total_vtx_count;
+        let total_idx_count = draw_data.total_idx_count;
+
+        let vertex_data;
+        if self.vertex_buffer.is_none() || self.vertex_count != total_vtx_count.try_into().unwrap()
+        {
+            if let Some(vertex_buffer) = &self.vertex_buffer {
+                unsafe {
+                    device.unmap_memory(vertex_buffer.memory);
+                    device.destroy_buffer(vertex_buffer.buffer, None);
+                    device.free_memory(vertex_buffer.memory, None);
+                }
+                self.vertex_buffer = None;
+            }
+
+            self.vertex_buffer = Some(create_buffer(
+                vertex_buffer_size.try_into().unwrap(),
+                vk::BufferUsageFlags::VERTEX_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE,
+                instance_devices,
+            ));
+            self.vertex_count = total_vtx_count.try_into().unwrap();
+        }
+        vertex_data = unsafe {
+            device
+                .map_memory(
+                    self.vertex_buffer.as_ref().unwrap().memory,
+                    0,
+                    0,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("Failed to map memory!")
+        };
+
+        let index_data;
+        if self.index_buffer.is_none() || self.index_count < total_idx_count.try_into().unwrap() {
+            if let Some(index_buffer) = &self.index_buffer {
+                unsafe {
+                    device.unmap_memory(index_buffer.memory);
+                    device.destroy_buffer(index_buffer.buffer, None);
+                    device.free_memory(index_buffer.memory, None);
+                }
+                self.index_buffer = None;
+            }
+
+            self.index_buffer = Some(create_buffer(
+                index_buffer_size.try_into().unwrap(),
+                vk::BufferUsageFlags::INDEX_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE,
+                instance_devices,
+            ));
+            self.index_count = total_idx_count.try_into().unwrap();
+        }
+        index_data = unsafe {
+            device
+                .map_memory(
+                    self.index_buffer.as_ref().unwrap().memory,
+                    0,
+                    0,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("Failed to map memory!")
+        };
+
+        // let vertex_dst = vertex_data as *mut DrawVert;
+        // let index_dst = index_data as *mut DrawIdx;
+
+        // for draw_list in draw_data.draw_lists() {}
+    }
+
+    fn draw_frame(
+        &mut self,
+        draw_data: &DrawData,
+        device: &Device,
+        command_buffer: &vk::CommandBuffer,
+    ) {
+        let io = self.context.io_mut();
+
+        unsafe {
+            device.cmd_bind_descriptor_sets(
+                *command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline_layout,
+                0,
+                &[self.descriptor_set],
+                &[],
+            );
+            device.cmd_bind_pipeline(
+                *command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline,
+            );
+        }
+
+        let viewport = vk::Viewport::builder()
+            .width(io.display_size[0])
+            .height(io.display_size[1])
+            .min_depth(0.)
+            .max_depth(1.)
+            .build();
+
+        unsafe { device.cmd_set_viewport(*command_buffer, 0, &[viewport]) }
+
+        let projection =
+            orthographic_vk(0.0, io.display_size[0], 0.0, -io.display_size[1], -1.0, 1.0);
+        unsafe {
+            device.cmd_push_constants(
+                *command_buffer,
+                self.pipeline_layout,
+                vk::ShaderStageFlags::VERTEX,
+                0,
+                any_as_u8_slice(&projection),
+            )
+        }
+
+        let mut vertex_offset = 0;
+        let mut index_offset = 0;
+
+        if draw_data.draw_lists_count() > 0 {
+            let offsets = [0 as vk::DeviceSize];
+
+            let vertex_buffer = self.vertex_buffer.as_ref().unwrap().buffer;
+            let index_buffer = self.index_buffer.as_ref().unwrap().buffer;
+            unsafe {
+                device.cmd_bind_vertex_buffers(*command_buffer, 0, &[vertex_buffer], &offsets);
+                device.cmd_bind_index_buffer(
+                    *command_buffer,
+                    index_buffer,
+                    0,
+                    vk::IndexType::UINT16,
+                );
+            }
+
+            for draw_list in draw_data.draw_lists() {
+                for command in draw_list.commands() {
+                    match command {
+                        imgui::DrawCmd::Elements { count, cmd_params } => todo!(),
+                        imgui::DrawCmd::ResetRenderState => todo!(),
+                        imgui::DrawCmd::RawCallback { callback, raw_cmd } => {
+                            let scissor_rect = vk::Rect2D::builder()
+                                .offset(
+                                    vk::Offset2D::builder()
+                                        .x(0.max((unsafe { *raw_cmd }).ClipRect.x as i32))
+                                        .y(0.max((unsafe { *raw_cmd }).ClipRect.y as i32))
+                                        .build(),
+                                )
+                                .extent(
+                                    vk::Extent2D::builder()
+                                        .width(unsafe {
+                                            (*raw_cmd).ClipRect.z - (*raw_cmd).ClipRect.x
+                                        } as u32)
+                                        .height(unsafe {
+                                            (*raw_cmd).ClipRect.w - (*raw_cmd).ClipRect.y
+                                        } as u32)
+                                        .build(),
+                                )
+                                .build();
+                            unsafe {
+                                device.cmd_set_scissor(*command_buffer, 0, &[scissor_rect]);
+                                device.cmd_draw_indexed(
+                                    *command_buffer,
+                                    (*raw_cmd).ElemCount,
+                                    1,
+                                    index_offset,
+                                    vertex_offset,
+                                    0,
+                                );
+                                index_offset += (*raw_cmd).ElemCount;
+                            }
+                        }
+                    }
+                }
+                vertex_offset += draw_list.vtx_buffer().len() as i32;
+            }
+        }
+    }
+
+    unsafe fn destroy(&self, device: &Device) {
+        if let Some(vertex_buffer) = &self.vertex_buffer {
+            device.destroy_buffer(vertex_buffer.buffer, None);
+            device.free_memory(vertex_buffer.memory, None);
+        }
+        if let Some(index_buffer) = &self.index_buffer {
+            device.destroy_buffer(index_buffer.buffer, None);
+            device.free_memory(index_buffer.memory, None);
+        }
+        device.destroy_image(self.font_image, None);
+        device.destroy_image_view(self.font_view, None);
+        device.free_memory(self.font_memory, None);
+        device.destroy_sampler(self.sampler, None);
+        device.destroy_pipeline_cache(self.pipeline_cache, None);
+        device.destroy_pipeline(self.pipeline, None);
+        device.destroy_pipeline_layout(self.pipeline_layout, None);
+        device.destroy_descriptor_pool(self.descriptor_pool, None);
+        device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+    }
+}
+
+struct Push {
+    scale: Vector2<f32>,
+    translate: Vector2<f32>,
+}
+
+pub fn orthographic_vk(
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    near: f32,
+    far: f32,
+) -> Matrix4<f32> {
+    let rml = right - left;
+    let rpl = right + left;
+    let tmb = top - bottom;
+    let tpb = top + bottom;
+    let fmn = far - near;
+    matrix![
+        2. / rml, 0., 0., 0.;
+        0., -2. / tmb, 0., 0.;
+        0., 0., -1. / fmn, 0.;
+        -(rpl / rml), -(tpb / tmb), -(near / fmn), 1.;
+    ]
+}
+
+pub(crate) unsafe fn any_as_u8_slice<T: Sized>(any: &T) -> &[u8] {
+    let ptr = (any as *const T) as *const u8;
+    std::slice::from_raw_parts(ptr, std::mem::size_of::<T>())
+}
+
+//
+//
+//
+//
+//
+//
+//
+//
+
 pub(crate) struct VulkanObjects(Vec<VulkanObject>);
 
 pub struct Vulkan {
-    pub(crate) commander: VkCommander,
+    pub(crate) command_buffers: CommandBuffers,
+    pub(crate) command_pool: CommandPool,
     pub(crate) render_pass: RenderPass,
     pub(crate) resources: Resources,
     pub(crate) surface: vk::SurfaceKHR,
@@ -149,12 +886,20 @@ impl Vulkan {
             &objects.0,
         );
 
-        let commander = VkCommander::new(command_buffers, command_pool);
-
         let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
 
+        let gui = ImGui::new(
+            &instance_devices,
+            &command_pool,
+            &instance_devices.devices.logical.queues.graphics,
+            &render_pass,
+        );
+
+        unsafe { gui.destroy(&instance_devices.devices.logical.device) };
+
         Self {
-            commander,
+            command_buffers,
+            command_pool,
             render_pass,
             resources,
             surface,
@@ -216,7 +961,7 @@ impl Drop for Vulkan {
                 .devices
                 .logical
                 .device
-                .destroy_command_pool(*self.commander.pool, None);
+                .destroy_command_pool(*self.command_pool, None);
 
             dbg!("2");
 
@@ -385,6 +1130,8 @@ const LIGHT: &str = "light";
 const LIGHT_TEXTURE: &str = "light_texture";
 const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
+const PUSH_CONSTANT: &str = "push_constant";
+const UI: &str = "ui";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shader {
@@ -393,6 +1140,8 @@ pub enum Shader {
     LightTexture,
     Texture,
     Vertex,
+    PushConstant,
+    Ui,
 }
 
 impl From<Shader> for &str {
@@ -402,6 +1151,8 @@ impl From<Shader> for &str {
             Shader::LightTexture => LIGHT_TEXTURE,
             Shader::Texture => TEXTURE,
             Shader::Vertex => VERTEX,
+            Shader::PushConstant => PUSH_CONSTANT,
+            Shader::Ui => UI,
         }
     }
 }

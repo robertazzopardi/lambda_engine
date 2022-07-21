@@ -176,7 +176,7 @@ pub fn render(
             p_wait_semaphores: wait_semaphores.as_ptr(),
             p_wait_dst_stage_mask: wait_stages.as_ptr(),
             command_buffer_count: 1,
-            p_command_buffers: &vulkan.commander.buffers[image_index as usize],
+            p_command_buffers: &vulkan.command_buffers[image_index as usize],
             signal_semaphore_count: signal_semaphores.len() as u32,
             p_signal_semaphores: signal_semaphores.as_ptr(),
         }];
