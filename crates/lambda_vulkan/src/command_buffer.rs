@@ -1,6 +1,6 @@
 use crate::{
     device, frame_buffer::FrameBuffers, renderer::RenderPass, swap_chain::SwapChain,
-    utility::InstanceDevices, VulkanObject,
+    utility::InstanceDevices, ImGui, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
@@ -41,6 +41,7 @@ pub(crate) fn create_command_buffers(
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
     objects: &[VulkanObject],
+    gui: &mut ImGui,
 ) -> CommandBuffers {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(**command_pool)
@@ -87,6 +88,9 @@ pub(crate) fn create_command_buffers(
 
     let offsets = [0_u64];
 
+    let draw_data = gui.new_frame();
+    // gui.update_buffers(draw_data, instance_devices);
+
     unsafe {
         for i in 0..swap_chain.images.len() {
             device
@@ -127,6 +131,8 @@ pub(crate) fn create_command_buffers(
             objects.iter().for_each(|model| {
                 bind_index_and_vertex_buffers(model, device, command_buffers[i], &offsets, i)
             });
+
+            // gui.draw_frame(draw_data, device, &command_buffers[i]);
 
             device.cmd_end_render_pass(command_buffers[i as usize]);
 

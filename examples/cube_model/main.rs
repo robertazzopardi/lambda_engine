@@ -28,10 +28,9 @@ fn main() {
             .build(),
     );
 
-    // DebugMessageProperties::new(
-    //     MessageLevel::builder().error().verbose().warning(),
-    //     MessageType::builder().performance().validation(),
-    // );
-
-    Engine::default().geometries(vec![model]).build().run()
+    Engine::default()
+        .geometries(vec![model])
+        .debugging(Some(Debugger::all()))
+        .build()
+        .run()
 }

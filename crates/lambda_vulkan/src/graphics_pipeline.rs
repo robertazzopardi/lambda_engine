@@ -11,7 +11,7 @@ use ash::{vk, Device};
 use lambda_space::space::Vertex;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
-use std::{ffi::CString, mem};
+use std::{ffi::CStr, mem};
 
 #[derive(Default, Debug, Clone)]
 pub struct Descriptor {
@@ -442,19 +442,21 @@ pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> Shad
             shader_folder
         ),
     );
-    let entry_point = CString::new("main").unwrap();
+
+    let entry_point = &CStr::from_bytes_with_nul(b"main\0").unwrap();
     let shader_stages = [
         vk::PipelineShaderStageCreateInfo::builder()
             .stage(vk::ShaderStageFlags::VERTEX)
             .module(vert_shader_module)
-            .name(&entry_point)
+            .name(entry_point)
             .build(),
         vk::PipelineShaderStageCreateInfo::builder()
             .stage(vk::ShaderStageFlags::FRAGMENT)
             .module(frag_shader_module)
-            .name(&entry_point)
+            .name(entry_point)
             .build(),
     ];
+
     ShaderModules {
         vert: vert_shader_module,
         frag: frag_shader_module,

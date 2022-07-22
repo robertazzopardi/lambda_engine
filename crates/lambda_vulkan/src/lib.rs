@@ -16,8 +16,6 @@ mod texture;
 mod uniform_buffer;
 mod utility;
 
-use std::ops::Deref;
-
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
 use ash::{
     extensions::khr::Surface,
@@ -418,14 +416,14 @@ impl ImGui {
                 .offset(memoffset::offset_of!(DrawVert, pos) as u32)
                 .build(),
             vk::VertexInputAttributeDescription::builder()
-                .location(0)
-                .binding(1)
+                .location(1)
+                .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
                 .offset(memoffset::offset_of!(DrawVert, uv) as u32)
                 .build(),
             vk::VertexInputAttributeDescription::builder()
-                .location(0)
-                .binding(2)
+                .location(2)
+                .binding(0)
                 .format(vk::Format::R8G8B8A8_UNORM)
                 .offset(memoffset::offset_of!(DrawVert, col) as u32)
                 .build(),
@@ -525,10 +523,8 @@ impl ImGui {
         ui.render()
     }
 
-    pub fn update_buffers(&mut self, instance_devices: &InstanceDevices) {
+    pub fn update_buffers(&mut self, draw_data: &DrawData, instance_devices: &InstanceDevices) {
         let device = &instance_devices.devices.logical.device;
-
-        let draw_data = self.new_frame();
 
         let vertex_buffer_size =
             draw_data.total_vtx_count as usize * std::mem::size_of::<DrawVert>();
@@ -609,12 +605,12 @@ impl ImGui {
     }
 
     fn draw_frame(
-        &mut self,
+        &self,
         draw_data: &DrawData,
         device: &Device,
         command_buffer: &vk::CommandBuffer,
     ) {
-        let io = self.context.io_mut();
+        let io = self.context.io();
 
         unsafe {
             device.cmd_bind_descriptor_sets(
@@ -792,6 +788,7 @@ pub struct Vulkan {
     pub(crate) frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
     pub(crate) objects: VulkanObjects,
+    gui: ImGui,
 }
 
 impl Vulkan {
@@ -873,6 +870,15 @@ impl Vulkan {
                 .collect(),
         );
 
+        let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
+
+        let mut gui = ImGui::new(
+            &instance_devices,
+            &command_pool,
+            &instance_devices.devices.logical.queues.graphics,
+            &render_pass,
+        );
+
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
             &swap_chain,
@@ -880,18 +886,8 @@ impl Vulkan {
             &render_pass,
             &frame_buffers,
             &objects.0,
+            &mut gui,
         );
-
-        let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
-
-        let gui = ImGui::new(
-            &instance_devices,
-            &command_pool,
-            &instance_devices.devices.logical.queues.graphics,
-            &render_pass,
-        );
-
-        unsafe { gui.destroy(&instance_devices.devices.logical.device) };
 
         Self {
             command_buffers,
@@ -907,6 +903,7 @@ impl Vulkan {
             frame_buffers,
             instance_devices,
             objects,
+            gui,
         }
     }
 
@@ -927,6 +924,9 @@ impl Drop for Vulkan {
         swap_chain::cleanup_swap_chain(self);
 
         unsafe {
+            self.gui
+                .destroy(&self.instance_devices.devices.logical.device);
+
             self.objects.0.iter().for_each(|object| {
                 device::recreate_drop(
                     &object.graphics_pipeline,

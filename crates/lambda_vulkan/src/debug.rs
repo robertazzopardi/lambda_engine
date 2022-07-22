@@ -109,6 +109,10 @@ impl MessageLevel {
         self.flags |= vk::DebugUtilsMessageSeverityFlagsEXT::WARNING;
         self
     }
+
+    pub fn all() -> Self {
+        Self::builder().error().verbose().warning()
+    }
 }
 
 impl Default for MessageLevel {
@@ -144,6 +148,10 @@ impl MessageType {
         self.flags |= vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE;
         self
     }
+
+    pub fn all() -> Self {
+        Self::builder().validation().performance()
+    }
 }
 
 impl Default for MessageType {
@@ -156,6 +164,12 @@ impl Default for MessageType {
 pub struct Debugger {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
+}
+
+impl Debugger {
+    pub fn all() -> Self {
+        Self::new(MessageLevel::all(), MessageType::all())
+    }
 }
 
 #[inline]
