@@ -1,4 +1,4 @@
-GLSLC=$(VULKAN_SDK)/macOS/bin/glslc
+GLSLC=$(VULKAN_SDK)/macOS/bin/glslc -O -std=450 --target-env=vulkan1.3
 
 SRC					:= crates/lambda_internal/src
 

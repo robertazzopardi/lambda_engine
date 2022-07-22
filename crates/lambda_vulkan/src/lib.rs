@@ -377,7 +377,7 @@ impl ImGui {
             .build();
 
         let colour_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-            .attachments(&[blend_attachment_state])
+            .attachments(std::slice::from_ref(&blend_attachment_state))
             .build();
 
         let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
@@ -392,8 +392,8 @@ impl ImGui {
             .build();
 
         let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
-            .viewport_count(1)
-            .scissor_count(1)
+            .viewports(&[Default::default()])
+            .scissors(&[Default::default()])
             .build();
 
         let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
@@ -435,11 +435,11 @@ impl ImGui {
             .vertex_binding_descriptions(&vertex_input_bindings)
             .build();
 
-        let shader_modules = create_shader_stages(Shader::Vertex, &instance_devices.devices);
+        let shader_modules = create_shader_stages(Shader::Ui, device);
 
         dbg!(1);
 
-        let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
+        let pipeline_create_info = [vk::GraphicsPipelineCreateInfo::builder()
             .layout(pipeline_layout)
             .render_pass(render_pass.0)
             .base_pipeline_index(-1)
@@ -454,17 +454,13 @@ impl ImGui {
             .vertex_input_state(&vertex_input_state)
             .base_pipeline_handle(vk::Pipeline::null())
             .subpass(0)
-            .build();
+            .build()];
 
         dbg!(2);
 
         let pipeline = unsafe {
             device
-                .create_graphics_pipelines(
-                    pipeline_cache,
-                    std::slice::from_ref(&pipeline_create_info),
-                    None,
-                )
+                .create_graphics_pipelines(pipeline_cache, &pipeline_create_info, None)
                 .expect("Could not create graphics pipeline!")[0]
         };
 

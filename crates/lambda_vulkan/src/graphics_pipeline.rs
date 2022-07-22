@@ -7,7 +7,7 @@ use crate::{
     utility::InstanceDevices,
     CullMode, ModelTopology, Shader,
 };
-use ash::vk;
+use ash::{vk, Device};
 use lambda_space::space::Vertex;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
@@ -215,16 +215,14 @@ fn create_uniform_buffers(
     buffers
 }
 
-fn create_shader_module(devices: &Devices, path: &str) -> vk::ShaderModule {
+fn create_shader_module(device: &Device, path: &str) -> vk::ShaderModule {
     let mut file = std::fs::File::open(path).unwrap();
     let spv = ash::util::read_spv(&mut file).unwrap();
 
-    let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv);
+    let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv).build();
 
     unsafe {
-        devices
-            .logical
-            .device
+        device
             .create_shader_module(&create_info, None)
             .expect("Failed to create shader module!")
     }
@@ -239,7 +237,7 @@ fn create_pipeline_and_layout(
     cull_mode: CullMode,
     shader_type: Shader,
 ) -> GraphicsPipelineFeatures {
-    let shader_modules = create_shader_stages(shader_type, devices);
+    let shader_modules = create_shader_stages(shader_type, &devices.logical.device);
 
     let binding_description = vk::VertexInputBindingDescription::builder()
         .binding(0)
@@ -428,17 +426,17 @@ pub(crate) struct ShaderModules<const N: usize> {
     pub stages: [vk::PipelineShaderStageCreateInfo; N],
 }
 
-pub(crate) fn create_shader_stages(shader_type: Shader, devices: &Devices) -> ShaderModules<2> {
+pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> ShaderModules<2> {
     let shader_folder: &str = shader_type.into();
     let vert_shader_module = create_shader_module(
-        devices,
+        device,
         &format!(
             "./crates/lambda_internal/src/shaders/{}/vert.spv",
             shader_folder
         ),
     );
     let frag_shader_module = create_shader_module(
-        devices,
+        device,
         &format!(
             "./crates/lambda_internal/src/shaders/{}/frag.spv",
             shader_folder
