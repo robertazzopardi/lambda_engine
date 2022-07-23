@@ -48,7 +48,7 @@ impl GraphicsPipeline {
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
 
-        let descriptor_set_layout = create_descriptor_set_layout(devices);
+        let descriptor_set_layout = create_descriptor_set_layout(&devices.logical.device);
 
         let features = create_pipeline_and_layout(
             devices,
@@ -99,7 +99,7 @@ impl GraphicsPipeline {
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
 
-        let descriptor_set_layout = create_descriptor_set_layout(devices);
+        let descriptor_set_layout = create_descriptor_set_layout(&devices.logical.device);
 
         let features = create_pipeline_and_layout(
             devices,
@@ -142,30 +142,26 @@ impl GraphicsPipeline {
     }
 }
 
-fn create_descriptor_set_layout(devices: &Devices) -> vk::DescriptorSetLayout {
+fn create_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
     let bindings = [
-        vk::DescriptorSetLayoutBinding {
-            binding: 0,
-            descriptor_count: 1,
-            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            stage_flags: vk::ShaderStageFlags::VERTEX,
-            ..Default::default()
-        },
-        vk::DescriptorSetLayoutBinding {
-            binding: 1,
-            descriptor_count: 1,
-            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            stage_flags: vk::ShaderStageFlags::FRAGMENT,
-            ..Default::default()
-        },
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_count(1)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .stage_flags(vk::ShaderStageFlags::VERTEX)
+            .build(),
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(1)
+            .descriptor_count(1)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .build(),
     ];
 
     let layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
 
     unsafe {
-        devices
-            .logical
-            .device
+        device
             .create_descriptor_set_layout(&layout_info, None)
             .expect("Failed to create descriptor set layout")
     }

@@ -67,7 +67,7 @@ pub(crate) fn create_command_buffers(
         .max_depth(1.);
 
     let scissor = vk::Rect2D::builder()
-        .offset(vk::Offset2D { x: 0, y: 0 })
+        .offset(vk::Offset2D::default())
         .extent(vk::Extent2D { width, height });
 
     let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -86,15 +86,13 @@ pub(crate) fn create_command_buffers(
         },
     ];
 
-    let offsets = [0_u64];
-
     let draw_data = gui.new_frame();
     // gui.update_buffers(draw_data, instance_devices);
 
     unsafe {
         for i in 0..swap_chain.images.len() {
             device
-                .begin_command_buffer(command_buffers[i as usize], &begin_info)
+                .begin_command_buffer(command_buffers[i], &begin_info)
                 .expect("Failed to begin recording command buffer!");
 
             let render_pass_begin_info = vk::RenderPassBeginInfo {
@@ -103,7 +101,7 @@ pub(crate) fn create_command_buffers(
                 render_pass: render_pass.0,
                 framebuffer: frame_buffers[i],
                 render_area: vk::Rect2D {
-                    offset: vk::Offset2D { x: 0, y: 0 },
+                    offset: vk::Offset2D::default(),
                     extent: swap_chain.extent,
                 },
                 clear_value_count: clear_values.len() as u32,
@@ -111,33 +109,25 @@ pub(crate) fn create_command_buffers(
             };
 
             device.cmd_begin_render_pass(
-                command_buffers[i as usize],
+                command_buffers[i],
                 &render_pass_begin_info,
                 vk::SubpassContents::INLINE,
             );
 
-            device.cmd_set_viewport(
-                command_buffers[i as usize],
-                0,
-                std::slice::from_ref(&view_port),
-            );
+            device.cmd_set_viewport(command_buffers[i], 0, std::slice::from_ref(&view_port));
 
-            device.cmd_set_scissor(
-                command_buffers[i as usize],
-                0,
-                std::slice::from_ref(&scissor),
-            );
+            device.cmd_set_scissor(command_buffers[i], 0, std::slice::from_ref(&scissor));
 
             objects.iter().for_each(|model| {
-                bind_index_and_vertex_buffers(model, device, command_buffers[i], &offsets, i)
+                bind_index_and_vertex_buffers(model, device, command_buffers[i], &[0_u64], i)
             });
 
             // gui.draw_frame(draw_data, device, &command_buffers[i]);
 
-            device.cmd_end_render_pass(command_buffers[i as usize]);
+            device.cmd_end_render_pass(command_buffers[i]);
 
             device
-                .end_command_buffer(command_buffers[i as usize])
+                .end_command_buffer(command_buffers[i])
                 .expect("Failed to record command buffer!");
         }
     }

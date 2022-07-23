@@ -78,6 +78,9 @@ impl ImGui {
         let mut context = Context::create();
         let style = context.style_mut();
         style.use_classic_colors();
+        let io = context.io_mut();
+        io.display_size = [300., 100.];
+        io.display_framebuffer_scale = [1., 1.];
 
         let device = &instance_devices.devices.logical.device;
 
@@ -291,14 +294,14 @@ impl ImGui {
         };
 
         // Descriptor Set Layout
-        let set_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+        let set_layout_bindings = vk::DescriptorSetLayoutBinding::builder()
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .stage_flags(vk::ShaderStageFlags::FRAGMENT)
             .binding(0)
             .descriptor_count(1)
-            .build()];
+            .build();
         let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(&set_layout_bindings)
+            .bindings(std::slice::from_ref(&set_layout_bindings))
             .build();
         let descriptor_set_layout = unsafe {
             device
@@ -309,7 +312,7 @@ impl ImGui {
         // Descriptor Set
         let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(descriptor_pool)
-            .set_layouts(&[descriptor_set_layout])
+            .set_layouts(std::slice::from_ref(&descriptor_set_layout))
             .build();
         let descriptor_set = unsafe {
             device
@@ -321,13 +324,13 @@ impl ImGui {
             .image_view(font_view)
             .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
             .build();
-        let write_descriptor_set = [vk::WriteDescriptorSet::builder()
+        let write_descriptor_set = vk::WriteDescriptorSet::builder()
             .dst_set(descriptor_set)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .dst_binding(0)
-            .image_info(&[font_descriptor])
-            .build()];
-        unsafe { device.update_descriptor_sets(&write_descriptor_set, &[]) }
+            .image_info(std::slice::from_ref(&font_descriptor))
+            .build();
+        unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) }
 
         let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
         let pipeline_cache = unsafe {
@@ -342,8 +345,8 @@ impl ImGui {
             .offset(0)
             .build();
         let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[descriptor_set_layout])
-            .push_constant_ranges(&[push_constant_range])
+            .set_layouts(std::slice::from_ref(&descriptor_set_layout))
+            .push_constant_ranges(std::slice::from_ref(&push_constant_range))
             .build();
         let pipeline_layout = unsafe {
             device
@@ -435,9 +438,7 @@ impl ImGui {
 
         let shader_modules = create_shader_stages(Shader::Ui, device);
 
-        dbg!(1);
-
-        let pipeline_create_info = [vk::GraphicsPipelineCreateInfo::builder()
+        let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
             .layout(pipeline_layout)
             .render_pass(render_pass.0)
             .base_pipeline_index(-1)
@@ -452,17 +453,17 @@ impl ImGui {
             .vertex_input_state(&vertex_input_state)
             .base_pipeline_handle(vk::Pipeline::null())
             .subpass(0)
-            .build()];
-
-        dbg!(2);
+            .build();
 
         let pipeline = unsafe {
             device
-                .create_graphics_pipelines(pipeline_cache, &pipeline_create_info, None)
+                .create_graphics_pipelines(
+                    pipeline_cache,
+                    std::slice::from_ref(&pipeline_create_info),
+                    None,
+                )
                 .expect("Could not create graphics pipeline!")[0]
         };
-
-        dbg!(3);
 
         unsafe {
             destroy_shader_modules(
@@ -502,7 +503,7 @@ impl ImGui {
         let choices = ["test test this is 1", "test test this is 2"];
 
         Window::new("Hello world")
-            .size([300.0, 100.0], Condition::FirstUseEver)
+            .size([300.0, 1000.0], Condition::FirstUseEver)
             .build(&ui, || {
                 ui.text_wrapped("Hello world!");
                 ui.text_wrapped("こんにちは世界！");
