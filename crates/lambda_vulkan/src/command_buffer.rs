@@ -4,7 +4,6 @@ use crate::{
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
-use std::ptr;
 
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
@@ -68,7 +67,8 @@ pub(crate) fn create_command_buffers(
 
     let scissor = vk::Rect2D::builder()
         .offset(vk::Offset2D::default())
-        .extent(vk::Extent2D { width, height });
+        .extent(swap_chain.extent)
+        .build();
 
     let begin_info = vk::CommandBufferBeginInfo::builder();
 
@@ -95,18 +95,12 @@ pub(crate) fn create_command_buffers(
                 .begin_command_buffer(command_buffers[i], &begin_info)
                 .expect("Failed to begin recording command buffer!");
 
-            let render_pass_begin_info = vk::RenderPassBeginInfo {
-                s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-                p_next: ptr::null(),
-                render_pass: render_pass.0,
-                framebuffer: frame_buffers[i],
-                render_area: vk::Rect2D {
-                    offset: vk::Offset2D::default(),
-                    extent: swap_chain.extent,
-                },
-                clear_value_count: clear_values.len() as u32,
-                p_clear_values: clear_values.as_ptr(),
-            };
+            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(render_pass.0)
+                .framebuffer(frame_buffers[i])
+                .render_area(scissor)
+                .clear_values(&clear_values)
+                .build();
 
             device.cmd_begin_render_pass(
                 command_buffers[i],
@@ -139,26 +133,21 @@ pub fn begin_single_time_command(
     device: &ash::Device,
     command_pool: &vk::CommandPool,
 ) -> vk::CommandBuffer {
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-        p_next: std::ptr::null(),
-        command_buffer_count: 1,
-        command_pool: *command_pool,
-        level: vk::CommandBufferLevel::PRIMARY,
-    };
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+        .command_buffer_count(1)
+        .command_pool(*command_pool)
+        .level(vk::CommandBufferLevel::PRIMARY)
+        .build();
+
+    let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+        .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+        .build();
 
     let command_buffer = unsafe {
         device
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("Failed to allocate Command Buffers!")
     }[0];
-
-    let command_buffer_begin_info = vk::CommandBufferBeginInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-        p_next: std::ptr::null(),
-        p_inheritance_info: std::ptr::null(),
-        flags: vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT,
-    };
 
     unsafe {
         device
@@ -175,29 +164,22 @@ pub fn end_single_time_command(
     pool: &vk::CommandPool,
     buffer: vk::CommandBuffer,
 ) {
+    let buffers_to_submit = [buffer];
+
+    let submit_info = vk::SubmitInfo::builder()
+        .command_buffers(&buffers_to_submit)
+        .build();
+
     unsafe {
         device
             .end_command_buffer(buffer)
             .expect("Failed to record Command Buffer at Ending!");
-    }
-
-    let buffers_to_submit = [buffer];
-
-    let submit_infos = [vk::SubmitInfo {
-        command_buffer_count: 1,
-        p_command_buffers: buffers_to_submit.as_ptr(),
-        p_next: std::ptr::null(),
-        p_signal_semaphores: std::ptr::null(),
-        p_wait_dst_stage_mask: std::ptr::null(),
-        p_wait_semaphores: std::ptr::null(),
-        s_type: vk::StructureType::SUBMIT_INFO,
-        signal_semaphore_count: 0,
-        wait_semaphore_count: 0,
-    }];
-
-    unsafe {
         device
-            .queue_submit(submit_queue, &submit_infos, vk::Fence::null())
+            .queue_submit(
+                submit_queue,
+                std::slice::from_ref(&submit_info),
+                vk::Fence::null(),
+            )
             .expect("Failed to Queue Submit!");
         device
             .queue_wait_idle(submit_queue)
@@ -231,11 +213,12 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
         &[],
     );
 
-    let vertex_buffers = [object.buffers.vertex.buffer];
-
-    device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
-
-    let object_and_vertices_and_indices = &object.vertices_and_indices;
+    device.cmd_bind_vertex_buffers(
+        command_buffer,
+        0,
+        std::slice::from_ref(&object.buffers.vertex.buffer),
+        offsets,
+    );
 
     if object.indexed {
         device.cmd_bind_index_buffer(
@@ -247,7 +230,7 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
 
         device.cmd_draw_indexed(
             command_buffer,
-            object_and_vertices_and_indices.indices.len() as u32,
+            object.vertices_and_indices.indices.len() as u32,
             1,
             0,
             0,
@@ -256,7 +239,7 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
     } else {
         device.cmd_draw(
             command_buffer,
-            object_and_vertices_and_indices.vertices.len() as u32,
+            object.vertices_and_indices.vertices.len() as u32,
             1,
             0,
             0,
