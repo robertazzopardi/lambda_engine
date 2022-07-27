@@ -29,7 +29,7 @@ use derive_more::{Deref, DerefMut};
 use device::{destroy, Devices};
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::{create_shader_stages, destroy_shader_modules, GraphicsPipeline};
-use imgui::{Condition, Context, DrawData, DrawIdx, DrawVert, Window};
+use imgui::{Condition, Context, DrawData, DrawIdx, DrawVert, Io, Ui, Window};
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
@@ -49,8 +49,7 @@ pub mod prelude {
     };
 }
 
-struct ImGui {
-    context: Context,
+struct GuiVk {
     sampler: vk::Sampler,
     vertex_buffer: Option<Buffer>,
     index_buffer: Option<Buffer>,
@@ -66,6 +65,12 @@ struct ImGui {
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_set: vk::DescriptorSet,
     push_constant_block: Push,
+}
+
+struct ImGui {
+    context: Context,
+    gui_vk: GuiVk,
+    display_size: [f32; 2],
 }
 
 impl ImGui {
@@ -473,38 +478,40 @@ impl ImGui {
             )
         };
 
+        let display_size = [300., 100.];
+
         Self {
             context,
-            sampler,
-            vertex_buffer: None,
-            index_buffer: None,
-            vertex_count: 0,
-            index_count: 0,
-            font_memory,
-            font_image,
-            font_view,
-            pipeline_cache,
-            pipeline_layout,
-            pipeline,
-            descriptor_pool,
-            descriptor_set_layout,
-            descriptor_set,
-            push_constant_block: Push {
-                scale: Vector2::default(),
-                translate: Vector2::default(),
+            display_size,
+            gui_vk: GuiVk {
+                sampler,
+                vertex_buffer: None,
+                index_buffer: None,
+                vertex_count: 0,
+                index_count: 0,
+                font_memory,
+                font_image,
+                font_view,
+                pipeline_cache,
+                pipeline_layout,
+                pipeline,
+                descriptor_pool,
+                descriptor_set_layout,
+                descriptor_set,
+                push_constant_block: Push::default(),
             },
         }
     }
 
-    pub fn new_frame(&mut self) -> &DrawData {
-        let ui = self.context.frame();
+    pub fn new_frame(ui: &Ui) {
+        // let ui = context.frame();
 
         let mut value = 0;
         let choices = ["test test this is 1", "test test this is 2"];
 
         Window::new("Hello world")
             .size([300.0, 1000.0], Condition::FirstUseEver)
-            .build(&ui, || {
+            .build(ui, || {
                 ui.text_wrapped("Hello world!");
                 ui.text_wrapped("こんにちは世界！");
                 if ui.button(choices[value]) {
@@ -520,11 +527,13 @@ impl ImGui {
                     mouse_pos[0], mouse_pos[1]
                 ));
             });
-
-        ui.render()
     }
 
-    pub fn update_buffers(&mut self, draw_data: &DrawData, instance_devices: &InstanceDevices) {
+    pub fn update_buffers(
+        gui_vk: &mut GuiVk,
+        draw_data: &DrawData,
+        instance_devices: &InstanceDevices,
+    ) {
         let device = &instance_devices.devices.logical.device;
 
         let vertex_buffer_size =
@@ -539,29 +548,30 @@ impl ImGui {
         let total_idx_count = draw_data.total_idx_count;
 
         let vertex_data;
-        if self.vertex_buffer.is_none() || self.vertex_count != total_vtx_count.try_into().unwrap()
+        if gui_vk.vertex_buffer.is_none()
+            || gui_vk.vertex_count != total_vtx_count.try_into().unwrap()
         {
-            if let Some(vertex_buffer) = &self.vertex_buffer {
+            if let Some(vertex_buffer) = &gui_vk.vertex_buffer {
                 unsafe {
                     device.unmap_memory(vertex_buffer.memory);
                     device.destroy_buffer(vertex_buffer.buffer, None);
                     device.free_memory(vertex_buffer.memory, None);
                 }
-                self.vertex_buffer = None;
+                gui_vk.vertex_buffer = None;
             }
 
-            self.vertex_buffer = Some(create_buffer(
+            gui_vk.vertex_buffer = Some(create_buffer(
                 vertex_buffer_size.try_into().unwrap(),
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE,
                 instance_devices,
             ));
-            self.vertex_count = total_vtx_count.try_into().unwrap();
+            gui_vk.vertex_count = total_vtx_count.try_into().unwrap();
         }
         vertex_data = unsafe {
             device
                 .map_memory(
-                    self.vertex_buffer.as_ref().unwrap().memory,
+                    gui_vk.vertex_buffer.as_ref().unwrap().memory,
                     0,
                     0,
                     vk::MemoryMapFlags::empty(),
@@ -570,28 +580,29 @@ impl ImGui {
         };
 
         let index_data;
-        if self.index_buffer.is_none() || self.index_count < total_idx_count.try_into().unwrap() {
-            if let Some(index_buffer) = &self.index_buffer {
+        if gui_vk.index_buffer.is_none() || gui_vk.index_count < total_idx_count.try_into().unwrap()
+        {
+            if let Some(index_buffer) = &gui_vk.index_buffer {
                 unsafe {
                     device.unmap_memory(index_buffer.memory);
                     device.destroy_buffer(index_buffer.buffer, None);
                     device.free_memory(index_buffer.memory, None);
                 }
-                self.index_buffer = None;
+                gui_vk.index_buffer = None;
             }
 
-            self.index_buffer = Some(create_buffer(
+            gui_vk.index_buffer = Some(create_buffer(
                 index_buffer_size.try_into().unwrap(),
                 vk::BufferUsageFlags::INDEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE,
                 instance_devices,
             ));
-            self.index_count = total_idx_count.try_into().unwrap();
+            gui_vk.index_count = total_idx_count.try_into().unwrap();
         }
         index_data = unsafe {
             device
                 .map_memory(
-                    self.index_buffer.as_ref().unwrap().memory,
+                    gui_vk.index_buffer.as_ref().unwrap().memory,
                     0,
                     0,
                     vk::MemoryMapFlags::empty(),
@@ -606,44 +617,42 @@ impl ImGui {
     }
 
     fn draw_frame(
-        &self,
+        gui_vk: &GuiVk,
+        display_size: [f32; 2],
         draw_data: &DrawData,
         device: &Device,
         command_buffer: &vk::CommandBuffer,
     ) {
-        let io = self.context.io();
-
         unsafe {
             device.cmd_bind_descriptor_sets(
                 *command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline_layout,
+                gui_vk.pipeline_layout,
                 0,
-                &[self.descriptor_set],
+                &[gui_vk.descriptor_set],
                 &[],
             );
             device.cmd_bind_pipeline(
                 *command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline,
+                gui_vk.pipeline,
             );
         }
 
         let viewport = vk::Viewport::builder()
-            .width(io.display_size[0])
-            .height(io.display_size[1])
+            .width(display_size[0])
+            .height(display_size[1])
             .min_depth(0.)
             .max_depth(1.)
             .build();
 
         unsafe { device.cmd_set_viewport(*command_buffer, 0, &[viewport]) }
 
-        let projection =
-            orthographic_vk(0.0, io.display_size[0], 0.0, -io.display_size[1], -1.0, 1.0);
+        let projection = orthographic_vk(0.0, display_size[0], 0.0, -display_size[1], -1.0, 1.0);
         unsafe {
             device.cmd_push_constants(
                 *command_buffer,
-                self.pipeline_layout,
+                gui_vk.pipeline_layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
                 any_as_u8_slice(&projection),
@@ -656,8 +665,8 @@ impl ImGui {
         if draw_data.draw_lists_count() > 0 {
             let offsets = [0 as vk::DeviceSize];
 
-            let vertex_buffer = self.vertex_buffer.as_ref().unwrap().buffer;
-            let index_buffer = self.index_buffer.as_ref().unwrap().buffer;
+            let vertex_buffer = gui_vk.vertex_buffer.as_ref().unwrap().buffer;
+            let index_buffer = gui_vk.index_buffer.as_ref().unwrap().buffer;
             unsafe {
                 device.cmd_bind_vertex_buffers(*command_buffer, 0, &[vertex_buffer], &offsets);
                 device.cmd_bind_index_buffer(
@@ -713,26 +722,27 @@ impl ImGui {
     }
 
     unsafe fn destroy(&self, device: &Device) {
-        if let Some(vertex_buffer) = &self.vertex_buffer {
+        if let Some(vertex_buffer) = &self.gui_vk.vertex_buffer {
             device.destroy_buffer(vertex_buffer.buffer, None);
             device.free_memory(vertex_buffer.memory, None);
         }
-        if let Some(index_buffer) = &self.index_buffer {
+        if let Some(index_buffer) = &self.gui_vk.index_buffer {
             device.destroy_buffer(index_buffer.buffer, None);
             device.free_memory(index_buffer.memory, None);
         }
-        device.destroy_image(self.font_image, None);
-        device.destroy_image_view(self.font_view, None);
-        device.free_memory(self.font_memory, None);
-        device.destroy_sampler(self.sampler, None);
-        device.destroy_pipeline_cache(self.pipeline_cache, None);
-        device.destroy_pipeline(self.pipeline, None);
-        device.destroy_pipeline_layout(self.pipeline_layout, None);
-        device.destroy_descriptor_pool(self.descriptor_pool, None);
-        device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+        device.destroy_image(self.gui_vk.font_image, None);
+        device.destroy_image_view(self.gui_vk.font_view, None);
+        device.free_memory(self.gui_vk.font_memory, None);
+        device.destroy_sampler(self.gui_vk.sampler, None);
+        device.destroy_pipeline_cache(self.gui_vk.pipeline_cache, None);
+        device.destroy_pipeline(self.gui_vk.pipeline, None);
+        device.destroy_pipeline_layout(self.gui_vk.pipeline_layout, None);
+        device.destroy_descriptor_pool(self.gui_vk.descriptor_pool, None);
+        device.destroy_descriptor_set_layout(self.gui_vk.descriptor_set_layout, None);
     }
 }
 
+#[derive(Default)]
 struct Push {
     scale: Vector2<f32>,
     translate: Vector2<f32>,

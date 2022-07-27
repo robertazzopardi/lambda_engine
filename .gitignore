@@ -81,4 +81,8 @@ $RECYCLE.BIN/
 
 *.spv
 
+# Flamegraph Util
 flamegraph.svg
+
+# ImGUI
+imgui.ini

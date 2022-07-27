@@ -1,6 +1,6 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, renderer::RenderPass, swap_chain::SwapChain,
-    utility::InstanceDevices, ImGui, VulkanObject,
+    any_as_u8_slice, device, frame_buffer::FrameBuffers, orthographic_vk, renderer::RenderPass,
+    swap_chain::SwapChain, utility::InstanceDevices, ImGui, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
@@ -86,8 +86,16 @@ pub(crate) fn create_command_buffers(
         },
     ];
 
-    let draw_data = gui.new_frame();
-    // gui.update_buffers(draw_data, instance_devices);
+    let ImGui {
+        ref mut context,
+        ref mut gui_vk,
+        display_size,
+    } = gui;
+    let ui = context.frame();
+    ImGui::new_frame(&ui);
+    let draw_data = ui.render();
+
+    ImGui::update_buffers(gui_vk, draw_data, instance_devices);
 
     unsafe {
         for i in 0..swap_chain.images.len() {
@@ -116,7 +124,13 @@ pub(crate) fn create_command_buffers(
                 bind_index_and_vertex_buffers(model, device, command_buffers[i], &[0_u64], i)
             });
 
-            // gui.draw_frame(draw_data, device, &command_buffers[i]);
+            ImGui::draw_frame(
+                gui_vk,
+                *display_size,
+                draw_data,
+                device,
+                &command_buffers[i],
+            );
 
             device.cmd_end_render_pass(command_buffers[i]);
 
