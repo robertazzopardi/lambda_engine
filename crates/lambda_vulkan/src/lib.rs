@@ -137,13 +137,10 @@ impl ImGui {
             data.as_slice(),
         );
 
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-            p_next: std::ptr::null(),
-            command_pool: *command_pool,
-            level: vk::CommandBufferLevel::PRIMARY,
-            command_buffer_count: 1,
-        };
+        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+            .command_pool(*command_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
 
         let copy_cmd = unsafe {
             device
@@ -172,8 +169,7 @@ impl ImGui {
             .image(font_image)
             .subresource_range(sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-            .build();
+            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
         unsafe {
             device.cmd_pipeline_barrier(
                 copy_cmd,
@@ -182,7 +178,7 @@ impl ImGui {
                 vk::DependencyFlags::empty(),
                 &[],
                 &[],
-                &[image_memory_barrier],
+                std::slice::from_ref(&image_memory_barrier),
             )
         }
 
@@ -199,8 +195,7 @@ impl ImGui {
                     .height(height)
                     .depth(1)
                     .build(),
-            )
-            .build();
+            );
 
         unsafe {
             device.cmd_copy_buffer_to_image(
@@ -208,7 +203,7 @@ impl ImGui {
                 staging.buffer,
                 font_image,
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                &[buffer_copy_region],
+                std::slice::from_ref(&buffer_copy_region),
             )
         }
 
@@ -227,8 +222,7 @@ impl ImGui {
             .image(font_image)
             .subresource_range(sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-            .build();
+            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
         unsafe {
             device.cmd_pipeline_barrier(
                 copy_cmd,
@@ -237,7 +231,7 @@ impl ImGui {
                 vk::DependencyFlags::empty(),
                 &[],
                 &[],
-                &[image_memory_barrier],
+                std::slice::from_ref(&image_memory_barrier),
             )
         }
 
@@ -246,16 +240,15 @@ impl ImGui {
                 .end_command_buffer(copy_cmd)
                 .expect("Could not end command buffer!");
         }
-        let submit_info = vk::SubmitInfo::builder()
-            .command_buffers(&[copy_cmd])
-            .build();
+        let submit_info =
+            vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&copy_cmd));
         let fence_info = vk::FenceCreateInfo::default();
         unsafe {
             let fence = device
                 .create_fence(&fence_info, None)
                 .expect("Could not create fence!");
             device
-                .queue_submit(*copy_queue, &[submit_info], fence)
+                .queue_submit(*copy_queue, std::slice::from_ref(&submit_info), fence)
                 .expect("Could not submit queue!");
             device
                 .wait_for_fences(&[fence], true, 100000000000)
@@ -275,8 +268,7 @@ impl ImGui {
             .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
             .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
             .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-            .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE)
-            .build();
+            .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE);
         let sampler = unsafe {
             device
                 .create_sampler(&sampler_info, None)
@@ -284,14 +276,12 @@ impl ImGui {
         };
 
         // Descriptor Pool
-        let pool_sizes = [vk::DescriptorPoolSize::builder()
+        let pool_sizes = vk::DescriptorPoolSize::builder()
             .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(1)
-            .build()];
+            .descriptor_count(1);
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&pool_sizes)
-            .max_sets(2)
-            .build();
+            .pool_sizes(std::slice::from_ref(&pool_sizes))
+            .max_sets(2);
         let descriptor_pool = unsafe {
             device
                 .create_descriptor_pool(&descriptor_pool_info, None)
@@ -303,11 +293,9 @@ impl ImGui {
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .stage_flags(vk::ShaderStageFlags::FRAGMENT)
             .binding(0)
-            .descriptor_count(1)
-            .build();
+            .descriptor_count(1);
         let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(std::slice::from_ref(&set_layout_bindings))
-            .build();
+            .bindings(std::slice::from_ref(&set_layout_bindings));
         let descriptor_set_layout = unsafe {
             device
                 .create_descriptor_set_layout(&descriptor_layout, None)
@@ -317,8 +305,7 @@ impl ImGui {
         // Descriptor Set
         let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(descriptor_pool)
-            .set_layouts(std::slice::from_ref(&descriptor_set_layout))
-            .build();
+            .set_layouts(std::slice::from_ref(&descriptor_set_layout));
         let descriptor_set = unsafe {
             device
                 .allocate_descriptor_sets(&descriptor_set_alloc_info)
@@ -327,14 +314,12 @@ impl ImGui {
         let font_descriptor = vk::DescriptorImageInfo::builder()
             .sampler(sampler)
             .image_view(font_view)
-            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-            .build();
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         let write_descriptor_set = vk::WriteDescriptorSet::builder()
             .dst_set(descriptor_set)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .dst_binding(0)
-            .image_info(std::slice::from_ref(&font_descriptor))
-            .build();
+            .image_info(std::slice::from_ref(&font_descriptor));
         unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) }
 
         let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
@@ -348,12 +333,10 @@ impl ImGui {
             .stage_flags(vk::ShaderStageFlags::VERTEX)
             // .size(std::mem::size_of::<Push>().try_into().unwrap())
             .size(64)
-            .offset(0)
-            .build();
+            .offset(0);
         let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(std::slice::from_ref(&descriptor_set_layout))
-            .push_constant_ranges(std::slice::from_ref(&push_constant_range))
-            .build();
+            .push_constant_ranges(std::slice::from_ref(&push_constant_range));
         let pipeline_layout = unsafe {
             device
                 .create_pipeline_layout(&pipeline_layout_create_info, None)
@@ -362,15 +345,13 @@ impl ImGui {
 
         let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
-            .primitive_restart_enable(false)
-            .build();
+            .primitive_restart_enable(false);
         let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
             .polygon_mode(vk::PolygonMode::FILL)
             .cull_mode(vk::CullModeFlags::NONE)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
             .depth_clamp_enable(false)
-            .line_width(1.)
-            .build();
+            .line_width(1.);
 
         let blend_attachment_state = vk::PipelineColorBlendAttachmentState::builder()
             .blend_enable(true)
@@ -380,12 +361,10 @@ impl ImGui {
             .color_blend_op(vk::BlendOp::ADD)
             .src_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
             .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
-            .alpha_blend_op(vk::BlendOp::ADD)
-            .build();
+            .alpha_blend_op(vk::BlendOp::ADD);
 
         let colour_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-            .attachments(std::slice::from_ref(&blend_attachment_state))
-            .build();
+            .attachments(std::slice::from_ref(&blend_attachment_state));
 
         let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
             .depth_test_enable(false)
@@ -395,8 +374,7 @@ impl ImGui {
                 vk::StencilOpState::builder()
                     .compare_op(vk::CompareOp::ALWAYS)
                     .build(),
-            )
-            .build();
+            );
 
         let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
             .viewports(&[Default::default()])
@@ -404,19 +382,16 @@ impl ImGui {
             .build();
 
         let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-            .rasterization_samples(vk::SampleCountFlags::TYPE_1)
-            .build();
+            .rasterization_samples(vk::SampleCountFlags::TYPE_1);
 
         let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-        let dynamic_state = vk::PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(&dynamic_state_enables)
-            .build();
+        let dynamic_state =
+            vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state_enables);
 
-        let vertex_input_bindings = [vk::VertexInputBindingDescription::builder()
+        let vertex_input_bindings = vk::VertexInputBindingDescription::builder()
             .binding(0)
             .stride(std::mem::size_of::<DrawVert>().try_into().unwrap())
-            .input_rate(vk::VertexInputRate::VERTEX)
-            .build()];
+            .input_rate(vk::VertexInputRate::VERTEX);
         let vertex_input_attributes = [
             vk::VertexInputAttributeDescription::builder()
                 .location(0)
@@ -439,8 +414,7 @@ impl ImGui {
         ];
         let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_attribute_descriptions(&vertex_input_attributes)
-            .vertex_binding_descriptions(&vertex_input_bindings)
-            .build();
+            .vertex_binding_descriptions(std::slice::from_ref(&vertex_input_bindings));
 
         let shader_modules = create_shader_stages(Shader::Ui, device);
 
@@ -456,10 +430,7 @@ impl ImGui {
             .depth_stencil_state(&depth_stencil_state)
             .dynamic_state(&dynamic_state)
             .stages(&shader_modules.stages)
-            .vertex_input_state(&vertex_input_state)
-            .base_pipeline_handle(vk::Pipeline::null())
-            .subpass(0)
-            .build();
+            .vertex_input_state(&vertex_input_state);
 
         let pipeline = unsafe {
             device
