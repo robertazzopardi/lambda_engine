@@ -29,7 +29,7 @@ use derive_more::{Deref, DerefMut};
 use device::{destroy, Devices};
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::{create_shader_stages, destroy_shader_modules, GraphicsPipeline};
-use imgui::{Condition, Context, DrawData, DrawIdx, DrawVert, Io, Ui, Window};
+use imgui::{Condition, Context, DrawCmdParams, DrawData, DrawIdx, DrawVert, Io, Ui, Window};
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
@@ -81,6 +81,8 @@ impl ImGui {
         render_pass: &RenderPass,
     ) -> Self {
         let mut context = Context::create();
+        context.set_ini_filename(None);
+
         let style = context.style_mut();
         style.use_classic_colors();
         let io = context.io_mut();
@@ -468,20 +470,11 @@ impl ImGui {
     }
 
     pub fn new_frame(ui: &Ui) {
-        // let ui = context.frame();
-
-        let mut value = 0;
-        let choices = ["test test this is 1", "test test this is 2"];
-
         Window::new("Hello world")
-            .size([300.0, 1000.0], Condition::FirstUseEver)
+            .size([300.0, 100.0], Condition::FirstUseEver)
             .build(ui, || {
                 ui.text_wrapped("Hello world!");
                 ui.text_wrapped("こんにちは世界！");
-                if ui.button(choices[value]) {
-                    value += 1;
-                    value %= 2;
-                }
 
                 ui.button("This...is...imgui-rs!");
                 ui.separator();
@@ -490,6 +483,10 @@ impl ImGui {
                     "Mouse Position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
+                ui.show_demo_window(&mut true);
+                ui.show_metrics_window(&mut true);
+
+                dbg!("new_frame done");
             });
     }
 
@@ -505,6 +502,7 @@ impl ImGui {
         let index_buffer_size = draw_data.total_idx_count as usize * std::mem::size_of::<DrawIdx>();
 
         if vertex_buffer_size == 0 || index_buffer_size == 0 {
+            dbg!("no");
             return;
         }
 
@@ -537,7 +535,7 @@ impl ImGui {
                 .map_memory(
                     gui_vk.vertex_buffer.as_ref().unwrap().memory,
                     0,
-                    0,
+                    vk::WHOLE_SIZE,
                     vk::MemoryMapFlags::empty(),
                 )
                 .expect("Failed to map memory!")
@@ -568,7 +566,7 @@ impl ImGui {
                 .map_memory(
                     gui_vk.index_buffer.as_ref().unwrap().memory,
                     0,
-                    0,
+                    vk::WHOLE_SIZE,
                     vk::MemoryMapFlags::empty(),
                 )
                 .expect("Failed to map memory!")
@@ -577,7 +575,28 @@ impl ImGui {
         // let vertex_dst = vertex_data as *mut DrawVert;
         // let index_dst = index_data as *mut DrawIdx;
 
-        // for draw_list in draw_data.draw_lists() {}
+        // for draw_list in draw_data.draw_lists() {
+        //     let commands = draw_list.commands();
+
+        // }
+
+        if let Some(vertex_buffer) = gui_vk.vertex_buffer {
+            let vertex_mapped_range = vk::MappedMemoryRange::builder().memory(vertex_buffer.memory);
+            unsafe {
+                device
+                    .flush_mapped_memory_ranges(std::slice::from_ref(&vertex_mapped_range))
+                    .expect("Could not flush mapped memory");
+            }
+        }
+
+        if let Some(index_buffer) = gui_vk.index_buffer {
+            let index_mapped_range = vk::MappedMemoryRange::builder().memory(index_buffer.memory);
+            unsafe {
+                device
+                    .flush_mapped_memory_ranges(std::slice::from_ref(&index_mapped_range))
+                    .expect("Could not flush mapped memory");
+            }
+        }
     }
 
     fn draw_frame(
@@ -638,27 +657,38 @@ impl ImGui {
                 );
             }
 
+            let clip_offset = draw_data.display_pos;
+            let clip_scale = draw_data.framebuffer_scale;
+
             for draw_list in draw_data.draw_lists() {
                 for command in draw_list.commands() {
                     match command {
-                        imgui::DrawCmd::Elements { count, cmd_params } => todo!(),
-                        imgui::DrawCmd::ResetRenderState => todo!(),
-                        imgui::DrawCmd::RawCallback { callback, raw_cmd } => {
+                        imgui::DrawCmd::Elements {
+                            count,
+                            cmd_params:
+                                DrawCmdParams {
+                                    clip_rect,
+                                    texture_id,
+                                    vtx_offset,
+                                    idx_offset,
+                                },
+                        } => {
+                            let clip_x = (clip_rect[0] - clip_offset[0]) * clip_scale[0];
+                            let clip_y = (clip_rect[1] - clip_offset[1]) * clip_scale[1];
+                            let clip_w = (clip_rect[2] - clip_offset[0]) * clip_scale[0] - clip_x;
+                            let clip_h = (clip_rect[3] - clip_offset[1]) * clip_scale[1] - clip_y;
+
                             let scissor_rect = vk::Rect2D::builder()
                                 .offset(
                                     vk::Offset2D::builder()
-                                        .x(0.max((unsafe { *raw_cmd }).ClipRect.x as i32))
-                                        .y(0.max((unsafe { *raw_cmd }).ClipRect.y as i32))
+                                        .x(clip_x as _)
+                                        .y(clip_y as _)
                                         .build(),
                                 )
                                 .extent(
                                     vk::Extent2D::builder()
-                                        .width(unsafe {
-                                            (*raw_cmd).ClipRect.z - (*raw_cmd).ClipRect.x
-                                        } as u32)
-                                        .height(unsafe {
-                                            (*raw_cmd).ClipRect.w - (*raw_cmd).ClipRect.y
-                                        } as u32)
+                                        .width(clip_w as _)
+                                        .height(clip_h as _)
                                         .build(),
                                 )
                                 .build();
@@ -666,17 +696,23 @@ impl ImGui {
                                 device.cmd_set_scissor(*command_buffer, 0, &[scissor_rect]);
                                 device.cmd_draw_indexed(
                                     *command_buffer,
-                                    (*raw_cmd).ElemCount,
+                                    count as _,
                                     1,
                                     index_offset,
                                     vertex_offset,
+                                    // index_offset + idx_offset as u32,
+                                    // vertex_offset + vtx_offset as i32,
                                     0,
                                 );
-                                index_offset += (*raw_cmd).ElemCount;
+                                // index_offset += (*raw_cmd).ElemCount;
                             }
                         }
+                        imgui::DrawCmd::ResetRenderState => {}
+                        imgui::DrawCmd::RawCallback { .. } => {}
                     }
                 }
+                // vertex_offset += draw_list.vtx_buffer().len() as i32;
+                index_offset += draw_list.idx_buffer().len() as u32;
                 vertex_offset += draw_list.vtx_buffer().len() as i32;
             }
         }

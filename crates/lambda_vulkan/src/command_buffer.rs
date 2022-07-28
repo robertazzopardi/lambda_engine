@@ -94,6 +94,7 @@ pub(crate) fn create_command_buffers(
     let ui = context.frame();
     ImGui::new_frame(&ui);
     let draw_data = ui.render();
+    dbg!(draw_data.total_vtx_count, draw_data.total_idx_count);
 
     ImGui::update_buffers(gui_vk, draw_data, instance_devices);
 
