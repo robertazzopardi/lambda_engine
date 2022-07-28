@@ -3,7 +3,7 @@ use ash::vk;
 use lambda_space::space::{Vertex, VerticesAndIndices};
 use std::mem::size_of;
 
-#[derive(new, Default, Debug, Clone)]
+#[derive(new, Default, Debug, Clone, Copy)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,

@@ -346,7 +346,8 @@ impl ImGui {
 
         let push_constant_range = vk::PushConstantRange::builder()
             .stage_flags(vk::ShaderStageFlags::VERTEX)
-            .size(std::mem::size_of::<Push>().try_into().unwrap())
+            // .size(std::mem::size_of::<Push>().try_into().unwrap())
+            .size(64)
             .offset(0)
             .build();
         let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
@@ -470,19 +471,11 @@ impl ImGui {
                 .expect("Could not create graphics pipeline!")[0]
         };
 
-        unsafe {
-            destroy_shader_modules(
-                &instance_devices.devices,
-                shader_modules.vert,
-                shader_modules.frag,
-            )
-        };
-
-        let display_size = [300., 100.];
+        unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
 
         Self {
             context,
-            display_size,
+            display_size: [300., 100.],
             gui_vk: GuiVk {
                 sampler,
                 vertex_buffer: None,
@@ -623,6 +616,15 @@ impl ImGui {
         device: &Device,
         command_buffer: &vk::CommandBuffer,
     ) {
+        let viewport = vk::Viewport::builder()
+            .width(display_size[0])
+            .height(display_size[1])
+            .min_depth(0.)
+            .max_depth(1.)
+            .build();
+
+        let projection = orthographic_vk(0.0, display_size[0], 0.0, -display_size[1], -1.0, 1.0);
+
         unsafe {
             device.cmd_bind_descriptor_sets(
                 *command_buffer,
@@ -637,26 +639,14 @@ impl ImGui {
                 vk::PipelineBindPoint::GRAPHICS,
                 gui_vk.pipeline,
             );
-        }
-
-        let viewport = vk::Viewport::builder()
-            .width(display_size[0])
-            .height(display_size[1])
-            .min_depth(0.)
-            .max_depth(1.)
-            .build();
-
-        unsafe { device.cmd_set_viewport(*command_buffer, 0, &[viewport]) }
-
-        let projection = orthographic_vk(0.0, display_size[0], 0.0, -display_size[1], -1.0, 1.0);
-        unsafe {
+            device.cmd_set_viewport(*command_buffer, 0, &[viewport]);
             device.cmd_push_constants(
                 *command_buffer,
                 gui_vk.pipeline_layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
                 any_as_u8_slice(&projection),
-            )
+            );
         }
 
         let mut vertex_offset = 0;

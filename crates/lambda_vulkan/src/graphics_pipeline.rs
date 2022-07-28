@@ -74,7 +74,7 @@ impl GraphicsPipeline {
             &uniform_buffers,
         );
 
-        let descriptor_set = Descriptor {
+        let descriptors = Descriptor {
             descriptor_sets,
             descriptor_pool,
             descriptor_set_layout,
@@ -83,7 +83,7 @@ impl GraphicsPipeline {
 
         Self {
             features,
-            descriptors: descriptor_set,
+            descriptors,
             topology,
             cull_mode,
             shader_type,
@@ -198,13 +198,14 @@ fn create_uniform_buffers(
 ) -> Vec<Buffer> {
     let mut buffers = Vec::new();
 
-    for _i in 0..swap_chain_image_count {
-        let buffer = texture::create_buffer(
-            mem::size_of::<UniformBufferObject>().try_into().unwrap(),
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            instance_devices,
-        );
+    let buffer = texture::create_buffer(
+        mem::size_of::<UniformBufferObject>().try_into().unwrap(),
+        vk::BufferUsageFlags::UNIFORM_BUFFER,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        instance_devices,
+    );
+
+    for _ in 0..swap_chain_image_count {
         buffers.push(buffer)
     }
 
@@ -233,7 +234,9 @@ fn create_pipeline_and_layout(
     cull_mode: CullMode,
     shader_type: Shader,
 ) -> GraphicsPipelineFeatures {
-    let shader_modules = create_shader_stages(shader_type, &devices.logical.device);
+    let device = &devices.logical.device;
+
+    let shader_modules = create_shader_stages(shader_type, device);
 
     let binding_description = vk::VertexInputBindingDescription::builder()
         .binding(0)
@@ -364,9 +367,7 @@ fn create_pipeline_and_layout(
         vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
 
     unsafe {
-        let layout = devices
-            .logical
-            .device
+        let layout = device
             .create_pipeline_layout(&pipeline_layout_info, None)
             .expect("Failed to create pipeline layout!");
 
@@ -385,9 +386,7 @@ fn create_pipeline_and_layout(
             .base_pipeline_handle(vk::Pipeline::null())
             .depth_stencil_state(&depth_stencil);
 
-        let pipeline = devices
-            .logical
-            .device
+        let pipeline = device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
                 std::slice::from_ref(&pipeline_info),
@@ -395,43 +394,38 @@ fn create_pipeline_and_layout(
             )
             .expect("Failed to create graphics pipeline!");
 
-        destroy_shader_modules(devices, shader_modules.vert, shader_modules.frag);
+        destroy_shader_modules(device, shader_modules.vert, shader_modules.frag);
 
         GraphicsPipelineFeatures::new(pipeline[0], layout)
     }
 }
 
+#[inline]
 pub unsafe fn destroy_shader_modules(
-    devices: &Devices,
+    device: &Device,
     vert_shader_module: vk::ShaderModule,
     frag_shader_module: vk::ShaderModule,
 ) {
-    devices
-        .logical
-        .device
-        .destroy_shader_module(vert_shader_module, None);
-    devices
-        .logical
-        .device
-        .destroy_shader_module(frag_shader_module, None);
+    device.destroy_shader_module(vert_shader_module, None);
+    device.destroy_shader_module(frag_shader_module, None);
 }
 
-pub(crate) struct ShaderModules<const N: usize> {
+pub(crate) struct ShaderModules {
     pub vert: vk::ShaderModule,
     pub frag: vk::ShaderModule,
-    pub stages: [vk::PipelineShaderStageCreateInfo; N],
+    pub stages: [vk::PipelineShaderStageCreateInfo; 2],
 }
 
-pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> ShaderModules<2> {
+pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> ShaderModules {
     let shader_folder: &str = shader_type.into();
-    let vert_shader_module = create_shader_module(
+    let vert = create_shader_module(
         device,
         &format!(
             "./crates/lambda_internal/src/shaders/{}/vert.spv",
             shader_folder
         ),
     );
-    let frag_shader_module = create_shader_module(
+    let frag = create_shader_module(
         device,
         &format!(
             "./crates/lambda_internal/src/shaders/{}/frag.spv",
@@ -440,24 +434,20 @@ pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> Shad
     );
 
     let entry_point = &CStr::from_bytes_with_nul(b"main\0").unwrap();
-    let shader_stages = [
+    let stages = [
         vk::PipelineShaderStageCreateInfo::builder()
             .stage(vk::ShaderStageFlags::VERTEX)
-            .module(vert_shader_module)
+            .module(vert)
             .name(entry_point)
             .build(),
         vk::PipelineShaderStageCreateInfo::builder()
             .stage(vk::ShaderStageFlags::FRAGMENT)
-            .module(frag_shader_module)
+            .module(frag)
             .name(entry_point)
             .build(),
     ];
 
-    ShaderModules {
-        vert: vert_shader_module,
-        frag: frag_shader_module,
-        stages: shader_stages,
-    }
+    ShaderModules { vert, frag, stages }
 }
 
 fn create_descriptor_sets(
