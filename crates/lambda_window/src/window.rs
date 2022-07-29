@@ -60,13 +60,13 @@ impl Default for Display {
         // NOTE/TODO add these properties to the public api
         window.set_resizable(false);
         window.set_cursor_icon(CursorIcon::Crosshair);
-        let PhysicalSize { width, height } = window.inner_size();
-        window
-            .set_cursor_position(PhysicalPosition::new(width / 2, height / 2))
-            .expect("Could not center the mouse");
-        window
-            .set_cursor_grab(true)
-            .expect("Could not container mouse");
+        // let PhysicalSize { width, height } = window.inner_size();
+        // window
+        //     .set_cursor_position(PhysicalPosition::new(width / 2, height / 2))
+        //     .expect("Could not center the mouse");
+        // window
+        //     .set_cursor_grab(true)
+        //     .expect("Could not container mouse");
         // window.set_cursor_visible(false);
 
         Self { window, event_loop }
@@ -131,54 +131,57 @@ pub fn handle_inputs(
 ) {
     *control_flow = ControlFlow::Poll;
 
-    if let Event::WindowEvent {
-        window_id,
-        event: WindowEvent::CloseRequested,
-    } = event
-    {
-        if window_id == window.id() {
-            *control_flow = ControlFlow::Exit;
-        }
-    }
-
-    if let Event::WindowEvent {
-        event:
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        virtual_keycode: Some(key),
-                        state,
-                        ..
-                    },
-                ..
-            },
-        ..
-    } = event
-    {
-        process_keyboard(input, key, state);
-    }
-
-    if let Event::WindowEvent {
-        event: WindowEvent::MouseInput { state, .. },
-        ..
-    } = event
-    {
-        input.mouse_pressed = state == ElementState::Pressed;
-    }
-
-    if let Event::DeviceEvent { event, .. } = event {
-        if let DeviceEvent::MouseWheel { delta, .. } = event {
-            input.mouse_scroll = -match delta {
-                MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.,
-                MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => scroll as f32,
-            };
-        }
-        if let DeviceEvent::MouseMotion { delta } = event {
-            if !input.first_mouse_event.0 {
-                input.mouse_delta = delta
+    match event {
+        Event::WindowEvent {
+            window_id,
+            event: WindowEvent::CloseRequested,
+        } => {
+            if window_id == window.id() {
+                *control_flow = ControlFlow::Exit;
             }
-            input.first_mouse_event.0 = false;
         }
+
+        Event::WindowEvent {
+            event:
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(key),
+                            state,
+                            ..
+                        },
+                    ..
+                },
+            ..
+        } => {
+            process_keyboard(input, key, state);
+        }
+
+        Event::WindowEvent {
+            event: WindowEvent::MouseInput { state, .. },
+            ..
+        } => {
+            input.mouse_pressed = state == ElementState::Pressed;
+        }
+
+        Event::DeviceEvent { event, .. } => match event {
+            DeviceEvent::MouseWheel { delta, .. } => {
+                input.mouse_scroll = -match delta {
+                    MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.,
+                    MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                        scroll as f32
+                    }
+                };
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                if !input.first_mouse_event.0 {
+                    input.mouse_delta = delta
+                }
+                input.first_mouse_event.0 = false;
+            }
+            _ => {}
+        },
+        _ => {}
     }
 }
 

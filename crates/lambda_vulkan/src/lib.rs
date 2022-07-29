@@ -384,7 +384,7 @@ impl ImGui {
             .build();
 
         let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-            .rasterization_samples(vk::SampleCountFlags::TYPE_1);
+            .rasterization_samples(vk::SampleCountFlags::TYPE_4);
 
         let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
         let dynamic_state =
@@ -483,10 +483,8 @@ impl ImGui {
                     "Mouse Position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
-                ui.show_demo_window(&mut true);
-                ui.show_metrics_window(&mut true);
-
-                dbg!("new_frame done");
+                // ui.show_demo_window(&mut true);
+                // ui.show_metrics_window(&mut true);
             });
     }
 
@@ -502,7 +500,6 @@ impl ImGui {
         let index_buffer_size = draw_data.total_idx_count as usize * std::mem::size_of::<DrawIdx>();
 
         if vertex_buffer_size == 0 || index_buffer_size == 0 {
-            dbg!("no");
             return;
         }
 
@@ -610,8 +607,7 @@ impl ImGui {
             .width(display_size[0])
             .height(display_size[1])
             .min_depth(0.)
-            .max_depth(1.)
-            .build();
+            .max_depth(1.);
 
         let projection = orthographic_vk(0.0, display_size[0], 0.0, -display_size[1], -1.0, 1.0);
 
@@ -629,7 +625,7 @@ impl ImGui {
                 vk::PipelineBindPoint::GRAPHICS,
                 gui_vk.pipeline,
             );
-            device.cmd_set_viewport(*command_buffer, 0, &[viewport]);
+            device.cmd_set_viewport(*command_buffer, 0, std::slice::from_ref(&viewport));
             device.cmd_push_constants(
                 *command_buffer,
                 gui_vk.pipeline_layout,
@@ -643,12 +639,15 @@ impl ImGui {
         let mut index_offset = 0;
 
         if draw_data.draw_lists_count() > 0 {
-            let offsets = [0 as vk::DeviceSize];
-
             let vertex_buffer = gui_vk.vertex_buffer.as_ref().unwrap().buffer;
             let index_buffer = gui_vk.index_buffer.as_ref().unwrap().buffer;
             unsafe {
-                device.cmd_bind_vertex_buffers(*command_buffer, 0, &[vertex_buffer], &offsets);
+                device.cmd_bind_vertex_buffers(
+                    *command_buffer,
+                    0,
+                    std::slice::from_ref(&vertex_buffer),
+                    &[0],
+                );
                 device.cmd_bind_index_buffer(
                     *command_buffer,
                     index_buffer,
@@ -678,6 +677,7 @@ impl ImGui {
                             let clip_w = (clip_rect[2] - clip_offset[0]) * clip_scale[0] - clip_x;
                             let clip_h = (clip_rect[3] - clip_offset[1]) * clip_scale[1] - clip_y;
 
+                            // dbg!(clip_x, clip_y, clip_w, clip_h);
                             let scissor_rect = vk::Rect2D::builder()
                                 .offset(
                                     vk::Offset2D::builder()
@@ -690,18 +690,19 @@ impl ImGui {
                                         .width(clip_w as _)
                                         .height(clip_h as _)
                                         .build(),
-                                )
-                                .build();
+                                );
                             unsafe {
-                                device.cmd_set_scissor(*command_buffer, 0, &[scissor_rect]);
+                                device.cmd_set_scissor(
+                                    *command_buffer,
+                                    0,
+                                    std::slice::from_ref(&scissor_rect),
+                                );
                                 device.cmd_draw_indexed(
                                     *command_buffer,
                                     count as _,
                                     1,
-                                    index_offset,
-                                    vertex_offset,
-                                    // index_offset + idx_offset as u32,
-                                    // vertex_offset + vtx_offset as i32,
+                                    index_offset + idx_offset as u32,
+                                    vertex_offset + vtx_offset as i32,
                                     0,
                                 );
                                 // index_offset += (*raw_cmd).ElemCount;
