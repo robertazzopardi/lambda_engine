@@ -29,7 +29,9 @@ use derive_more::{Deref, DerefMut};
 use device::{destroy, Devices};
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::{create_shader_stages, destroy_shader_modules, GraphicsPipeline};
-use imgui::{Condition, Context, DrawCmdParams, DrawData, DrawIdx, DrawVert, Io, Ui, Window};
+use imgui::{
+    Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, Io, Ui, Window,
+};
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
@@ -49,7 +51,7 @@ pub mod prelude {
     };
 }
 
-struct GuiVk {
+pub struct GuiVk {
     sampler: vk::Sampler,
     vertex_buffer: Option<Buffer>,
     index_buffer: Option<Buffer>,
@@ -67,8 +69,8 @@ struct GuiVk {
     push_constant_block: Push,
 }
 
-struct ImGui {
-    context: Context,
+pub struct ImGui {
+    pub context: Context,
     gui_vk: GuiVk,
     display_size: [f32; 2],
 }
@@ -156,20 +158,19 @@ impl ImGui {
                 .expect("Could not begin command buffer!");
         }
 
-        let sub_resource_range = vk::ImageSubresourceRange {
-            aspect_mask: vk::ImageAspectFlags::COLOR,
-            base_mip_level: 0,
-            level_count: 1,
-            base_array_layer: 0,
-            layer_count: 1,
-        };
+        let sub_resource_range = vk::ImageSubresourceRange::builder()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
         let image_memory_barrier = vk::ImageMemoryBarrier::builder()
             .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .old_layout(vk::ImageLayout::UNDEFINED)
             .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
             .image(font_image)
-            .subresource_range(sub_resource_range)
+            .subresource_range(*sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
             .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
         unsafe {
@@ -209,20 +210,13 @@ impl ImGui {
             )
         }
 
-        let sub_resource_range = vk::ImageSubresourceRange {
-            aspect_mask: vk::ImageAspectFlags::COLOR,
-            base_mip_level: 0,
-            level_count: 1,
-            base_array_layer: 0,
-            layer_count: 1,
-        };
         let image_memory_barrier = vk::ImageMemoryBarrier::builder()
             .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
             .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
             .image(font_image)
-            .subresource_range(sub_resource_range)
+            .subresource_range(*sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
             .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
         unsafe {
@@ -483,7 +477,7 @@ impl ImGui {
                     "Mouse Position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
-                // ui.show_demo_window(&mut true);
+                ui.show_demo_window(&mut true);
                 // ui.show_metrics_window(&mut true);
             });
     }
@@ -506,7 +500,6 @@ impl ImGui {
         let total_vtx_count = draw_data.total_vtx_count;
         let total_idx_count = draw_data.total_idx_count;
 
-        let vertex_data;
         if gui_vk.vertex_buffer.is_none()
             || gui_vk.vertex_count != total_vtx_count.try_into().unwrap()
         {
@@ -527,7 +520,7 @@ impl ImGui {
             ));
             gui_vk.vertex_count = total_vtx_count.try_into().unwrap();
         }
-        vertex_data = unsafe {
+        let vertex_data = unsafe {
             device
                 .map_memory(
                     gui_vk.vertex_buffer.as_ref().unwrap().memory,
@@ -538,7 +531,6 @@ impl ImGui {
                 .expect("Failed to map memory!")
         };
 
-        let index_data;
         if gui_vk.index_buffer.is_none() || gui_vk.index_count < total_idx_count.try_into().unwrap()
         {
             if let Some(index_buffer) = &gui_vk.index_buffer {
@@ -558,7 +550,7 @@ impl ImGui {
             ));
             gui_vk.index_count = total_idx_count.try_into().unwrap();
         }
-        index_data = unsafe {
+        let index_data = unsafe {
             device
                 .map_memory(
                     gui_vk.index_buffer.as_ref().unwrap().memory,
@@ -569,12 +561,15 @@ impl ImGui {
                 .expect("Failed to map memory!")
         };
 
-        // let vertex_dst = vertex_data as *mut DrawVert;
-        // let index_dst = index_data as *mut DrawIdx;
+        // let mut vertex_dst = vertex_data as *mut DrawVert;
+        // let mut index_dst = index_data as *mut DrawIdx;
 
         // for draw_list in draw_data.draw_lists() {
-        //     let commands = draw_list.commands();
+        //     let vtx_buffer = draw_list.vtx_buffer();
+        //     let idx_buffer = draw_list.idx_buffer();
 
+        //     let _ = std::mem::replace(&mut vertex_dst, vtx_buffer.as_ptr() as *mut DrawVert);
+        //     let _ = std::mem::replace(&mut index_dst, idx_buffer.as_ptr() as *mut u16);
         // }
 
         if let Some(vertex_buffer) = gui_vk.vertex_buffer {
@@ -603,119 +598,129 @@ impl ImGui {
         device: &Device,
         command_buffer: &vk::CommandBuffer,
     ) {
-        let viewport = vk::Viewport::builder()
-            .width(display_size[0])
-            .height(display_size[1])
-            .min_depth(0.)
-            .max_depth(1.);
-
-        let projection = orthographic_vk(0.0, display_size[0], 0.0, -display_size[1], -1.0, 1.0);
-
         unsafe {
-            device.cmd_bind_descriptor_sets(
-                *command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                gui_vk.pipeline_layout,
-                0,
-                &[gui_vk.descriptor_set],
-                &[],
-            );
             device.cmd_bind_pipeline(
                 *command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 gui_vk.pipeline,
-            );
-            device.cmd_set_viewport(*command_buffer, 0, std::slice::from_ref(&viewport));
+            )
+        };
+
+        let framebuffer_width = draw_data.framebuffer_scale[0] * draw_data.display_size[0];
+        let framebuffer_height = draw_data.framebuffer_scale[1] * draw_data.display_size[1];
+        let viewports = [vk::Viewport {
+            width: framebuffer_width,
+            height: framebuffer_height,
+            max_depth: 1.0,
+            ..Default::default()
+        }];
+
+        unsafe { device.cmd_set_viewport(*command_buffer, 0, &viewports) };
+
+        // Ortho projection
+        let projection = orthographic_vk(
+            0.0,
+            draw_data.display_size[0],
+            0.0,
+            -draw_data.display_size[1],
+            -1.0,
+            1.0,
+        );
+        unsafe {
+            let push = any_as_u8_slice(&projection);
             device.cmd_push_constants(
                 *command_buffer,
                 gui_vk.pipeline_layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
-                any_as_u8_slice(&projection),
-            );
-        }
+                push,
+            )
+        };
 
-        let mut vertex_offset = 0;
-        let mut index_offset = 0;
-
-        if draw_data.draw_lists_count() > 0 {
-            let vertex_buffer = gui_vk.vertex_buffer.as_ref().unwrap().buffer;
-            let index_buffer = gui_vk.index_buffer.as_ref().unwrap().buffer;
-            unsafe {
-                device.cmd_bind_vertex_buffers(
-                    *command_buffer,
-                    0,
-                    std::slice::from_ref(&vertex_buffer),
-                    &[0],
-                );
+        unsafe {
+            if let Some(index_buffer) = gui_vk.index_buffer {
                 device.cmd_bind_index_buffer(
                     *command_buffer,
-                    index_buffer,
+                    index_buffer.buffer,
                     0,
                     vk::IndexType::UINT16,
                 );
             }
 
-            let clip_offset = draw_data.display_pos;
-            let clip_scale = draw_data.framebuffer_scale;
+            if let Some(vertex_buffer) = gui_vk.vertex_buffer {
+                device.cmd_bind_vertex_buffers(*command_buffer, 0, &[vertex_buffer.buffer], &[0])
+            }
+        };
 
-            for draw_list in draw_data.draw_lists() {
-                for command in draw_list.commands() {
-                    match command {
-                        imgui::DrawCmd::Elements {
-                            count,
-                            cmd_params:
-                                DrawCmdParams {
-                                    clip_rect,
-                                    texture_id,
-                                    vtx_offset,
-                                    idx_offset,
-                                },
-                        } => {
+        let mut index_offset = 0;
+        let mut vertex_offset = 0;
+        let clip_offset = draw_data.display_pos;
+        let clip_scale = draw_data.framebuffer_scale;
+        for draw_list in draw_data.draw_lists() {
+            for command in draw_list.commands() {
+                match command {
+                    DrawCmd::Elements {
+                        count,
+                        cmd_params:
+                            DrawCmdParams {
+                                clip_rect,
+                                texture_id,
+                                vtx_offset,
+                                idx_offset,
+                            },
+                    } => {
+                        unsafe {
                             let clip_x = (clip_rect[0] - clip_offset[0]) * clip_scale[0];
                             let clip_y = (clip_rect[1] - clip_offset[1]) * clip_scale[1];
                             let clip_w = (clip_rect[2] - clip_offset[0]) * clip_scale[0] - clip_x;
                             let clip_h = (clip_rect[3] - clip_offset[1]) * clip_scale[1] - clip_y;
 
-                            // dbg!(clip_x, clip_y, clip_w, clip_h);
-                            let scissor_rect = vk::Rect2D::builder()
-                                .offset(
-                                    vk::Offset2D::builder()
-                                        .x(clip_x as _)
-                                        .y(clip_y as _)
-                                        .build(),
-                                )
-                                .extent(
-                                    vk::Extent2D::builder()
-                                        .width(clip_w as _)
-                                        .height(clip_h as _)
-                                        .build(),
-                                );
-                            unsafe {
-                                device.cmd_set_scissor(
-                                    *command_buffer,
-                                    0,
-                                    std::slice::from_ref(&scissor_rect),
-                                );
-                                device.cmd_draw_indexed(
-                                    *command_buffer,
-                                    count as _,
-                                    1,
-                                    index_offset + idx_offset as u32,
-                                    vertex_offset + vtx_offset as i32,
-                                    0,
-                                );
-                                // index_offset += (*raw_cmd).ElemCount;
-                            }
+                            let scissors = [vk::Rect2D {
+                                offset: vk::Offset2D {
+                                    x: clip_x as _,
+                                    y: clip_y as _,
+                                },
+                                extent: vk::Extent2D {
+                                    width: clip_w as _,
+                                    height: clip_h as _,
+                                },
+                            }];
+                            device.cmd_set_scissor(*command_buffer, 0, &scissors);
                         }
-                        imgui::DrawCmd::ResetRenderState => {}
-                        imgui::DrawCmd::RawCallback { .. } => {}
+
+                        unsafe {
+                            device.cmd_bind_descriptor_sets(
+                                *command_buffer,
+                                vk::PipelineBindPoint::GRAPHICS,
+                                gui_vk.pipeline_layout,
+                                0,
+                                &[gui_vk.descriptor_set],
+                                &[],
+                            )
+                        };
+
+                        unsafe {
+                            device.cmd_draw_indexed(
+                                *command_buffer,
+                                count as _,
+                                1,
+                                index_offset + idx_offset as u32,
+                                vertex_offset + vtx_offset as i32,
+                                0,
+                            )
+                        };
+                    }
+                    DrawCmd::ResetRenderState => {
+                        // log::trace!("Reset render state command not yet supported")
+                    }
+                    DrawCmd::RawCallback { .. } => {
+                        // log::trace!("Raw callback command not yet supported")
                     }
                 }
-                // vertex_offset += draw_list.vtx_buffer().len() as i32;
-                index_offset += draw_list.idx_buffer().len() as u32;
-                vertex_offset += draw_list.vtx_buffer().len() as i32;
             }
+
+            index_offset += draw_list.idx_buffer().len() as u32;
+            vertex_offset += draw_list.vtx_buffer().len() as i32;
         }
     }
 
@@ -797,7 +802,7 @@ pub struct Vulkan {
     pub(crate) frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
     pub(crate) objects: VulkanObjects,
-    gui: ImGui,
+    pub gui: ImGui,
 }
 
 impl Vulkan {

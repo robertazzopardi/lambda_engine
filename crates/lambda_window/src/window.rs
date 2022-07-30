@@ -140,7 +140,6 @@ pub fn handle_inputs(
                 *control_flow = ControlFlow::Exit;
             }
         }
-
         Event::WindowEvent {
             event:
                 WindowEvent::KeyboardInput {
@@ -153,17 +152,11 @@ pub fn handle_inputs(
                     ..
                 },
             ..
-        } => {
-            process_keyboard(input, key, state);
-        }
-
+        } => process_keyboard(input, key, state),
         Event::WindowEvent {
             event: WindowEvent::MouseInput { state, .. },
             ..
-        } => {
-            input.mouse_pressed = state == ElementState::Pressed;
-        }
-
+        } => input.mouse_pressed = state == ElementState::Pressed,
         Event::DeviceEvent { event, .. } => match event {
             DeviceEvent::MouseWheel { delta, .. } => {
                 input.mouse_scroll = -match delta {

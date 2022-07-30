@@ -122,24 +122,22 @@ fn create_image_views(
         .r(vk::ComponentSwizzle::IDENTITY)
         .g(vk::ComponentSwizzle::IDENTITY)
         .b(vk::ComponentSwizzle::IDENTITY)
-        .a(vk::ComponentSwizzle::IDENTITY)
-        .build();
+        .a(vk::ComponentSwizzle::IDENTITY);
 
     let sub_resource_range = vk::ImageSubresourceRange::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .base_mip_level(0)
         .level_count(mip_levels)
         .base_array_layer(0)
-        .layer_count(1)
-        .build();
+        .layer_count(1);
 
     for &image in swap_chain_images.iter() {
         let image_view_create_info = vk::ImageViewCreateInfo::builder()
             .image(image)
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(surface_format.format)
-            .components(components)
-            .subresource_range(sub_resource_range);
+            .components(*components)
+            .subresource_range(*sub_resource_range);
 
         let image_view = unsafe {
             devices

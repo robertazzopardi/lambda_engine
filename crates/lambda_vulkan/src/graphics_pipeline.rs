@@ -216,7 +216,7 @@ fn create_shader_module(device: &Device, path: &str) -> vk::ShaderModule {
     let mut file = std::fs::File::open(path).unwrap();
     let spv = ash::util::read_spv(&mut file).unwrap();
 
-    let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv).build();
+    let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv);
 
     unsafe {
         device
@@ -484,14 +484,15 @@ fn create_descriptor_sets(
             let buffer_info = vk::DescriptorBufferInfo::builder()
                 .buffer(uniform_buffers[i].buffer)
                 .offset(0)
-                .range(mem::size_of::<UniformBufferObject>().try_into().unwrap());
+                .range(mem::size_of::<UniformBufferObject>().try_into().unwrap())
+                .build();
 
             let mut descriptor_writes: SmallVec<[vk::WriteDescriptorSet; 2]> =
                 smallvec![vk::WriteDescriptorSet {
                     dst_set: descriptor_sets[i],
                     dst_binding: 0,
                     descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                    p_buffer_info: std::slice::from_ref(&buffer_info.build()).as_ptr(),
+                    p_buffer_info: std::slice::from_ref(&buffer_info).as_ptr(),
                     descriptor_count: 1,
                     ..Default::default()
                 }];

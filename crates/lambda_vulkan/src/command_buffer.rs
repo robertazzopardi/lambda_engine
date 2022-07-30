@@ -1,6 +1,6 @@
 use crate::{
-    any_as_u8_slice, device, frame_buffer::FrameBuffers, orthographic_vk, renderer::RenderPass,
-    swap_chain::SwapChain, utility::InstanceDevices, ImGui, VulkanObject,
+    device, frame_buffer::FrameBuffers, renderer::RenderPass, swap_chain::SwapChain,
+    utility::InstanceDevices, ImGui, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
@@ -67,8 +67,7 @@ pub(crate) fn create_command_buffers(
 
     let scissor = vk::Rect2D::builder()
         .offset(vk::Offset2D::default())
-        .extent(swap_chain.extent)
-        .build();
+        .extent(swap_chain.extent);
 
     let begin_info = vk::CommandBufferBeginInfo::builder();
 
@@ -94,7 +93,6 @@ pub(crate) fn create_command_buffers(
     let ui = context.frame();
     ImGui::new_frame(&ui);
     let draw_data = ui.render();
-    dbg!(draw_data.total_vtx_count, draw_data.total_idx_count);
 
     ImGui::update_buffers(gui_vk, draw_data, instance_devices);
 
@@ -107,9 +105,8 @@ pub(crate) fn create_command_buffers(
             let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
                 .render_pass(render_pass.0)
                 .framebuffer(frame_buffers[i])
-                .render_area(scissor)
-                .clear_values(&clear_values)
-                .build();
+                .render_area(*scissor)
+                .clear_values(&clear_values);
 
             device.cmd_begin_render_pass(
                 command_buffers[i],
@@ -151,12 +148,10 @@ pub fn begin_single_time_command(
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_buffer_count(1)
         .command_pool(*command_pool)
-        .level(vk::CommandBufferLevel::PRIMARY)
-        .build();
+        .level(vk::CommandBufferLevel::PRIMARY);
 
-    let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-        .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
-        .build();
+    let command_buffer_begin_info =
+        vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
     let command_buffer = unsafe {
         device
@@ -181,9 +176,7 @@ pub fn end_single_time_command(
 ) {
     let buffers_to_submit = [buffer];
 
-    let submit_info = vk::SubmitInfo::builder()
-        .command_buffers(&buffers_to_submit)
-        .build();
+    let submit_info = vk::SubmitInfo::builder().command_buffers(&buffers_to_submit);
 
     unsafe {
         device

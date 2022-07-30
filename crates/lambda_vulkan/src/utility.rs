@@ -170,14 +170,13 @@ pub(crate) fn create_image_view(
         .base_mip_level(0)
         .level_count(image.mip_levels)
         .base_array_layer(0)
-        .layer_count(1)
-        .build();
+        .layer_count(1);
 
     let image_view_info = vk::ImageViewCreateInfo::builder()
         .image(image.image)
         .view_type(vk::ImageViewType::TYPE_2D)
         .format(format)
-        .subresource_range(sub_resource_range);
+        .subresource_range(*sub_resource_range);
 
     unsafe {
         device
