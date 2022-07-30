@@ -62,7 +62,7 @@ pub(crate) fn update_uniform_buffers(
             device,
             object.graphics_pipeline.descriptors.uniform_buffers[current_image].memory,
             buffer_size,
-            &[uniform_buffer],
+            std::slice::from_ref(&uniform_buffer),
         );
     });
 }
