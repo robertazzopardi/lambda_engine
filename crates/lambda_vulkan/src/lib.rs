@@ -218,7 +218,7 @@ impl ImGui {
             .image(font_image)
             .subresource_range(*sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
+            .dst_access_mask(vk::AccessFlags::SHADER_READ);
         unsafe {
             device.cmd_pipeline_barrier(
                 copy_cmd,
