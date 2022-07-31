@@ -26,18 +26,16 @@ use buffer::{Buffer, ModelBuffers};
 use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
 use derive_more::{Deref, DerefMut};
-use device::{destroy, Devices};
-use frame_buffer::FrameBuffers;
+use device::Devices;
+use frame_buffer::{create_frame_buffer, FrameBuffers};
 use graphics_pipeline::{create_shader_stages, destroy_shader_modules, GraphicsPipeline};
-use imgui::{
-    Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, Io, Ui, Window,
-};
+use imgui::{Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, Ui, Window};
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
-use nalgebra::{matrix, vector, Matrix4, Vector2};
+use nalgebra::{matrix, Matrix4};
 use renderer::RenderPass;
-use resource::Resources;
+use resource::{Resource, Resources};
 use swap_chain::SwapChain;
 use sync_objects::SyncObjects;
 use texture::{create_buffer, Texture};
@@ -58,21 +56,20 @@ pub struct GuiVk {
     vertex_count: u32,
     index_count: u32,
     font_memory: vk::DeviceMemory,
-    font_image: vk::Image,
-    font_view: vk::ImageView,
+    frame_buffer: vk::Framebuffer,
+    resource: Resource,
     pipeline_cache: vk::PipelineCache,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_set: vk::DescriptorSet,
-    push_constant_block: Push,
+    command_buffer: vk::CommandBuffer,
 }
 
 pub struct ImGui {
     pub context: Context,
     gui_vk: GuiVk,
-    display_size: [f32; 2],
 }
 
 impl ImGui {
@@ -116,19 +113,16 @@ impl ImGui {
         );
 
         let image = utility::create_image(image_info, instance_devices);
-        let font_image = image.image;
-        let font_memory = image.memory;
 
-        let image_view = utility::create_image_view(
+        let font_view = utility::create_image_view(
             &image,
             vk::Format::R8G8B8A8_UNORM,
             vk::ImageAspectFlags::COLOR,
             device,
         );
-        let font_view = image_view;
 
         let staging = texture::create_buffer(
-            upload_size as u64 as vk::DeviceSize,
+            upload_size as vk::DeviceSize,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             instance_devices,
@@ -137,7 +131,7 @@ impl ImGui {
         memory::map_memory(
             device,
             staging.memory,
-            upload_size as u64 as vk::DeviceSize,
+            upload_size as vk::DeviceSize,
             data.as_slice(),
         );
 
@@ -169,7 +163,7 @@ impl ImGui {
             .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .old_layout(vk::ImageLayout::UNDEFINED)
             .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-            .image(font_image)
+            .image(image.image)
             .subresource_range(*sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
             .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
@@ -204,7 +198,7 @@ impl ImGui {
             device.cmd_copy_buffer_to_image(
                 copy_cmd,
                 staging.buffer,
-                font_image,
+                image.image,
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                 std::slice::from_ref(&buffer_copy_region),
             )
@@ -215,7 +209,7 @@ impl ImGui {
             .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
             .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-            .image(font_image)
+            .image(image.image)
             .subresource_range(*sub_resource_range)
             .src_access_mask(vk::AccessFlags::empty())
             .dst_access_mask(vk::AccessFlags::SHADER_READ);
@@ -247,10 +241,10 @@ impl ImGui {
                 .queue_submit(*copy_queue, std::slice::from_ref(&submit_info), fence)
                 .expect("Could not submit queue!");
             device
-                .wait_for_fences(&[fence], true, 100000000000)
+                .wait_for_fences(std::slice::from_ref(&fence), true, 100000000000)
                 .expect("Wait for fences failed!");
             device.destroy_fence(fence, None);
-            device.free_command_buffers(*command_pool, &[copy_cmd]);
+            device.free_command_buffers(*command_pool, std::slice::from_ref(&copy_cmd));
 
             device.destroy_buffer(staging.buffer, None);
             device.free_memory(staging.memory, None);
@@ -440,29 +434,34 @@ impl ImGui {
 
         unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
 
+        let frame_buffer = create_frame_buffer(render_pass, &[font_view], device, 300, 100);
+
         Self {
             context,
-            display_size: [300., 100.],
             gui_vk: GuiVk {
                 sampler,
                 vertex_buffer: None,
                 index_buffer: None,
                 vertex_count: 0,
                 index_count: 0,
-                font_memory,
-                font_image,
-                font_view,
+                font_memory: image.memory,
+                frame_buffer,
+                resource: Resource {
+                    image,
+                    view: font_view,
+                },
                 pipeline_cache,
                 pipeline_layout,
                 pipeline,
                 descriptor_pool,
                 descriptor_set_layout,
                 descriptor_set,
-                push_constant_block: Push::default(),
+                command_buffer: copy_cmd,
             },
         }
     }
 
+    #[inline]
     pub fn new_frame(ui: &Ui) {
         Window::new("Hello world")
             .size([300.0, 100.0], Condition::FirstUseEver)
@@ -477,6 +476,7 @@ impl ImGui {
                     "Mouse Position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
+
                 ui.show_demo_window(&mut true);
                 // ui.show_metrics_window(&mut true);
             });
@@ -561,16 +561,16 @@ impl ImGui {
                 .expect("Failed to map memory!")
         };
 
-        // let mut vertex_dst = vertex_data as *mut DrawVert;
-        // let mut index_dst = index_data as *mut DrawIdx;
+        let mut vertex_dst = vertex_data as *mut DrawVert;
+        let mut index_dst = index_data as *mut DrawIdx;
 
-        // for draw_list in draw_data.draw_lists() {
-        //     let vtx_buffer = draw_list.vtx_buffer();
-        //     let idx_buffer = draw_list.idx_buffer();
+        for draw_list in draw_data.draw_lists() {
+            let vtx_buffer = draw_list.vtx_buffer();
+            let idx_buffer = draw_list.idx_buffer();
 
-        //     let _ = std::mem::replace(&mut vertex_dst, vtx_buffer.as_ptr() as *mut DrawVert);
-        //     let _ = std::mem::replace(&mut index_dst, idx_buffer.as_ptr() as *mut u16);
-        // }
+            let _ = std::mem::replace(&mut vertex_dst, vtx_buffer.as_ptr() as *mut DrawVert);
+            let _ = std::mem::replace(&mut index_dst, idx_buffer.as_ptr() as *mut u16);
+        }
 
         if let Some(vertex_buffer) = gui_vk.vertex_buffer {
             let vertex_mapped_range = vk::MappedMemoryRange::builder().memory(vertex_buffer.memory);
@@ -593,7 +593,6 @@ impl ImGui {
 
     fn draw_frame(
         gui_vk: &GuiVk,
-        display_size: [f32; 2],
         draw_data: &DrawData,
         device: &Device,
         command_buffer: &vk::CommandBuffer,
@@ -675,17 +674,20 @@ impl ImGui {
                             let clip_w = (clip_rect[2] - clip_offset[0]) * clip_scale[0] - clip_x;
                             let clip_h = (clip_rect[3] - clip_offset[1]) * clip_scale[1] - clip_y;
 
-                            let scissors = [vk::Rect2D {
-                                offset: vk::Offset2D {
+                            let scissors = vk::Rect2D::builder()
+                                .offset(vk::Offset2D {
                                     x: clip_x as _,
                                     y: clip_y as _,
-                                },
-                                extent: vk::Extent2D {
+                                })
+                                .extent(vk::Extent2D {
                                     width: clip_w as _,
                                     height: clip_h as _,
-                                },
-                            }];
-                            device.cmd_set_scissor(*command_buffer, 0, &scissors);
+                                });
+                            device.cmd_set_scissor(
+                                *command_buffer,
+                                0,
+                                std::slice::from_ref(&scissors),
+                            );
                         }
 
                         unsafe {
@@ -710,12 +712,8 @@ impl ImGui {
                             )
                         };
                     }
-                    DrawCmd::ResetRenderState => {
-                        // log::trace!("Reset render state command not yet supported")
-                    }
-                    DrawCmd::RawCallback { .. } => {
-                        // log::trace!("Raw callback command not yet supported")
-                    }
+                    DrawCmd::ResetRenderState => {}
+                    DrawCmd::RawCallback { .. } => {}
                 }
             }
 
@@ -733,8 +731,8 @@ impl ImGui {
             device.destroy_buffer(index_buffer.buffer, None);
             device.free_memory(index_buffer.memory, None);
         }
-        device.destroy_image(self.gui_vk.font_image, None);
-        device.destroy_image_view(self.gui_vk.font_view, None);
+        device.destroy_image(self.gui_vk.resource.image.image, None);
+        device.destroy_image_view(self.gui_vk.resource.view, None);
         device.free_memory(self.gui_vk.font_memory, None);
         device.destroy_sampler(self.gui_vk.sampler, None);
         device.destroy_pipeline_cache(self.gui_vk.pipeline_cache, None);
@@ -743,12 +741,6 @@ impl ImGui {
         device.destroy_descriptor_pool(self.gui_vk.descriptor_pool, None);
         device.destroy_descriptor_set_layout(self.gui_vk.descriptor_set_layout, None);
     }
-}
-
-#[derive(Default)]
-struct Push {
-    scale: Vector2<f32>,
-    translate: Vector2<f32>,
 }
 
 pub fn orthographic_vk(
@@ -857,7 +849,7 @@ impl Vulkan {
         let frame_buffers = frame_buffer::create_frame_buffers(
             &swap_chain,
             &render_pass,
-            &instance_devices,
+            &instance_devices.devices.logical.device,
             &resources,
         );
 

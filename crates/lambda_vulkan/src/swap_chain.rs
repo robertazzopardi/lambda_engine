@@ -216,7 +216,7 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
     vulkan.frame_buffers = frame_buffer::create_frame_buffers(
         &vulkan.swap_chain,
         &vulkan.render_pass,
-        &vulkan.instance_devices,
+        device,
         &vulkan.resources,
     );
 

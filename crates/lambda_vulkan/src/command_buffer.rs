@@ -88,7 +88,6 @@ pub(crate) fn create_command_buffers(
     let ImGui {
         ref mut context,
         ref mut gui_vk,
-        display_size,
     } = gui;
     let ui = context.frame();
     ImGui::new_frame(&ui);
@@ -122,13 +121,7 @@ pub(crate) fn create_command_buffers(
                 bind_index_and_vertex_buffers(model, device, command_buffers[i], &[0_u64], i)
             });
 
-            ImGui::draw_frame(
-                gui_vk,
-                *display_size,
-                draw_data,
-                device,
-                &command_buffers[i],
-            );
+            // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
 
             device.cmd_end_render_pass(command_buffers[i]);
 
@@ -136,6 +129,26 @@ pub(crate) fn create_command_buffers(
                 .end_command_buffer(command_buffers[i])
                 .expect("Failed to record command buffer!");
         }
+
+        // GUI
+        // device
+        //     .begin_command_buffer(gui_vk.command_buffer, &begin_info)
+        //     .expect("Failed to begin recording command buffer!");
+        // let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+        //     .render_pass(render_pass.0)
+        //     .framebuffer(gui_vk.frame_buffer)
+        //     .render_area(*scissor)
+        //     .clear_values(&clear_values);
+        // device.cmd_begin_render_pass(
+        //     gui_vk.command_buffer,
+        //     &render_pass_begin_info,
+        //     vk::SubpassContents::INLINE,
+        // );
+        // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
+        // device.cmd_end_render_pass(gui_vk.command_buffer);
+        // device
+        //     .end_command_buffer(gui_vk.command_buffer)
+        //     .expect("Failed to record command buffer!");
     }
 
     command_buffers.into()

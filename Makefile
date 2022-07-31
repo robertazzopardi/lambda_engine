@@ -1,23 +1,23 @@
 GLSLC=$(VULKAN_SDK)/macOS/bin/glslc -O -std=450 --target-env=vulkan1.3
 
-SRC					:= crates/lambda_internal/src
+SRC							:= crates/lambda_internal/src
 
 ifeq ($(OS),Windows_NT)
-SOURCEDIRS	:= $(SRC)
+SOURCEDIRS					:= $(SRC)
 FIXPATH = $(subst /,\,$1)
-RM			:= del /q /f
-MD	:= mkdir
+RM							:= del /q /f
+MD							:= mkdir
 else
-SOURCEDIRS	:= $(shell find $(SRC) -type d)
+SOURCEDIRS					:= $(shell find $(SRC) -type d)
 FIXPATH = $1
 RM = rm -f
-MD	:= mkdir -p
+MD							:= mkdir -p
 endif
 
-FRAG_SHADERS		:= $(wildcard $(patsubst %,%/*.frag, $(SOURCEDIRS)))
-VERT_SHADERS		:= $(wildcard $(patsubst %,%/*.vert, $(SOURCEDIRS)))
+FRAG_SHADERS				:= $(wildcard $(patsubst %,%/*.frag, $(SOURCEDIRS)))
+VERT_SHADERS				:= $(wildcard $(patsubst %,%/*.vert, $(SOURCEDIRS)))
 
-SHADER_FOLDERS 		:= $(shell ls ${SRC}/shaders)
+SHADER_FOLDERS 				:= $(shell ls ${SRC}/shaders)
 
 clean_shaders:
 	$(RM) $(wildcard $(patsubst %,%/*.spv, $(SOURCEDIRS)))
