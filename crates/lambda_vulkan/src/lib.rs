@@ -596,15 +596,10 @@ impl ImGui {
         }
     }
 
-    fn draw_frame(
-        gui_vk: &GuiVk,
-        draw_data: &DrawData,
-        device: &Device,
-        command_buffer: &vk::CommandBuffer,
-    ) {
+    fn draw_frame(gui_vk: &GuiVk, draw_data: &DrawData, device: &Device) {
         unsafe {
             device.cmd_bind_pipeline(
-                *command_buffer,
+                gui_vk.command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 gui_vk.pipeline,
             )
@@ -618,7 +613,7 @@ impl ImGui {
             .max_depth(1.0)
             .build()];
 
-        unsafe { device.cmd_set_viewport(*command_buffer, 0, &viewports) };
+        unsafe { device.cmd_set_viewport(gui_vk.command_buffer, 0, &viewports) };
 
         // Ortho projection
         let projection = orthographic_vk(
@@ -632,7 +627,7 @@ impl ImGui {
         unsafe {
             let push = any_as_u8_slice(&projection);
             device.cmd_push_constants(
-                *command_buffer,
+                gui_vk.command_buffer,
                 gui_vk.pipeline_layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
@@ -643,7 +638,7 @@ impl ImGui {
         unsafe {
             if let Some(index_buffer) = gui_vk.index_buffer {
                 device.cmd_bind_index_buffer(
-                    *command_buffer,
+                    gui_vk.command_buffer,
                     index_buffer.buffer,
                     0,
                     vk::IndexType::UINT16,
@@ -651,7 +646,12 @@ impl ImGui {
             }
 
             if let Some(vertex_buffer) = gui_vk.vertex_buffer {
-                device.cmd_bind_vertex_buffers(*command_buffer, 0, &[vertex_buffer.buffer], &[0])
+                device.cmd_bind_vertex_buffers(
+                    gui_vk.command_buffer,
+                    0,
+                    &[vertex_buffer.buffer],
+                    &[0],
+                )
             }
         };
 
@@ -688,7 +688,7 @@ impl ImGui {
                                     height: clip_h as _,
                                 });
                             device.cmd_set_scissor(
-                                *command_buffer,
+                                gui_vk.command_buffer,
                                 0,
                                 std::slice::from_ref(&scissors),
                             );
@@ -696,18 +696,19 @@ impl ImGui {
 
                         unsafe {
                             device.cmd_bind_descriptor_sets(
-                                *command_buffer,
+                                gui_vk.command_buffer,
                                 vk::PipelineBindPoint::GRAPHICS,
                                 gui_vk.pipeline_layout,
                                 0,
-                                &[gui_vk.descriptor_set],
+                                std::slice::from_ref(&gui_vk.descriptor_set),
                                 &[],
                             )
                         };
 
+                        dbg!(432312);
                         unsafe {
                             device.cmd_draw_indexed(
-                                *command_buffer,
+                                gui_vk.command_buffer,
                                 count as _,
                                 1,
                                 index_offset + idx_offset as u32,

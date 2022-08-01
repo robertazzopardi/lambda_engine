@@ -22,7 +22,7 @@ pub(crate) fn create_gui_render_pass(device: &Device) -> RenderPass {
         .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
         .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
         .initial_layout(vk::ImageLayout::UNDEFINED)
-        .final_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+        .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
     let color_attachment_refs = vk::AttachmentReference::builder()
         .attachment(0)

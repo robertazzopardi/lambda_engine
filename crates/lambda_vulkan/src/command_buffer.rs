@@ -151,7 +151,7 @@ pub(crate) fn create_command_buffers(
             &render_pass_begin_info,
             vk::SubpassContents::INLINE,
         );
-        ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
+        ImGui::draw_frame(gui_vk, draw_data, device);
         device.cmd_end_render_pass(gui_vk.command_buffer);
         device
             .end_command_buffer(gui_vk.command_buffer)
