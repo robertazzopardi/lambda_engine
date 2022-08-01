@@ -113,11 +113,11 @@ fn create_logical_device(
         ..
     } = physical_device_properties;
 
-    let portability_subset_extension = CString::new("VK_KHR_portability_subset").unwrap();
-    let device_extension_names_raw = [
-        Swapchain::name().as_ptr(),
-        portability_subset_extension.as_ptr(),
-    ];
+    // let portability_subset_extension = CString::new("VK_KHR_portability_subset").unwrap();
+    // let device_extension_names_raw = [
+    //     Swapchain::name().as_ptr(),
+    //     portability_subset_extension.as_ptr(),
+    // ];
 
     let features = vk::PhysicalDeviceFeatures::builder()
         .sampler_anisotropy(true)
@@ -130,6 +130,12 @@ fn create_logical_device(
     let queue_info = vk::DeviceQueueCreateInfo::builder()
         .queue_family_index(*queue_family_index)
         .queue_priorities(std::slice::from_ref(&priorities));
+
+    let device_extension_names_raw = [
+        Swapchain::name().as_ptr(),
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        vk::KhrPortabilitySubsetFn::name().as_ptr(),
+    ];
 
     let device_create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(std::slice::from_ref(&queue_info))

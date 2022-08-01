@@ -35,6 +35,10 @@ impl UniformBufferObject {
         self.proj = *Perspective3::new(aspect, 45.0_f32.to_radians(), 0.00001, 100.).as_matrix();
         self.proj[(1, 1)] *= -1.;
     }
+
+    pub const fn size() -> usize {
+        std::mem::size_of::<Self>()
+    }
 }
 
 pub(crate) fn update_uniform_buffers(
@@ -49,9 +53,7 @@ pub(crate) fn update_uniform_buffers(
     // let rot = nalgebra::Rotation3::new(axis_angle);
     // *camera.pos = rot * *camera.pos;
 
-    let buffer_size = std::mem::size_of::<UniformBufferObject>()
-        .try_into()
-        .unwrap();
+    let buffer_size = UniformBufferObject::size().try_into().unwrap();
 
     let mut uniform_buffer = UniformBuffer::new(Matrix::default(), ubo.view, ubo.proj);
 

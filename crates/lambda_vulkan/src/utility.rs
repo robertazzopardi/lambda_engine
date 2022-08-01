@@ -61,6 +61,12 @@ impl EntryInstance {
         if ENABLE_VALIDATION_LAYERS {
             extension_names_raw.push(DebugUtils::name().as_ptr());
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            extension_names_raw.push(vk::KhrPortabilityEnumerationFn::name().as_ptr());
+            // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
+            extension_names_raw.push(vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());
+        }
 
         let app_name = CString::new("Vulkan").unwrap();
         let engine_name = CString::new("No Engine").unwrap();
@@ -81,9 +87,15 @@ impl EntryInstance {
 
             let mut debug_create_info: vk::DebugUtilsMessengerCreateInfoEXT;
 
+            let create_flags = if cfg!(any(target_os = "macos", target_os = "ios")) {
+                vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
+            } else {
+                vk::InstanceCreateFlags::default()
+            };
+
             let mut create_info = vk::InstanceCreateInfo::builder()
                 .application_info(&app_info)
-                .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
+                .flags(create_flags)
                 .enabled_extension_names(extension_names_raw.as_slice());
 
             if ENABLE_VALIDATION_LAYERS {
@@ -95,7 +107,7 @@ impl EntryInstance {
                 }
             }
 
-            let instance: Instance = entry
+            let instance = entry
                 .create_instance(&create_info, None)
                 .expect("Instance creation error");
 
@@ -109,11 +121,13 @@ pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) 
 
     let image_info = vk::ImageCreateInfo::builder()
         .image_type(vk::ImageType::TYPE_2D)
-        .extent(vk::Extent3D {
-            width: info.dimensions.0,
-            height: info.dimensions.1,
-            depth: 1,
-        })
+        .extent(
+            vk::Extent3D::builder()
+                .width(info.dimensions.0)
+                .height(info.dimensions.1)
+                .depth(1)
+                .build(),
+        )
         .mip_levels(info.mip_levels)
         .array_layers(1)
         .format(info.format)
@@ -132,16 +146,13 @@ pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) 
 
         let memory_requirements = devices.logical.device.get_image_memory_requirements(image);
 
-        let alloc_info = vk::MemoryAllocateInfo {
-            s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
-            allocation_size: memory_requirements.size,
-            memory_type_index: memory::find_memory_type(
+        let alloc_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(memory_requirements.size)
+            .memory_type_index(memory::find_memory_type(
                 memory_requirements.memory_type_bits,
                 info.properties,
                 instance_devices,
-            ),
-            ..Default::default()
-        };
+            ));
 
         let image_memory = devices
             .logical

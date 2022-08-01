@@ -4,6 +4,7 @@ use crate::{
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
+use imgui::DrawData;
 
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
@@ -22,7 +23,8 @@ pub fn create_command_pool(
         device::find_queue_family(instance, devices.physical.device, surface_loader, surface);
 
     let pool_info = vk::CommandPoolCreateInfo::builder()
-        .queue_family_index(queue_family_indices.graphics_family.unwrap());
+        .queue_family_index(queue_family_indices.graphics_family.unwrap())
+        .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
     CommandPool(unsafe {
         devices
@@ -49,7 +51,7 @@ pub(crate) fn create_command_buffers(
 
     let device = &instance_devices.devices.logical.device;
 
-    let command_buffers = unsafe {
+    let mut command_buffers = unsafe {
         device
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("Failed to allocate command render buffers")
@@ -131,25 +133,32 @@ pub(crate) fn create_command_buffers(
         }
 
         // GUI
-        // device
-        //     .begin_command_buffer(gui_vk.command_buffer, &begin_info)
-        //     .expect("Failed to begin recording command buffer!");
-        // let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-        //     .render_pass(render_pass.0)
-        //     .framebuffer(gui_vk.frame_buffer)
-        //     .render_area(*scissor)
-        //     .clear_values(&clear_values);
-        // device.cmd_begin_render_pass(
-        //     gui_vk.command_buffer,
-        //     &render_pass_begin_info,
-        //     vk::SubpassContents::INLINE,
-        // );
-        // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
-        // device.cmd_end_render_pass(gui_vk.command_buffer);
-        // device
-        //     .end_command_buffer(gui_vk.command_buffer)
-        //     .expect("Failed to record command buffer!");
+        device
+            .begin_command_buffer(gui_vk.command_buffer, &begin_info)
+            .expect("Failed to begin recording command buffer!");
+        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            .render_pass(gui_vk.render_pass.0)
+            .framebuffer(gui_vk.frame_buffer)
+            .render_area(
+                vk::Rect2D::builder()
+                    .offset(vk::Offset2D::default())
+                    .extent(vk::Extent2D::builder().width(512).height(64).build())
+                    .build(),
+            )
+            .clear_values(&clear_values);
+        device.cmd_begin_render_pass(
+            gui_vk.command_buffer,
+            &render_pass_begin_info,
+            vk::SubpassContents::INLINE,
+        );
+        ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
+        device.cmd_end_render_pass(gui_vk.command_buffer);
+        device
+            .end_command_buffer(gui_vk.command_buffer)
+            .expect("Failed to record command buffer!");
     }
+
+    command_buffers.push(gui_vk.command_buffer);
 
     command_buffers.into()
 }

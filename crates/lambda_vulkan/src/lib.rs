@@ -55,6 +55,7 @@ pub struct GuiVk {
     index_buffer: Option<Buffer>,
     vertex_count: u32,
     index_count: u32,
+    render_pass: RenderPass,
     font_memory: vk::DeviceMemory,
     frame_buffer: vk::Framebuffer,
     resource: Resource,
@@ -77,7 +78,6 @@ impl ImGui {
         instance_devices: &InstanceDevices,
         command_pool: &vk::CommandPool,
         copy_queue: &Queue,
-        render_pass: &RenderPass,
     ) -> Self {
         let mut context = Context::create();
         context.set_ini_filename(None);
@@ -89,6 +89,8 @@ impl ImGui {
         io.display_framebuffer_scale = [1., 1.];
 
         let device = &instance_devices.devices.logical.device;
+
+        let render_pass = renderer::create_gui_render_pass(device);
 
         let width;
         let height;
@@ -108,7 +110,9 @@ impl ImGui {
             vk::SampleCountFlags::TYPE_1,
             vk::Format::R8G8B8A8_UNORM,
             vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+            vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
@@ -372,7 +376,7 @@ impl ImGui {
             .build();
 
         let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-            .rasterization_samples(vk::SampleCountFlags::TYPE_4);
+            .rasterization_samples(vk::SampleCountFlags::TYPE_1);
 
         let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
         let dynamic_state =
@@ -434,7 +438,7 @@ impl ImGui {
 
         unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
 
-        let frame_buffer = create_frame_buffer(render_pass, &[font_view], device, 300, 100);
+        let frame_buffer = create_frame_buffer(&render_pass, &[font_view], device, width, height);
 
         Self {
             context,
@@ -457,6 +461,7 @@ impl ImGui {
                 descriptor_set_layout,
                 descriptor_set,
                 command_buffer: copy_cmd,
+                render_pass,
             },
         }
     }
@@ -607,12 +612,11 @@ impl ImGui {
 
         let framebuffer_width = draw_data.framebuffer_scale[0] * draw_data.display_size[0];
         let framebuffer_height = draw_data.framebuffer_scale[1] * draw_data.display_size[1];
-        let viewports = [vk::Viewport {
-            width: framebuffer_width,
-            height: framebuffer_height,
-            max_depth: 1.0,
-            ..Default::default()
-        }];
+        let viewports = [vk::Viewport::builder()
+            .width(framebuffer_width)
+            .height(framebuffer_height)
+            .max_depth(1.0)
+            .build()];
 
         unsafe { device.cmd_set_viewport(*command_buffer, 0, &viewports) };
 
@@ -723,23 +727,39 @@ impl ImGui {
     }
 
     unsafe fn destroy(&self, device: &Device) {
-        if let Some(vertex_buffer) = &self.gui_vk.vertex_buffer {
+        let GuiVk {
+            sampler,
+            vertex_buffer,
+            index_buffer,
+            render_pass,
+            font_memory,
+            resource,
+            pipeline_cache,
+            pipeline_layout,
+            pipeline,
+            descriptor_pool,
+            descriptor_set_layout,
+            ..
+        } = &self.gui_vk;
+
+        if let Some(vertex_buffer) = &vertex_buffer {
             device.destroy_buffer(vertex_buffer.buffer, None);
             device.free_memory(vertex_buffer.memory, None);
         }
-        if let Some(index_buffer) = &self.gui_vk.index_buffer {
+        if let Some(index_buffer) = &index_buffer {
             device.destroy_buffer(index_buffer.buffer, None);
             device.free_memory(index_buffer.memory, None);
         }
-        device.destroy_image(self.gui_vk.resource.image.image, None);
-        device.destroy_image_view(self.gui_vk.resource.view, None);
-        device.free_memory(self.gui_vk.font_memory, None);
-        device.destroy_sampler(self.gui_vk.sampler, None);
-        device.destroy_pipeline_cache(self.gui_vk.pipeline_cache, None);
-        device.destroy_pipeline(self.gui_vk.pipeline, None);
-        device.destroy_pipeline_layout(self.gui_vk.pipeline_layout, None);
-        device.destroy_descriptor_pool(self.gui_vk.descriptor_pool, None);
-        device.destroy_descriptor_set_layout(self.gui_vk.descriptor_set_layout, None);
+        device.destroy_image(resource.image.image, None);
+        device.destroy_image_view(resource.view, None);
+        device.free_memory(*font_memory, None);
+        device.destroy_sampler(*sampler, None);
+        device.destroy_pipeline_cache(*pipeline_cache, None);
+        device.destroy_pipeline(*pipeline, None);
+        device.destroy_pipeline_layout(*pipeline_layout, None);
+        device.destroy_descriptor_pool(*descriptor_pool, None);
+        device.destroy_descriptor_set_layout(*descriptor_set_layout, None);
+        device.destroy_render_pass(render_pass.0, None);
     }
 }
 
@@ -783,8 +803,8 @@ pub(crate) struct VulkanObjects(Vec<VulkanObject>);
 pub struct Vulkan {
     pub(crate) command_buffers: CommandBuffers,
     pub(crate) command_pool: CommandPool,
-    pub(crate) render_pass: RenderPass,
     pub(crate) resources: Resources,
+    pub(crate) render_pass: RenderPass,
     pub(crate) surface: vk::SurfaceKHR,
     pub(crate) surface_loader: Surface,
     pub swap_chain: SwapChain,
@@ -882,7 +902,6 @@ impl Vulkan {
             &instance_devices,
             &command_pool,
             &instance_devices.devices.logical.queues.graphics,
-            &render_pass,
         );
 
         let command_buffers = command_buffer::create_command_buffers(
@@ -899,6 +918,7 @@ impl Vulkan {
             command_buffers,
             command_pool,
             render_pass,
+
             resources,
             surface,
             surface_loader,
