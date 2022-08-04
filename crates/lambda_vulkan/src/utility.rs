@@ -11,6 +11,7 @@ use winit::window::Window;
 pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
+    // pub view: vk::ImageView,
     #[new(value = "1")]
     pub mip_levels: u32,
 }
@@ -117,7 +118,7 @@ impl EntryInstance {
 }
 
 pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) -> Image {
-    let InstanceDevices { devices, .. } = instance_devices;
+    let device = &instance_devices.devices.logical.device;
 
     let image_info = vk::ImageCreateInfo::builder()
         .image_type(vk::ImageType::TYPE_2D)
@@ -138,31 +139,26 @@ pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) 
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
     unsafe {
-        let image = devices
-            .logical
-            .device
+        let image = device
             .create_image(&image_info, None)
             .expect("Failed to create image!");
 
-        let memory_requirements = devices.logical.device.get_image_memory_requirements(image);
+        let memory_requirements = device.get_image_memory_requirements(image);
 
+        let memory_type_index = memory::find_memory_type(
+            memory_requirements.memory_type_bits,
+            info.properties,
+            instance_devices,
+        );
         let alloc_info = vk::MemoryAllocateInfo::builder()
             .allocation_size(memory_requirements.size)
-            .memory_type_index(memory::find_memory_type(
-                memory_requirements.memory_type_bits,
-                info.properties,
-                instance_devices,
-            ));
+            .memory_type_index(memory_type_index);
 
-        let image_memory = devices
-            .logical
-            .device
+        let image_memory = device
             .allocate_memory(&alloc_info, None)
             .expect("Failed to allocate image memory!");
 
-        devices
-            .logical
-            .device
+        device
             .bind_image_memory(image, image_memory, 0)
             .expect("Failed to bind image memory");
 

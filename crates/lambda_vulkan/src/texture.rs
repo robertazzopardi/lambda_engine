@@ -18,22 +18,22 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(
-        image_buffer: &[u8],
+        image_properties: ImageProperties,
         command_pool: &vk::CommandPool,
         instance_devices: &InstanceDevices,
     ) -> Self {
+        let image = create_texture_image(image_properties, command_pool, instance_devices);
+        let image_view = utility::create_image_view(
+            &image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageAspectFlags::COLOR,
+            &instance_devices.devices.logical.device,
+        );
+        let sampler = create_texture_sampler(image.mip_levels, instance_devices);
         Self {
-            image: create_texture_image(image_buffer, command_pool, instance_devices),
-            image_view: utility::create_image_view(
-                &create_texture_image(image_buffer, command_pool, instance_devices),
-                vk::Format::R8G8B8A8_SRGB,
-                vk::ImageAspectFlags::COLOR,
-                &instance_devices.devices.logical.device,
-            ),
-            sampler: create_texture_sampler(
-                create_texture_image(image_buffer, command_pool, instance_devices).mip_levels,
-                instance_devices,
-            ),
+            image,
+            image_view,
+            sampler,
         }
     }
 }
@@ -71,24 +71,16 @@ fn create_texture_sampler(
 }
 
 fn create_texture_image(
-    image_buffer: &[u8],
+    image_properties: ImageProperties,
     command_pool: &vk::CommandPool,
     instance_devices: &InstanceDevices,
 ) -> Image {
-    let InstanceDevices { devices, .. } = instance_devices;
-
-    let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
-
-    let image_dimensions = image_texture.dimensions();
-    let image_data = image_texture.into_raw();
-
-    let mip_levels = ((image_dimensions.0.max(image_dimensions.1) as f32)
-        .log2()
-        .floor()
-        + 1.) as u32;
-
-    let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
-        as vk::DeviceSize;
+    let ImageProperties {
+        image_dimensions,
+        image_data,
+        mip_levels,
+        size,
+    } = image_properties;
 
     let Buffer { buffer, memory } = create_buffer(
         size,
@@ -96,6 +88,8 @@ fn create_texture_image(
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         instance_devices,
     );
+
+    let InstanceDevices { devices, .. } = instance_devices;
 
     memory::map_memory(&devices.logical.device, memory, size, image_data.as_slice());
 
@@ -147,13 +141,36 @@ fn create_texture_image(
     image.mip_levels(mip_levels)
 }
 
+#[derive(Clone, Debug, new)]
+pub struct ImageProperties {
+    image_dimensions: (u32, u32),
+    image_data: Vec<u8>,
+    mip_levels: u32,
+    size: u64,
+}
+
+impl ImageProperties {
+    pub fn get_image_properties_from_buffer(image_buffer: &[u8]) -> Self {
+        let image_texture = image::load_from_memory(image_buffer).unwrap().to_rgba8();
+        let image_dimensions = image_texture.dimensions();
+        let image_data = image_texture.into_raw();
+        let mip_levels = ((image_dimensions.0.max(image_dimensions.1) as f32)
+            .log2()
+            .floor()
+            + 1.) as u32;
+        let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
+            as vk::DeviceSize;
+        Self::new(image_dimensions, image_data, mip_levels, size)
+    }
+}
+
 pub(crate) fn create_buffer(
     size: vk::DeviceSize,
     usage: vk::BufferUsageFlags,
     properties: vk::MemoryPropertyFlags,
     instance_devices: &InstanceDevices,
 ) -> Buffer {
-    let InstanceDevices { devices, .. } = instance_devices;
+    let device = &instance_devices.devices.logical.device;
 
     let image_buffer_info = vk::BufferCreateInfo::builder()
         .size(size)
@@ -161,16 +178,11 @@ pub(crate) fn create_buffer(
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
     unsafe {
-        let buffer = devices
-            .logical
-            .device
+        let buffer = device
             .create_buffer(&image_buffer_info, None)
             .expect("Failed to create buffer");
 
-        let memory_requirements = devices
-            .logical
-            .device
-            .get_buffer_memory_requirements(buffer);
+        let memory_requirements = device.get_buffer_memory_requirements(buffer);
 
         let memory_type_index = memory::find_memory_type(
             memory_requirements.memory_type_bits,
@@ -182,15 +194,11 @@ pub(crate) fn create_buffer(
             .allocation_size(memory_requirements.size)
             .memory_type_index(memory_type_index);
 
-        let buffer_memory = devices
-            .logical
-            .device
+        let buffer_memory = device
             .allocate_memory(&image_buffer_allocate_info, None)
             .expect("Failed to allocate buffer memory!");
 
-        devices
-            .logical
-            .device
+        device
             .bind_buffer_memory(buffer, buffer_memory, 0)
             .expect("Could not bind command buffer memory");
 

@@ -38,7 +38,7 @@ use renderer::RenderPass;
 use resource::{Resource, Resources};
 use swap_chain::SwapChain;
 use sync_objects::SyncObjects;
-use texture::{create_buffer, Texture};
+use texture::{create_buffer, ImageProperties, Texture};
 use uniform_buffer::UniformBufferObject;
 use utility::{EntryInstance, ImageInfo, InstanceDevices};
 
@@ -50,22 +50,22 @@ pub mod prelude {
 }
 
 pub struct GuiVk {
-    sampler: vk::Sampler,
     vertex_buffer: Option<Buffer>,
     index_buffer: Option<Buffer>,
     vertex_count: u32,
     index_count: u32,
-    render_pass: RenderPass,
-    font_memory: vk::DeviceMemory,
-    frame_buffer: vk::Framebuffer,
-    resource: Resource,
+    // render_pass: RenderPass,
+    // font_memory: vk::DeviceMemory,
+    // frame_buffer: vk::Framebuffer,
+    // resource: Resource,
+    texture: Texture,
     pipeline_cache: vk::PipelineCache,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_set: vk::DescriptorSet,
-    command_buffer: vk::CommandBuffer,
+    // command_buffer: vk::CommandBuffer,
 }
 
 pub struct ImGui {
@@ -78,6 +78,7 @@ impl ImGui {
         instance_devices: &InstanceDevices,
         command_pool: &vk::CommandPool,
         copy_queue: &Queue,
+        render_pass: &RenderPass,
     ) -> Self {
         let mut context = Context::create();
         context.set_ini_filename(None);
@@ -90,7 +91,7 @@ impl ImGui {
 
         let device = &instance_devices.devices.logical.device;
 
-        let render_pass = renderer::create_gui_render_pass(device);
+        // let render_pass = renderer::create_gui_render_pass(device);
 
         let width;
         let height;
@@ -104,170 +105,166 @@ impl ImGui {
         }
         let upload_size = width * height * 4;
 
-        let image_info = ImageInfo::new(
-            (width, height),
-            1,
-            vk::SampleCountFlags::TYPE_1,
-            vk::Format::R8G8B8A8_UNORM,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::SAMPLED
-                | vk::ImageUsageFlags::TRANSFER_DST
-                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        );
+        let image_properties = ImageProperties::new((width, height), data, 1, upload_size as u64);
+        let texture = Texture::new(image_properties, command_pool, instance_devices);
+        // panic!("blip blop");
 
-        let image = utility::create_image(image_info, instance_devices);
+        // let image_info = ImageInfo::new(
+        //     (width, height),
+        //     1,
+        //     vk::SampleCountFlags::TYPE_1,
+        //     vk::Format::R8G8B8A8_UNORM,
+        //     vk::ImageTiling::OPTIMAL,
+        //     vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+        //     vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        // );
 
-        let font_view = utility::create_image_view(
-            &image,
-            vk::Format::R8G8B8A8_UNORM,
-            vk::ImageAspectFlags::COLOR,
-            device,
-        );
+        // let font_image = utility::create_image(image_info, instance_devices);
 
-        let staging = texture::create_buffer(
-            upload_size as vk::DeviceSize,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            instance_devices,
-        );
+        // let font_view = utility::create_image_view(
+        //     &font_image,
+        //     vk::Format::R8G8B8A8_UNORM,
+        //     vk::ImageAspectFlags::COLOR,
+        //     device,
+        // );
 
-        memory::map_memory(
-            device,
-            staging.memory,
-            upload_size as vk::DeviceSize,
-            data.as_slice(),
-        );
+        // let staging = texture::create_buffer(
+        //     upload_size as vk::DeviceSize,
+        //     vk::BufferUsageFlags::TRANSFER_SRC,
+        //     vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        //     instance_devices,
+        // );
 
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_pool(*command_pool)
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1);
+        // memory::map_memory(
+        //     device,
+        //     staging.memory,
+        //     upload_size as vk::DeviceSize,
+        //     data.as_slice(),
+        // );
 
-        let copy_cmd = unsafe {
-            device
-                .allocate_command_buffers(&command_buffer_allocate_info)
-                .expect("Could not allocate command buffers!")
-        }[0];
-        let cmd_buffer_info = vk::CommandBufferBeginInfo::default();
-        unsafe {
-            device
-                .begin_command_buffer(copy_cmd, &cmd_buffer_info)
-                .expect("Could not begin command buffer!");
-        }
+        // let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+        //     .command_pool(*command_pool)
+        //     .level(vk::CommandBufferLevel::PRIMARY)
+        //     .command_buffer_count(1);
 
-        let sub_resource_range = vk::ImageSubresourceRange::builder()
-            .aspect_mask(vk::ImageAspectFlags::COLOR)
-            .base_mip_level(0)
-            .level_count(1)
-            .base_array_layer(0)
-            .layer_count(1);
-        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
-            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .old_layout(vk::ImageLayout::UNDEFINED)
-            .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-            .image(image.image)
-            .subresource_range(*sub_resource_range)
-            .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
-        unsafe {
-            device.cmd_pipeline_barrier(
-                copy_cmd,
-                vk::PipelineStageFlags::HOST,
-                vk::PipelineStageFlags::TRANSFER,
-                vk::DependencyFlags::empty(),
-                &[],
-                &[],
-                std::slice::from_ref(&image_memory_barrier),
-            )
-        }
+        // let copy_cmd = unsafe {
+        //     device
+        //         .allocate_command_buffers(&command_buffer_allocate_info)
+        //         .expect("Could not allocate command buffers!")
+        // }[0];
 
-        let buffer_copy_region = vk::BufferImageCopy::builder()
-            .image_subresource(
-                vk::ImageSubresourceLayers::builder()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
-                    .layer_count(1)
-                    .build(),
-            )
-            .image_extent(
-                Extent3D::builder()
-                    .width(width)
-                    .height(height)
-                    .depth(1)
-                    .build(),
-            );
+        // let cmd_buffer_info = vk::CommandBufferBeginInfo::default();
+        // unsafe {
+        //     device
+        //         .begin_command_buffer(copy_cmd, &cmd_buffer_info)
+        //         .expect("Could not begin command buffer!");
+        // }
 
-        unsafe {
-            device.cmd_copy_buffer_to_image(
-                copy_cmd,
-                staging.buffer,
-                image.image,
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                std::slice::from_ref(&buffer_copy_region),
-            )
-        }
+        // let sub_resource_range = vk::ImageSubresourceRange::builder()
+        //     .aspect_mask(vk::ImageAspectFlags::COLOR)
+        //     .base_mip_level(0)
+        //     .level_count(1)
+        //     .base_array_layer(0)
+        //     .layer_count(1);
+        // let mut image_memory_barrier = vk::ImageMemoryBarrier::builder()
+        //     .old_layout(vk::ImageLayout::UNDEFINED)
+        //     .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+        //     .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+        //     .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+        //     .image(font_image.image)
+        //     .subresource_range(*sub_resource_range)
+        //     .src_access_mask(vk::AccessFlags::empty())
+        //     .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
+        // unsafe {
+        //     device.cmd_pipeline_barrier(
+        //         copy_cmd,
+        //         vk::PipelineStageFlags::TOP_OF_PIPE,
+        //         vk::PipelineStageFlags::TRANSFER,
+        //         vk::DependencyFlags::empty(),
+        //         &[],
+        //         &[],
+        //         std::slice::from_ref(&image_memory_barrier),
+        //     )
+        // }
 
-        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
-            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-            .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-            .image(image.image)
-            .subresource_range(*sub_resource_range)
-            .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(vk::AccessFlags::SHADER_READ);
-        unsafe {
-            device.cmd_pipeline_barrier(
-                copy_cmd,
-                vk::PipelineStageFlags::TRANSFER,
-                vk::PipelineStageFlags::FRAGMENT_SHADER,
-                vk::DependencyFlags::empty(),
-                &[],
-                &[],
-                std::slice::from_ref(&image_memory_barrier),
-            )
-        }
+        // let buffer_copy_region = vk::BufferImageCopy::builder()
+        //     .image_subresource(
+        //         vk::ImageSubresourceLayers::builder()
+        //             .aspect_mask(vk::ImageAspectFlags::COLOR)
+        //             .layer_count(1)
+        //             .build(),
+        //     )
+        //     .image_extent(
+        //         Extent3D::builder()
+        //             .width(width)
+        //             .height(height)
+        //             .depth(1)
+        //             .build(),
+        //     );
 
-        unsafe {
-            device
-                .end_command_buffer(copy_cmd)
-                .expect("Could not end command buffer!");
-        }
-        let submit_info =
-            vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&copy_cmd));
-        let fence_info = vk::FenceCreateInfo::default();
-        unsafe {
-            let fence = device
-                .create_fence(&fence_info, None)
-                .expect("Could not create fence!");
-            device
-                .queue_submit(*copy_queue, std::slice::from_ref(&submit_info), fence)
-                .expect("Could not submit queue!");
-            device
-                .wait_for_fences(std::slice::from_ref(&fence), true, 100000000000)
-                .expect("Wait for fences failed!");
-            device.destroy_fence(fence, None);
-            device.free_command_buffers(*command_pool, std::slice::from_ref(&copy_cmd));
+        // unsafe {
+        //     device.cmd_copy_buffer_to_image(
+        //         copy_cmd,
+        //         staging.buffer,
+        //         font_image.image,
+        //         vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        //         std::slice::from_ref(&buffer_copy_region),
+        //     )
+        // }
 
-            device.destroy_buffer(staging.buffer, None);
-            device.free_memory(staging.memory, None);
-        };
+        // image_memory_barrier.old_layout = vk::ImageLayout::TRANSFER_DST_OPTIMAL;
+        // image_memory_barrier.new_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
+        // image_memory_barrier.src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+        // image_memory_barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
+        // unsafe {
+        //     device.cmd_pipeline_barrier(
+        //         copy_cmd,
+        //         vk::PipelineStageFlags::TRANSFER,
+        //         vk::PipelineStageFlags::FRAGMENT_SHADER,
+        //         vk::DependencyFlags::empty(),
+        //         &[],
+        //         &[],
+        //         std::slice::from_ref(&image_memory_barrier),
+        //     )
+        // }
 
-        let sampler_info = vk::SamplerCreateInfo::builder()
-            .max_anisotropy(1.)
-            .mag_filter(vk::Filter::LINEAR)
-            .min_filter(vk::Filter::LINEAR)
-            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
-            .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-            .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-            .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-            .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE);
-        let sampler = unsafe {
-            device
-                .create_sampler(&sampler_info, None)
-                .expect("Could not create sampler!")
-        };
+        // let submit_info =
+        //     vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&copy_cmd));
+        // let fence_info = vk::FenceCreateInfo::default();
+        // unsafe {
+        //     device
+        //         .end_command_buffer(copy_cmd)
+        //         .expect("Could not end command buffer!");
+        //     let fence = device
+        //         .create_fence(&fence_info, None)
+        //         .expect("Could not create fence!");
+        //     device
+        //         .queue_submit(*copy_queue, std::slice::from_ref(&submit_info), fence)
+        //         .expect("Could not submit queue!");
+        //     device
+        //         .wait_for_fences(std::slice::from_ref(&fence), true, 100_000_000_000)
+        //         .expect("Wait for fences failed!");
+        //     device.destroy_fence(fence, None);
+        //     device.free_command_buffers(*command_pool, std::slice::from_ref(&copy_cmd));
+
+        //     device.destroy_buffer(staging.buffer, None);
+        //     device.free_memory(staging.memory, None);
+        // };
+
+        // let sampler_info = vk::SamplerCreateInfo::builder()
+        //     .max_anisotropy(1.)
+        //     .mag_filter(vk::Filter::LINEAR)
+        //     .min_filter(vk::Filter::LINEAR)
+        //     .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+        //     .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        //     .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        //     .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        //     .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE);
+        // let sampler = unsafe {
+        //     device
+        //         .create_sampler(&sampler_info, None)
+        //         .expect("Could not create sampler!")
+        // };
 
         // Descriptor Pool
         let pool_sizes = vk::DescriptorPoolSize::builder()
@@ -306,8 +303,8 @@ impl ImGui {
                 .expect("Could not allocate descriptor set!")[0]
         };
         let font_descriptor = vk::DescriptorImageInfo::builder()
-            .sampler(sampler)
-            .image_view(font_view)
+            .sampler(texture.sampler)
+            .image_view(texture.image_view)
             .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         let write_descriptor_set = vk::WriteDescriptorSet::builder()
             .dst_set(descriptor_set)
@@ -316,6 +313,7 @@ impl ImGui {
             .image_info(std::slice::from_ref(&font_descriptor));
         unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) }
 
+        // Pipeline Cache
         let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
         let pipeline_cache = unsafe {
             device
@@ -337,6 +335,7 @@ impl ImGui {
                 .expect("Could not create pipeline layout!")
         };
 
+        // Graphics Pipeline
         let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -438,30 +437,31 @@ impl ImGui {
 
         unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
 
-        let frame_buffer = create_frame_buffer(&render_pass, &[font_view], device, width, height);
+        // let frame_buffer = create_frame_buffer(&render_pass, &[font_view], device, width, height);
 
         Self {
             context,
             gui_vk: GuiVk {
-                sampler,
+                // sampler,
                 vertex_buffer: None,
                 index_buffer: None,
                 vertex_count: 0,
                 index_count: 0,
-                font_memory: image.memory,
-                frame_buffer,
-                resource: Resource {
-                    image,
-                    view: font_view,
-                },
+                // font_memory: texture.image.memory,
+                // frame_buffer,
+                // resource: Resource {
+                //     image: font_image,
+                //     view: font_view,
+                // },
+                texture,
                 pipeline_cache,
                 pipeline_layout,
                 pipeline,
                 descriptor_pool,
                 descriptor_set_layout,
                 descriptor_set,
-                command_buffer: copy_cmd,
-                render_pass,
+                // command_buffer: copy_cmd,
+                // render_pass,
             },
         }
     }
@@ -596,10 +596,23 @@ impl ImGui {
         }
     }
 
-    fn draw_frame(gui_vk: &GuiVk, draw_data: &DrawData, device: &Device) {
+    fn draw_frame(
+        gui_vk: &GuiVk,
+        draw_data: &DrawData,
+        device: &Device,
+        command_buffer: vk::CommandBuffer,
+    ) {
         unsafe {
+            device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                gui_vk.pipeline_layout,
+                0,
+                std::slice::from_ref(&gui_vk.descriptor_set),
+                &[],
+            );
             device.cmd_bind_pipeline(
-                gui_vk.command_buffer,
+                command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 gui_vk.pipeline,
             )
@@ -613,7 +626,7 @@ impl ImGui {
             .max_depth(1.0)
             .build()];
 
-        unsafe { device.cmd_set_viewport(gui_vk.command_buffer, 0, &viewports) };
+        unsafe { device.cmd_set_viewport(command_buffer, 0, &viewports) };
 
         // Ortho projection
         let projection = orthographic_vk(
@@ -627,7 +640,7 @@ impl ImGui {
         unsafe {
             let push = any_as_u8_slice(&projection);
             device.cmd_push_constants(
-                gui_vk.command_buffer,
+                command_buffer,
                 gui_vk.pipeline_layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
@@ -638,7 +651,7 @@ impl ImGui {
         unsafe {
             if let Some(index_buffer) = gui_vk.index_buffer {
                 device.cmd_bind_index_buffer(
-                    gui_vk.command_buffer,
+                    command_buffer,
                     index_buffer.buffer,
                     0,
                     vk::IndexType::UINT16,
@@ -646,12 +659,7 @@ impl ImGui {
             }
 
             if let Some(vertex_buffer) = gui_vk.vertex_buffer {
-                device.cmd_bind_vertex_buffers(
-                    gui_vk.command_buffer,
-                    0,
-                    &[vertex_buffer.buffer],
-                    &[0],
-                )
+                device.cmd_bind_vertex_buffers(command_buffer, 0, &[vertex_buffer.buffer], &[0])
             }
         };
 
@@ -688,27 +696,16 @@ impl ImGui {
                                     height: clip_h as _,
                                 });
                             device.cmd_set_scissor(
-                                gui_vk.command_buffer,
+                                command_buffer,
                                 0,
                                 std::slice::from_ref(&scissors),
                             );
                         }
 
-                        unsafe {
-                            device.cmd_bind_descriptor_sets(
-                                gui_vk.command_buffer,
-                                vk::PipelineBindPoint::GRAPHICS,
-                                gui_vk.pipeline_layout,
-                                0,
-                                std::slice::from_ref(&gui_vk.descriptor_set),
-                                &[],
-                            )
-                        };
-
                         dbg!(432312);
                         unsafe {
                             device.cmd_draw_indexed(
-                                gui_vk.command_buffer,
+                                command_buffer,
                                 count as _,
                                 1,
                                 index_offset + idx_offset as u32,
@@ -729,12 +726,13 @@ impl ImGui {
 
     unsafe fn destroy(&self, device: &Device) {
         let GuiVk {
-            sampler,
+            // sampler,
             vertex_buffer,
             index_buffer,
-            render_pass,
-            font_memory,
-            resource,
+            // render_pass,
+            // font_memory,
+            // resource,
+            texture,
             pipeline_cache,
             pipeline_layout,
             pipeline,
@@ -751,16 +749,16 @@ impl ImGui {
             device.destroy_buffer(index_buffer.buffer, None);
             device.free_memory(index_buffer.memory, None);
         }
-        device.destroy_image(resource.image.image, None);
-        device.destroy_image_view(resource.view, None);
-        device.free_memory(*font_memory, None);
-        device.destroy_sampler(*sampler, None);
+        device.destroy_image(texture.image.image, None);
+        device.destroy_image_view(texture.image_view, None);
+        device.free_memory(texture.image.memory, None);
+        device.destroy_sampler(texture.sampler, None);
         device.destroy_pipeline_cache(*pipeline_cache, None);
         device.destroy_pipeline(*pipeline, None);
         device.destroy_pipeline_layout(*pipeline_layout, None);
         device.destroy_descriptor_pool(*descriptor_pool, None);
         device.destroy_descriptor_set_layout(*descriptor_set_layout, None);
-        device.destroy_render_pass(render_pass.0, None);
+        // device.destroy_render_pass(render_pass.0, None);
     }
 }
 
@@ -877,7 +875,7 @@ impl Vulkan {
         let command_pool =
             command_buffer::create_command_pool(&instance_devices, &surface_loader, &surface);
 
-        let sync_objects = SyncObjects::new(&instance_devices);
+        let sync_objects = SyncObjects::new(&instance_devices.devices.logical.device);
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
@@ -902,7 +900,8 @@ impl Vulkan {
         let mut gui = ImGui::new(
             &instance_devices,
             &command_pool,
-            &instance_devices.devices.logical.queues.graphics,
+            &instance_devices.devices.logical.queues.present,
+            &render_pass,
         );
 
         let command_buffers = command_buffer::create_command_buffers(
@@ -1046,8 +1045,10 @@ impl VulkanObject {
     ) -> Self {
         let mut texture = None;
         if !properties.texture_buffer.is_empty() {
+            let image_properties =
+                ImageProperties::get_image_properties_from_buffer(properties.texture_buffer);
             texture = Some(Texture::new(
-                properties.texture_buffer,
+                image_properties,
                 command_pool,
                 instance_devices,
             ));
