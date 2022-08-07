@@ -21,8 +21,8 @@ pub(crate) struct SwapChainSupport {
 
 #[derive(Clone)]
 pub struct SwapChain {
-    pub loader: Swapchain,
-    pub swap_chain: vk::SwapchainKHR,
+    pub swap_chain: Swapchain,
+    pub swap_chain_khr: vk::SwapchainKHR,
     pub image_format: vk::Format,
     pub extent: vk::Extent2D,
     pub images: Vec<vk::Image>,
@@ -99,8 +99,8 @@ impl SwapChain {
             let image_views = create_image_views(devices, &swap_chain_images, &surface_format, 1);
 
             SwapChain {
-                loader: swap_chain,
-                swap_chain: swap_chain_khr,
+                swap_chain,
+                swap_chain_khr,
                 images: swap_chain_images,
                 image_format: surface_format.format,
                 extent,
@@ -182,8 +182,8 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan) {
 
         vulkan
             .swap_chain
-            .loader
-            .destroy_swapchain(vulkan.swap_chain.swap_chain, None);
+            .swap_chain
+            .destroy_swapchain(vulkan.swap_chain.swap_chain_khr, None);
     }
 }
 

@@ -5,7 +5,6 @@ use ash::{
     extensions::khr::{Surface, Swapchain},
     vk, Device, Instance,
 };
-use std::ffi::CString;
 
 #[derive(new, Debug, Clone)]
 pub struct PhysicalDeviceProperties {
@@ -46,19 +45,11 @@ pub struct Devices {
 
 impl Devices {
     pub fn new(instance: &Instance, surface: &vk::SurfaceKHR, surface_loader: &Surface) -> Self {
-        let physical_device_properties = pick_physical_device(instance, surface, surface_loader);
+        let physical = pick_physical_device(instance, surface, surface_loader);
 
-        let logical_device_logical = create_logical_device(
-            instance,
-            &physical_device_properties,
-            surface,
-            surface_loader,
-        );
+        let logical = create_logical_device(instance, &physical, surface, surface_loader);
 
-        Self {
-            physical: physical_device_properties,
-            logical: logical_device_logical,
-        }
+        Self { physical, logical }
     }
 }
 
@@ -240,17 +231,11 @@ fn get_max_usable_sample_count(
 ///
 pub unsafe fn recreate_drop(graphics_pipeline: &GraphicsPipeline, device: &Device) {
     for i in 0..MAX_FRAMES_IN_FLIGHT {
-        device.destroy_buffer(
-            graphics_pipeline.descriptors.uniform_buffers[i].buffer,
-            None,
-        );
-        device.free_memory(
-            graphics_pipeline.descriptors.uniform_buffers[i].memory,
-            None,
-        );
+        device.destroy_buffer(graphics_pipeline.uniform_buffers[i].buffer, None);
+        device.free_memory(graphics_pipeline.uniform_buffers[i].memory, None);
     }
 
-    device.destroy_descriptor_pool(graphics_pipeline.descriptors.descriptor_pool, None);
+    device.destroy_descriptor_pool(graphics_pipeline.descriptors.pool, None);
 }
 
 /// # Safety
@@ -259,16 +244,13 @@ pub unsafe fn recreate_drop(graphics_pipeline: &GraphicsPipeline, device: &Devic
 pub(crate) unsafe fn destroy(object: &VulkanObject, device: &Device) {
     if let Some(object_texture) = &object.texture {
         device.destroy_sampler(object_texture.sampler, None);
-        device.destroy_image_view(object_texture.image_view, None);
+        device.destroy_image_view(object_texture.view, None);
 
         device.destroy_image(object_texture.image.image, None);
         device.free_memory(object_texture.image.memory, None);
     }
 
-    device.destroy_descriptor_set_layout(
-        object.graphics_pipeline.descriptors.descriptor_set_layout,
-        None,
-    );
+    device.destroy_descriptor_set_layout(object.graphics_pipeline.descriptors.set_layout, None);
 
     device.destroy_buffer(object.buffers.index.buffer, None);
     device.free_memory(object.buffers.index.memory, None);

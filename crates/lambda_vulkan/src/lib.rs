@@ -19,7 +19,7 @@ mod utility;
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
 use ash::{
     extensions::khr::Surface,
-    vk::{self, Extent3D, Queue},
+    vk::{self, Queue},
     Device,
 };
 use buffer::{Buffer, ModelBuffers};
@@ -27,15 +27,15 @@ use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
 use derive_more::{Deref, DerefMut};
 use device::Devices;
-use frame_buffer::{create_frame_buffer, FrameBuffers};
-use graphics_pipeline::{create_shader_stages, destroy_shader_modules, GraphicsPipeline};
+use frame_buffer::FrameBuffers;
+use graphics_pipeline::GraphicsPipeline;
 use imgui::{Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, Ui, Window};
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::VerticesAndIndices;
 use lambda_window::prelude::Display;
 use nalgebra::{matrix, Matrix4};
 use renderer::RenderPass;
-use resource::{Resource, Resources};
+use resource::Resources;
 use swap_chain::SwapChain;
 use sync_objects::SyncObjects;
 use texture::{create_buffer, ImageProperties, Texture};
@@ -58,13 +58,14 @@ pub struct GuiVk {
     // font_memory: vk::DeviceMemory,
     // frame_buffer: vk::Framebuffer,
     // resource: Resource,
-    texture: Texture,
-    pipeline_cache: vk::PipelineCache,
-    pipeline_layout: vk::PipelineLayout,
-    pipeline: vk::Pipeline,
-    descriptor_pool: vk::DescriptorPool,
-    descriptor_set_layout: vk::DescriptorSetLayout,
-    descriptor_set: vk::DescriptorSet,
+    texture: Option<Texture>,
+    // pipeline_cache: vk::PipelineCache,
+    // pipeline_layout: vk::PipelineLayout,
+    // pipeline: vk::Pipeline,
+    // descriptor_pool: vk::DescriptorPool,
+    // descriptor_set_layout: vk::DescriptorSetLayout,
+    // descriptor_set: vk::DescriptorSet,
+    graphics_pipeline: GraphicsPipeline,
     // command_buffer: vk::CommandBuffer,
 }
 
@@ -77,7 +78,7 @@ impl ImGui {
     fn new(
         instance_devices: &InstanceDevices,
         command_pool: &vk::CommandPool,
-        copy_queue: &Queue,
+        swap_chain: &SwapChain,
         render_pass: &RenderPass,
     ) -> Self {
         let mut context = Context::create();
@@ -89,7 +90,7 @@ impl ImGui {
         io.display_size = [300., 100.];
         io.display_framebuffer_scale = [1., 1.];
 
-        let device = &instance_devices.devices.logical.device;
+        // let device = &instance_devices.devices.logical.device;
 
         // let render_pass = renderer::create_gui_render_pass(device);
 
@@ -106,18 +107,24 @@ impl ImGui {
         let upload_size = width * height * 4;
 
         let image_properties = ImageProperties::new((width, height), data, 1, upload_size as u64);
-        let texture = Texture::new(image_properties, command_pool, instance_devices);
-        // panic!("blip blop");
-
-        // let image_info = ImageInfo::new(
-        //     (width, height),
-        //     1,
-        //     vk::SampleCountFlags::TYPE_1,
-        //     vk::Format::R8G8B8A8_UNORM,
-        //     vk::ImageTiling::OPTIMAL,
-        //     vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
-        //     vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        // );
+        let image_info = ImageInfo::new(
+            (width, height),
+            1,
+            vk::SampleCountFlags::TYPE_1,
+            vk::Format::R8G8B8A8_UNORM,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        );
+        let texture = Some(Texture::new(
+            image_properties,
+            command_pool,
+            instance_devices,
+            vk::Format::R8G8B8A8_UNORM,
+            image_info,
+        ));
 
         // let font_image = utility::create_image(image_info, instance_devices);
 
@@ -266,178 +273,194 @@ impl ImGui {
         //         .expect("Could not create sampler!")
         // };
 
-        // Descriptor Pool
-        let pool_sizes = vk::DescriptorPoolSize::builder()
-            .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(1);
-        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(std::slice::from_ref(&pool_sizes))
-            .max_sets(2);
-        let descriptor_pool = unsafe {
-            device
-                .create_descriptor_pool(&descriptor_pool_info, None)
-                .expect("Could not create descriptor pool!")
-        };
+        let graphics_pipeline = GraphicsPipeline::new(
+            swap_chain,
+            render_pass.0,
+            &texture,
+            ModelTopology::TriangleList,
+            CullMode::None,
+            instance_devices,
+            Shader::Ui,
+        );
 
-        // Descriptor Set Layout
-        let set_layout_bindings = vk::DescriptorSetLayoutBinding::builder()
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-            .binding(0)
-            .descriptor_count(1);
-        let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(std::slice::from_ref(&set_layout_bindings));
-        let descriptor_set_layout = unsafe {
-            device
-                .create_descriptor_set_layout(&descriptor_layout, None)
-                .expect("Could not create descriptor set layout!")
-        };
+        // // Descriptor Pool
+        // let pool_sizes = vk::DescriptorPoolSize::builder()
+        //     .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        //     .descriptor_count(1);
+        // let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
+        //     .pool_sizes(std::slice::from_ref(&pool_sizes))
+        //     .max_sets(2);
+        // let descriptor_pool = unsafe {
+        //     device
+        //         .create_descriptor_pool(&descriptor_pool_info, None)
+        //         .expect("Could not create descriptor pool!")
+        // };
 
-        // Descriptor Set
-        let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(descriptor_pool)
-            .set_layouts(std::slice::from_ref(&descriptor_set_layout));
-        let descriptor_set = unsafe {
-            device
-                .allocate_descriptor_sets(&descriptor_set_alloc_info)
-                .expect("Could not allocate descriptor set!")[0]
-        };
-        let font_descriptor = vk::DescriptorImageInfo::builder()
-            .sampler(texture.sampler)
-            .image_view(texture.image_view)
-            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-        let write_descriptor_set = vk::WriteDescriptorSet::builder()
-            .dst_set(descriptor_set)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .dst_binding(0)
-            .image_info(std::slice::from_ref(&font_descriptor));
-        unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) }
+        // // Descriptor Set Layout
+        // let set_layout_bindings = vk::DescriptorSetLayoutBinding::builder()
+        //     .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        //     .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        //     .binding(0)
+        //     .descriptor_count(1);
+        // let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
+        //     .bindings(std::slice::from_ref(&set_layout_bindings));
+        // let descriptor_set_layout = unsafe {
+        //     device
+        //         .create_descriptor_set_layout(&descriptor_layout, None)
+        //         .expect("Could not create descriptor set layout!")
+        // };
 
-        // Pipeline Cache
-        let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
-        let pipeline_cache = unsafe {
-            device
-                .create_pipeline_cache(&pipeline_cache_create_info, None)
-                .expect("Could not create pipeline cache")
-        };
+        // // Descriptor Set
+        // let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+        //     .descriptor_pool(descriptor_pool)
+        //     .set_layouts(std::slice::from_ref(&descriptor_set_layout));
+        // let descriptor_set = unsafe {
+        //     device
+        //         .allocate_descriptor_sets(&descriptor_set_alloc_info)
+        //         .expect("Could not allocate descriptor set!")[0]
+        // };
+        // let font_descriptor = vk::DescriptorImageInfo::builder()
+        //     .sampler(texture.sampler)
+        //     .image_view(texture.view)
+        //     .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        // let write_descriptor_set = vk::WriteDescriptorSet::builder()
+        //     .dst_set(descriptor_set)
+        //     .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        //     .dst_binding(0)
+        //     .image_info(std::slice::from_ref(&font_descriptor));
+        // unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) }
 
-        let push_constant_range = vk::PushConstantRange::builder()
-            .stage_flags(vk::ShaderStageFlags::VERTEX)
-            // .size(std::mem::size_of::<Push>().try_into().unwrap())
-            .size(64)
-            .offset(0);
-        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(std::slice::from_ref(&descriptor_set_layout))
-            .push_constant_ranges(std::slice::from_ref(&push_constant_range));
-        let pipeline_layout = unsafe {
-            device
-                .create_pipeline_layout(&pipeline_layout_create_info, None)
-                .expect("Could not create pipeline layout!")
-        };
+        // // Pipeline Cache
+        // let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
+        // let pipeline_cache = unsafe {
+        //     device
+        //         .create_pipeline_cache(&pipeline_cache_create_info, None)
+        //         .expect("Could not create pipeline cache")
+        // };
 
-        // Graphics Pipeline
-        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-            .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
-            .primitive_restart_enable(false);
-        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
-            .polygon_mode(vk::PolygonMode::FILL)
-            .cull_mode(vk::CullModeFlags::NONE)
-            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
-            .depth_clamp_enable(false)
-            .line_width(1.);
+        // let push_constant_range = vk::PushConstantRange::builder()
+        //     .stage_flags(vk::ShaderStageFlags::VERTEX)
+        //     // .size(std::mem::size_of::<Push>().try_into().unwrap())
+        //     .size(64)
+        //     .offset(0);
+        // let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+        //     .set_layouts(std::slice::from_ref(&descriptor_set_layout))
+        //     .push_constant_ranges(std::slice::from_ref(&push_constant_range));
+        // let pipeline_layout = unsafe {
+        //     device
+        //         .create_pipeline_layout(&pipeline_layout_create_info, None)
+        //         .expect("Could not create pipeline layout!")
+        // };
 
-        let blend_attachment_state = vk::PipelineColorBlendAttachmentState::builder()
-            .blend_enable(true)
-            .color_write_mask(vk::ColorComponentFlags::RGBA)
-            .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
-            .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-            .color_blend_op(vk::BlendOp::ADD)
-            .src_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-            .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
-            .alpha_blend_op(vk::BlendOp::ADD);
+        // // Graphics Pipeline
+        // let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+        //     .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+        //     .primitive_restart_enable(false);
+        // let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+        //     .polygon_mode(vk::PolygonMode::FILL)
+        //     .cull_mode(vk::CullModeFlags::NONE)
+        //     .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+        //     .depth_clamp_enable(false)
+        //     .line_width(1.);
 
-        let colour_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-            .attachments(std::slice::from_ref(&blend_attachment_state));
+        // let blend_attachment_state = vk::PipelineColorBlendAttachmentState::builder()
+        //     .blend_enable(true)
+        //     .color_write_mask(vk::ColorComponentFlags::RGBA)
+        //     .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+        //     .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+        //     .color_blend_op(vk::BlendOp::ADD)
+        //     .src_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+        //     .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+        //     .alpha_blend_op(vk::BlendOp::ADD);
 
-        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
-            .depth_test_enable(false)
-            .depth_write_enable(false)
-            .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL)
-            .back(
-                vk::StencilOpState::builder()
-                    .compare_op(vk::CompareOp::ALWAYS)
-                    .build(),
-            );
+        // let colour_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+        //     .attachments(std::slice::from_ref(&blend_attachment_state));
 
-        let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
-            .viewports(&[Default::default()])
-            .scissors(&[Default::default()])
-            .build();
+        // let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
+        //     .depth_test_enable(false)
+        //     .depth_write_enable(false)
+        //     .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL)
+        //     .back(
+        //         vk::StencilOpState::builder()
+        //             .compare_op(vk::CompareOp::ALWAYS)
+        //             .build(),
+        //     );
 
-        let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-            .rasterization_samples(vk::SampleCountFlags::TYPE_1);
+        // let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
+        //     .viewports(&[Default::default()])
+        //     .scissors(&[Default::default()])
+        //     .build();
 
-        let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-        let dynamic_state =
-            vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state_enables);
+        // let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+        //     .rasterization_samples(vk::SampleCountFlags::TYPE_1);
 
-        let vertex_input_bindings = vk::VertexInputBindingDescription::builder()
-            .binding(0)
-            .stride(std::mem::size_of::<DrawVert>().try_into().unwrap())
-            .input_rate(vk::VertexInputRate::VERTEX);
-        let vertex_input_attributes = [
-            vk::VertexInputAttributeDescription::builder()
-                .location(0)
-                .binding(0)
-                .format(vk::Format::R32G32_SFLOAT)
-                .offset(memoffset::offset_of!(DrawVert, pos) as u32)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
-                .location(1)
-                .binding(0)
-                .format(vk::Format::R32G32_SFLOAT)
-                .offset(memoffset::offset_of!(DrawVert, uv) as u32)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
-                .location(2)
-                .binding(0)
-                .format(vk::Format::R8G8B8A8_UNORM)
-                .offset(memoffset::offset_of!(DrawVert, col) as u32)
-                .build(),
-        ];
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_attribute_descriptions(&vertex_input_attributes)
-            .vertex_binding_descriptions(std::slice::from_ref(&vertex_input_bindings));
+        // let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+        // let dynamic_state =
+        //     vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state_enables);
 
-        let shader_modules = create_shader_stages(Shader::Ui, device);
+        // let vertex_input_bindings = vk::VertexInputBindingDescription::builder()
+        //     .binding(0)
+        //     .stride(std::mem::size_of::<DrawVert>().try_into().unwrap())
+        //     .input_rate(vk::VertexInputRate::VERTEX);
+        // let vertex_input_attributes = [
+        //     vk::VertexInputAttributeDescription::builder()
+        //         .location(0)
+        //         .binding(0)
+        //         .format(vk::Format::R32G32_SFLOAT)
+        //         .offset(memoffset::offset_of!(DrawVert, pos) as u32)
+        //         .build(),
+        //     vk::VertexInputAttributeDescription::builder()
+        //         .location(1)
+        //         .binding(0)
+        //         .format(vk::Format::R32G32_SFLOAT)
+        //         .offset(memoffset::offset_of!(DrawVert, uv) as u32)
+        //         .build(),
+        //     vk::VertexInputAttributeDescription::builder()
+        //         .location(2)
+        //         .binding(0)
+        //         .format(vk::Format::R8G8B8A8_UNORM)
+        //         .offset(memoffset::offset_of!(DrawVert, col) as u32)
+        //         .build(),
+        // ];
+        // let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+        //     .vertex_attribute_descriptions(&vertex_input_attributes)
+        //     .vertex_binding_descriptions(std::slice::from_ref(&vertex_input_bindings));
 
-        let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
-            .layout(pipeline_layout)
-            .render_pass(render_pass.0)
-            .base_pipeline_index(-1)
-            .input_assembly_state(&input_assembly_state)
-            .rasterization_state(&rasterization_state)
-            .color_blend_state(&colour_blend_state)
-            .multisample_state(&multi_sample_state)
-            .viewport_state(&view_port_state)
-            .depth_stencil_state(&depth_stencil_state)
-            .dynamic_state(&dynamic_state)
-            .stages(&shader_modules.stages)
-            .vertex_input_state(&vertex_input_state);
+        // let shader_modules = create_shader_stages(Shader::Ui, device);
 
-        let pipeline = unsafe {
-            device
-                .create_graphics_pipelines(
-                    pipeline_cache,
-                    std::slice::from_ref(&pipeline_create_info),
-                    None,
-                )
-                .expect("Could not create graphics pipeline!")[0]
-        };
+        // let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
+        //     .layout(pipeline_layout)
+        //     .render_pass(render_pass.0)
+        //     .base_pipeline_index(-1)
+        //     .input_assembly_state(&input_assembly_state)
+        //     .rasterization_state(&rasterization_state)
+        //     .color_blend_state(&colour_blend_state)
+        //     .multisample_state(&multi_sample_state)
+        //     .viewport_state(&view_port_state)
+        //     .depth_stencil_state(&depth_stencil_state)
+        //     .dynamic_state(&dynamic_state)
+        //     .stages(&shader_modules.stages)
+        //     .vertex_input_state(&vertex_input_state);
 
-        unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
+        // let pipeline = unsafe {
+        //     device
+        //         .create_graphics_pipelines(
+        //             pipeline_cache,
+        //             std::slice::from_ref(&pipeline_create_info),
+        //             None,
+        //         )
+        //         .expect("Could not create graphics pipeline!")[0]
+        // };
 
-        // let frame_buffer = create_frame_buffer(&render_pass, &[font_view], device, width, height);
+        // unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
+
+        // let frame_buffer = frame_buffer::create_frame_buffer(
+        //     &render_pass,
+        //     &[texture.as_ref().unwrap().view],
+        //     device,
+        //     width,
+        //     height,
+        // );
 
         Self {
             context,
@@ -454,12 +477,13 @@ impl ImGui {
                 //     view: font_view,
                 // },
                 texture,
-                pipeline_cache,
-                pipeline_layout,
-                pipeline,
-                descriptor_pool,
-                descriptor_set_layout,
-                descriptor_set,
+                // pipeline_cache,
+                // pipeline_layout,
+                // pipeline,
+                // descriptor_pool,
+                // descriptor_set_layout,
+                // descriptor_set,
+                graphics_pipeline,
                 // command_buffer: copy_cmd,
                 // render_pass,
             },
@@ -569,7 +593,9 @@ impl ImGui {
         let mut vertex_dst = vertex_data as *mut DrawVert;
         let mut index_dst = index_data as *mut DrawIdx;
 
+        // dbg!(draw_data.draw_lists_count());
         for draw_list in draw_data.draw_lists() {
+            dbg!("fgdwiu");
             let vtx_buffer = draw_list.vtx_buffer();
             let idx_buffer = draw_list.idx_buffer();
 
@@ -606,27 +632,26 @@ impl ImGui {
             device.cmd_bind_descriptor_sets(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                gui_vk.pipeline_layout,
+                gui_vk.graphics_pipeline.features.layout,
                 0,
-                std::slice::from_ref(&gui_vk.descriptor_set),
+                std::slice::from_ref(&gui_vk.graphics_pipeline.descriptors.sets[0]),
                 &[],
             );
             device.cmd_bind_pipeline(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                gui_vk.pipeline,
+                gui_vk.graphics_pipeline.features.pipeline,
             )
         };
 
         let framebuffer_width = draw_data.framebuffer_scale[0] * draw_data.display_size[0];
         let framebuffer_height = draw_data.framebuffer_scale[1] * draw_data.display_size[1];
-        let viewports = [vk::Viewport::builder()
+        let viewports = vk::Viewport::builder()
             .width(framebuffer_width)
             .height(framebuffer_height)
-            .max_depth(1.0)
-            .build()];
+            .max_depth(1.0);
 
-        unsafe { device.cmd_set_viewport(command_buffer, 0, &viewports) };
+        unsafe { device.cmd_set_viewport(command_buffer, 0, std::slice::from_ref(&viewports)) };
 
         // Ortho projection
         let projection = orthographic_vk(
@@ -641,7 +666,7 @@ impl ImGui {
             let push = any_as_u8_slice(&projection);
             device.cmd_push_constants(
                 command_buffer,
-                gui_vk.pipeline_layout,
+                gui_vk.graphics_pipeline.features.layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
                 push,
@@ -700,10 +725,7 @@ impl ImGui {
                                 0,
                                 std::slice::from_ref(&scissors),
                             );
-                        }
 
-                        dbg!(432312);
-                        unsafe {
                             device.cmd_draw_indexed(
                                 command_buffer,
                                 count as _,
@@ -733,11 +755,12 @@ impl ImGui {
             // font_memory,
             // resource,
             texture,
-            pipeline_cache,
-            pipeline_layout,
-            pipeline,
-            descriptor_pool,
-            descriptor_set_layout,
+            // pipeline_cache,
+            // pipeline_layout,
+            // pipeline,
+            // descriptor_pool,
+            // descriptor_set_layout,
+            graphics_pipeline,
             ..
         } = &self.gui_vk;
 
@@ -749,15 +772,19 @@ impl ImGui {
             device.destroy_buffer(index_buffer.buffer, None);
             device.free_memory(index_buffer.memory, None);
         }
-        device.destroy_image(texture.image.image, None);
-        device.destroy_image_view(texture.image_view, None);
-        device.free_memory(texture.image.memory, None);
-        device.destroy_sampler(texture.sampler, None);
-        device.destroy_pipeline_cache(*pipeline_cache, None);
-        device.destroy_pipeline(*pipeline, None);
-        device.destroy_pipeline_layout(*pipeline_layout, None);
-        device.destroy_descriptor_pool(*descriptor_pool, None);
-        device.destroy_descriptor_set_layout(*descriptor_set_layout, None);
+        if let Some(texture) = texture {
+            device.destroy_image(texture.image.image, None);
+            device.destroy_image_view(texture.view, None);
+            device.free_memory(texture.image.memory, None);
+            device.destroy_sampler(texture.sampler, None);
+        }
+        if let Some(cache) = graphics_pipeline.features.cache {
+            device.destroy_pipeline_cache(cache, None);
+        }
+        device.destroy_pipeline(graphics_pipeline.features.pipeline, None);
+        device.destroy_pipeline_layout(graphics_pipeline.features.layout, None);
+        device.destroy_descriptor_pool(graphics_pipeline.descriptors.pool, None);
+        device.destroy_descriptor_set_layout(graphics_pipeline.descriptors.set_layout, None);
         // device.destroy_render_pass(render_pass.0, None);
     }
 }
@@ -897,12 +924,7 @@ impl Vulkan {
 
         let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
 
-        let mut gui = ImGui::new(
-            &instance_devices,
-            &command_pool,
-            &instance_devices.devices.logical.queues.present,
-            &render_pass,
-        );
+        let mut gui = ImGui::new(&instance_devices, &command_pool, &swap_chain, &render_pass);
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
@@ -918,7 +940,6 @@ impl Vulkan {
             command_buffers,
             command_pool,
             render_pass,
-
             resources,
             surface,
             surface_loader,
@@ -1047,10 +1068,23 @@ impl VulkanObject {
         if !properties.texture_buffer.is_empty() {
             let image_properties =
                 ImageProperties::get_image_properties_from_buffer(properties.texture_buffer);
+            let image_info = ImageInfo::new(
+                image_properties.image_dimensions,
+                image_properties.mip_levels,
+                vk::SampleCountFlags::TYPE_1,
+                vk::Format::R8G8B8A8_SRGB,
+                vk::ImageTiling::OPTIMAL,
+                vk::ImageUsageFlags::TRANSFER_SRC
+                    | vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED,
+                vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            );
             texture = Some(Texture::new(
                 image_properties,
                 command_pool,
                 instance_devices,
+                vk::Format::R8G8B8A8_SRGB,
+                image_info,
             ));
         }
 

@@ -12,7 +12,7 @@ use std::cmp;
 #[derive(Default, Debug, Clone)]
 pub struct Texture {
     pub image: Image,
-    pub image_view: vk::ImageView,
+    pub view: vk::ImageView,
     pub sampler: vk::Sampler,
 }
 
@@ -21,18 +21,26 @@ impl Texture {
         image_properties: ImageProperties,
         command_pool: &vk::CommandPool,
         instance_devices: &InstanceDevices,
+        format: vk::Format,
+        image_info: ImageInfo,
     ) -> Self {
-        let image = create_texture_image(image_properties, command_pool, instance_devices);
-        let image_view = utility::create_image_view(
+        let image = create_texture_image(
+            image_properties,
+            command_pool,
+            instance_devices,
+            format,
+            image_info,
+        );
+        let view = utility::create_image_view(
             &image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageAspectFlags::COLOR,
             &instance_devices.devices.logical.device,
         );
         let sampler = create_texture_sampler(image.mip_levels, instance_devices);
         Self {
             image,
-            image_view,
+            view,
             sampler,
         }
     }
@@ -74,6 +82,8 @@ fn create_texture_image(
     image_properties: ImageProperties,
     command_pool: &vk::CommandPool,
     instance_devices: &InstanceDevices,
+    format: vk::Format,
+    image_info: ImageInfo,
 ) -> Image {
     let ImageProperties {
         image_dimensions,
@@ -91,24 +101,14 @@ fn create_texture_image(
 
     let InstanceDevices { devices, .. } = instance_devices;
 
-    memory::map_memory(&devices.logical.device, memory, size, image_data.as_slice());
+    let device = &instance_devices.devices.logical.device;
 
-    let image_info = ImageInfo::new(
-        image_dimensions,
-        mip_levels,
-        vk::SampleCountFlags::TYPE_1,
-        vk::Format::R8G8B8A8_SRGB,
-        vk::ImageTiling::OPTIMAL,
-        vk::ImageUsageFlags::TRANSFER_SRC
-            | vk::ImageUsageFlags::TRANSFER_DST
-            | vk::ImageUsageFlags::SAMPLED,
-        vk::MemoryPropertyFlags::DEVICE_LOCAL,
-    );
+    memory::map_memory(device, memory, size, image_data.as_slice());
 
     let image = utility::create_image(image_info, instance_devices);
 
     transition_image_layout(
-        &devices.logical.device,
+        device,
         command_pool,
         devices.logical.queues.graphics,
         image.image,
@@ -122,12 +122,12 @@ fn create_texture_image(
     copy_buffer_to_image(devices, command_pool, image_dimensions, buffer, image.image);
 
     unsafe {
-        devices.logical.device.destroy_buffer(buffer, None);
-        devices.logical.device.free_memory(memory, None);
+        device.destroy_buffer(buffer, None);
+        device.free_memory(memory, None);
     }
 
     generate_mip_maps(
-        vk::Format::R8G8B8A8_SRGB,
+        format,
         image.image,
         command_pool,
         Point2::new(
@@ -143,10 +143,10 @@ fn create_texture_image(
 
 #[derive(Clone, Debug, new)]
 pub struct ImageProperties {
-    image_dimensions: (u32, u32),
-    image_data: Vec<u8>,
-    mip_levels: u32,
-    size: u64,
+    pub image_dimensions: (u32, u32),
+    pub image_data: Vec<u8>,
+    pub mip_levels: u32,
+    pub size: u64,
 }
 
 impl ImageProperties {
@@ -245,21 +245,17 @@ fn transition_image_layout(
         .base_mip_level(0)
         .level_count(mip_levels)
         .base_array_layer(0)
-        .layer_count(1)
-        .build();
+        .layer_count(1);
 
-    let image_barriers = [vk::ImageMemoryBarrier {
-        s_type: vk::StructureType::IMAGE_MEMORY_BARRIER,
-        p_next: std::ptr::null(),
-        src_access_mask,
-        dst_access_mask,
-        old_layout: x,
-        new_layout: y,
-        src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-        dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-        image,
-        subresource_range,
-    }];
+    let image_barriers = vk::ImageMemoryBarrier::builder()
+        .src_access_mask(src_access_mask)
+        .dst_access_mask(dst_access_mask)
+        .old_layout(x)
+        .new_layout(y)
+        .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+        .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+        .image(image)
+        .subresource_range(*subresource_range);
 
     unsafe {
         device.cmd_pipeline_barrier(
@@ -269,7 +265,7 @@ fn transition_image_layout(
             vk::DependencyFlags::empty(),
             &[],
             &[],
-            &image_barriers,
+            std::slice::from_ref(&image_barriers),
         );
     }
 
@@ -299,7 +295,7 @@ fn copy_buffer_to_image(
         .buffer_row_length(0)
         .buffer_image_height(0)
         .image_subresource(*image_sub_resource)
-        .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+        .image_offset(vk::Offset3D::default())
         .image_extent(vk::Extent3D {
             width,
             height,
@@ -332,8 +328,11 @@ fn generate_mip_maps(
     mip_levels: u32,
     InstanceDevices { instance, devices }: &InstanceDevices,
 ) {
+    let device = &devices.logical.device;
+
     let format_properties =
         unsafe { instance.get_physical_device_format_properties(devices.physical.device, format) };
+
     if format_properties.optimal_tiling_features
         & vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
         != vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR
@@ -341,20 +340,21 @@ fn generate_mip_maps(
         panic!("Texture image format does not support linear bilitting!");
     }
 
-    let command_buffer =
-        command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
+    let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
 
     let mut image_barrier = vk::ImageMemoryBarrier::builder()
         .image(image)
         .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
         .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-        .subresource_range(vk::ImageSubresourceRange {
-            aspect_mask: vk::ImageAspectFlags::COLOR,
-            base_mip_level: mip_levels,
-            level_count: 1,
-            base_array_layer: 0,
-            layer_count: 1,
-        });
+        .subresource_range(
+            vk::ImageSubresourceRange::builder()
+                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                .base_mip_level(mip_levels)
+                .level_count(1)
+                .base_array_layer(0)
+                .layer_count(1)
+                .build(),
+        );
 
     let mut x = mip_dimension.coords.data.0[0][0];
     let mut y = mip_dimension.coords.data.0[0][1];
@@ -366,48 +366,54 @@ fn generate_mip_maps(
         image_barrier.src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
         image_barrier.dst_access_mask = vk::AccessFlags::TRANSFER_READ;
 
-        let blits = [vk::ImageBlit {
-            src_subresource: vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                mip_level: i - 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            src_offsets: [vk::Offset3D::default(), vk::Offset3D { x, y, z: 1 }],
-            dst_subresource: vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                mip_level: i,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            dst_offsets: [
+        let blits = vk::ImageBlit::builder()
+            .src_subresource(
+                vk::ImageSubresourceLayers::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .mip_level(i - 1)
+                    .base_array_layer(0)
+                    .layer_count(1)
+                    .build(),
+            )
+            .src_offsets([
                 vk::Offset3D::default(),
-                vk::Offset3D {
-                    x: cmp::max(x / 2, 1),
-                    y: cmp::max(y / 2, 1),
-                    z: 1,
-                },
-            ],
-        }];
+                vk::Offset3D::builder().x(x).y(y).z(1).build(),
+            ])
+            .dst_subresource(
+                vk::ImageSubresourceLayers::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .mip_level(i)
+                    .base_array_layer(0)
+                    .layer_count(1)
+                    .build(),
+            )
+            .dst_offsets([
+                vk::Offset3D::default(),
+                vk::Offset3D::builder()
+                    .x(cmp::max(x / 2, 1))
+                    .y(cmp::max(y / 2, 1))
+                    .z(1)
+                    .build(),
+            ]);
 
         unsafe {
-            devices.logical.device.cmd_pipeline_barrier(
+            device.cmd_pipeline_barrier(
                 command_buffer,
                 vk::PipelineStageFlags::TRANSFER,
                 vk::PipelineStageFlags::TRANSFER,
                 vk::DependencyFlags::empty(),
                 &[],
                 &[],
-                &[*image_barrier],
+                std::slice::from_ref(&image_barrier),
             );
 
-            devices.logical.device.cmd_blit_image(
+            device.cmd_blit_image(
                 command_buffer,
                 image,
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 image,
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                &blits,
+                std::slice::from_ref(&blits),
                 vk::Filter::LINEAR,
             );
         }
@@ -418,14 +424,14 @@ fn generate_mip_maps(
         image_barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
 
         unsafe {
-            devices.logical.device.cmd_pipeline_barrier(
+            device.cmd_pipeline_barrier(
                 command_buffer,
                 vk::PipelineStageFlags::TRANSFER,
                 vk::PipelineStageFlags::FRAGMENT_SHADER,
                 vk::DependencyFlags::empty(),
                 &[],
                 &[],
-                &[*image_barrier],
+                std::slice::from_ref(&image_barrier),
             );
         }
 
@@ -440,19 +446,19 @@ fn generate_mip_maps(
     image_barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
 
     unsafe {
-        devices.logical.device.cmd_pipeline_barrier(
+        device.cmd_pipeline_barrier(
             command_buffer,
             vk::PipelineStageFlags::TRANSFER,
             vk::PipelineStageFlags::FRAGMENT_SHADER,
             vk::DependencyFlags::empty(),
             &[],
             &[],
-            &[*image_barrier],
+            std::slice::from_ref(&image_barrier),
         );
     }
 
     command_buffer::end_single_time_command(
-        &devices.logical.device,
+        device,
         devices.logical.queues.graphics,
         command_pool,
         command_buffer,

@@ -44,12 +44,12 @@ pub(crate) fn create_command_buffers(
     objects: &[VulkanObject],
     gui: &mut ImGui,
 ) -> CommandBuffers {
+    let device = &instance_devices.devices.logical.device;
+
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(**command_pool)
         .command_buffer_count(swap_chain.images.len() as u32)
         .level(vk::CommandBufferLevel::PRIMARY);
-
-    let device = &instance_devices.devices.logical.device;
 
     let command_buffers = unsafe {
         device
@@ -126,6 +126,28 @@ pub(crate) fn create_command_buffers(
             ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
 
             device.cmd_end_render_pass(command_buffers[i]);
+
+            // {
+            //     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            //         .render_pass(gui_vk.render_pass.0)
+            //         .framebuffer(gui_vk.frame_buffer)
+            //         .render_area(
+            //             vk::Rect2D::builder()
+            //                 .offset(vk::Offset2D::default())
+            //                 .extent(vk::Extent2D::builder().width(512).height(64).build())
+            //                 .build(),
+            //         )
+            //         .clear_values(&clear_values);
+            //     device.cmd_begin_render_pass(
+            //         command_buffers[i],
+            //         &render_pass_begin_info,
+            //         vk::SubpassContents::INLINE,
+            //     );
+            //     ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
+            //     device.cmd_end_render_pass(command_buffers[i]);
+            // }
+
+            //
 
             device
                 .end_command_buffer(command_buffers[i])
@@ -237,7 +259,7 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
         vk::PipelineBindPoint::GRAPHICS,
         object.graphics_pipeline.features.layout,
         0,
-        std::slice::from_ref(&object.graphics_pipeline.descriptors.descriptor_sets[index]),
+        std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[index]),
         &[],
     );
 

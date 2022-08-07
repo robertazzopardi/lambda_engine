@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! vertex {
     ($pos:expr, $col:expr, $norm:expr, $tex:expr) => {
-        crate::Vertex {
+        lambda_space::space::Vertex {
             pos: $pos,
             colour: $col,
             normal: $norm,

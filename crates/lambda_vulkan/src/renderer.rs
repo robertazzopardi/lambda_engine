@@ -38,8 +38,7 @@ pub(crate) fn create_gui_render_pass(device: &Device) -> RenderPass {
         .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
         .dst_access_mask(
             vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-        )
-        .build();
+        );
 
     let render_pass_create_info = vk::RenderPassCreateInfo::builder()
         .attachments(std::slice::from_ref(&render_pass_attachments))
@@ -169,8 +168,8 @@ pub fn render(
             .expect("Failed to wait for Fence!");
 
         let (image_index, _is_sub_optimal) = {
-            let result = swap_chain.loader.acquire_next_image(
-                swap_chain.swap_chain,
+            let result = swap_chain.swap_chain.acquire_next_image(
+                swap_chain.swap_chain_khr,
                 vk::DeviceSize::MAX,
                 image_available_semaphore,
                 vk::Fence::null(),
@@ -210,7 +209,9 @@ pub fn render(
 
         let submit_infos = vk::SubmitInfo::builder()
             .wait_semaphores(std::slice::from_ref(&image_available_semaphore))
-            .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+            .wait_dst_stage_mask(std::slice::from_ref(
+                &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            ))
             .command_buffers(std::slice::from_ref(&command_buffers[image_index as usize]))
             .signal_semaphores(std::slice::from_ref(&render_finished_semaphore));
 
@@ -228,10 +229,10 @@ pub fn render(
 
         let present_info = vk::PresentInfoKHR::builder()
             .wait_semaphores(std::slice::from_ref(&render_finished_semaphore))
-            .swapchains(std::slice::from_ref(&swap_chain.swap_chain))
+            .swapchains(std::slice::from_ref(&swap_chain.swap_chain_khr))
             .image_indices(std::slice::from_ref(&image_index));
 
-        let result = swap_chain.loader.queue_present(
+        let result = swap_chain.swap_chain.queue_present(
             instance_devices.devices.logical.queues.present,
             &present_info,
         );

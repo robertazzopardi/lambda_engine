@@ -11,7 +11,6 @@ use winit::window::Window;
 pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
-    // pub view: vk::ImageView,
     #[new(value = "1")]
     pub mip_levels: u32,
 }
@@ -24,7 +23,7 @@ impl Image {
 }
 
 #[derive(new, Debug)]
-pub(crate) struct ImageInfo {
+pub struct ImageInfo {
     dimensions: (u32, u32),
     mip_levels: u32,
     samples: vk::SampleCountFlags,
