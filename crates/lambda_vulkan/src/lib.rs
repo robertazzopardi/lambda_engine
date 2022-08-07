@@ -31,7 +31,7 @@ use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
 use imgui::{Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, Ui, Window};
 use lambda_camera::prelude::CameraInternal;
-use lambda_space::space::VerticesAndIndices;
+use lambda_space::space::{Indices, Vertex, Vertices, VerticesAndIndices};
 use lambda_window::prelude::Display;
 use nalgebra::{matrix, Matrix4};
 use renderer::RenderPass;
@@ -75,6 +75,100 @@ pub struct ImGui {
 }
 
 impl ImGui {
+    fn object(
+        command_pool: &CommandPool,
+        swap_chain_len: u32,
+        swap_chain: &SwapChain,
+        render_pass: &RenderPass,
+        instance_devices: &InstanceDevices,
+    ) -> VulkanObject {
+        let mut context = Context::create();
+        context.set_ini_filename(None);
+
+        let style = context.style_mut();
+        style.use_classic_colors();
+        let io = context.io_mut();
+        io.display_size = [300., 100.];
+        io.display_framebuffer_scale = [1., 1.];
+
+        let width;
+        let height;
+        let mut data: Vec<u8> = vec![];
+        {
+            let mut font_atlas = context.fonts();
+            let font_atlas_texture = font_atlas.build_rgba32_texture();
+            width = font_atlas_texture.width;
+            height = font_atlas_texture.height;
+            data.extend(font_atlas_texture.data.iter())
+        }
+        let upload_size = width * height * 4;
+
+        let image_properties = ImageProperties::new((width, height), &data, 1, upload_size as u64);
+        let image_info = ImageInfo::new(
+            (width, height),
+            1,
+            vk::SampleCountFlags::TYPE_1,
+            vk::Format::R8G8B8A8_UNORM,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        );
+        let texture = Some(Texture::new(
+            image_properties,
+            command_pool,
+            instance_devices,
+            vk::Format::R8G8B8A8_UNORM,
+            image_info,
+        ));
+
+        let ui = context.frame();
+        ImGui::new_frame(&ui);
+        let draw_data = ui.render();
+
+        let mut vertices: Vec<Vertex> = vec![];
+        let mut indices = vec![];
+        for draw_list in draw_data.draw_lists() {
+            dbg!("fgdwiu");
+            let vtx_buffer = draw_list.vtx_buffer();
+            let idx_buffer = draw_list.idx_buffer();
+
+            for vtx in vtx_buffer.iter() {
+                let m = *vtx;
+                vertices.push(m.into())
+            }
+            indices.extend(idx_buffer);
+        }
+
+        let vertices_and_indices = VerticesAndIndices::new(vertices.into(), indices.into());
+
+        VulkanObject::new(
+            command_pool,
+            swap_chain_len,
+            swap_chain,
+            render_pass,
+            instance_devices,
+            &GeomProperties {
+                texture_buffer: &data,
+                vertices_and_indices,
+                topology: ModelTopology::TriangleList,
+                cull_mode: CullMode::None,
+                shader: Shader::Ui,
+                indexed: true,
+                model: orthographic_vk(
+                    0.0,
+                    draw_data.display_size[0],
+                    0.0,
+                    -draw_data.display_size[1],
+                    -1.0,
+                    1.0,
+                ),
+            },
+            texture,
+        )
+    }
+
     fn new(
         instance_devices: &InstanceDevices,
         command_pool: &vk::CommandPool,
@@ -106,7 +200,7 @@ impl ImGui {
         }
         let upload_size = width * height * 4;
 
-        let image_properties = ImageProperties::new((width, height), data, 1, upload_size as u64);
+        let image_properties = ImageProperties::new((width, height), &data, 1, upload_size as u64);
         let image_info = ImageInfo::new(
             (width, height),
             1,
@@ -840,7 +934,7 @@ pub struct Vulkan {
     pub(crate) frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
     pub(crate) objects: VulkanObjects,
-    pub gui: ImGui,
+    // pub gui: ImGui,
 }
 
 impl Vulkan {
@@ -906,10 +1000,34 @@ impl Vulkan {
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
-        let objects = VulkanObjects(
+        let mut objects = VulkanObjects(
             geom_properties
                 .iter()
                 .map(|property| {
+                    let mut texture = None;
+                    if !property.texture_buffer.is_empty() {
+                        let image_properties = ImageProperties::get_image_properties_from_buffer(
+                            property.texture_buffer,
+                        );
+                        let image_info = ImageInfo::new(
+                            image_properties.image_dimensions,
+                            image_properties.mip_levels,
+                            vk::SampleCountFlags::TYPE_1,
+                            vk::Format::R8G8B8A8_SRGB,
+                            vk::ImageTiling::OPTIMAL,
+                            vk::ImageUsageFlags::TRANSFER_SRC
+                                | vk::ImageUsageFlags::TRANSFER_DST
+                                | vk::ImageUsageFlags::SAMPLED,
+                            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                        );
+                        texture = Some(Texture::new(
+                            image_properties,
+                            &command_pool,
+                            &instance_devices,
+                            vk::Format::R8G8B8A8_SRGB,
+                            image_info,
+                        ));
+                    }
                     VulkanObject::new(
                         &command_pool,
                         swap_chain_len,
@@ -917,6 +1035,7 @@ impl Vulkan {
                         &render_pass,
                         &instance_devices,
                         property,
+                        texture,
                     )
                 })
                 .collect(),
@@ -924,7 +1043,14 @@ impl Vulkan {
 
         let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
 
-        let mut gui = ImGui::new(&instance_devices, &command_pool, &swap_chain, &render_pass);
+        // let mut gui = ImGui::new(&instance_devices, &command_pool, &swap_chain, &render_pass);
+        objects.0.push(ImGui::object(
+            &command_pool,
+            swap_chain_len,
+            &swap_chain,
+            &render_pass,
+            &instance_devices,
+        ));
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
@@ -933,7 +1059,7 @@ impl Vulkan {
             &render_pass,
             &frame_buffers,
             &objects.0,
-            &mut gui,
+            // &mut gui,
         );
 
         Self {
@@ -950,7 +1076,7 @@ impl Vulkan {
             frame_buffers,
             instance_devices,
             objects,
-            gui,
+            // gui,
         }
     }
 
@@ -960,9 +1086,7 @@ impl Vulkan {
             .0
             .iter_mut()
             .zip(properties)
-            .for_each(|(object, properties)| {
-                object.model = properties.model;
-            });
+            .for_each(|(object, properties)| object.model = properties.model);
     }
 }
 
@@ -971,8 +1095,8 @@ impl Drop for Vulkan {
         swap_chain::cleanup_swap_chain(self);
 
         unsafe {
-            self.gui
-                .destroy(&self.instance_devices.devices.logical.device);
+            // self.gui
+            //     .destroy(&self.instance_devices.devices.logical.device);
 
             self.objects.0.iter().for_each(|object| {
                 device::recreate_drop(
@@ -1063,30 +1187,31 @@ impl VulkanObject {
         render_pass: &RenderPass,
         instance_devices: &InstanceDevices,
         properties: &GeomProperties,
+        texture: Option<Texture>,
     ) -> Self {
-        let mut texture = None;
-        if !properties.texture_buffer.is_empty() {
-            let image_properties =
-                ImageProperties::get_image_properties_from_buffer(properties.texture_buffer);
-            let image_info = ImageInfo::new(
-                image_properties.image_dimensions,
-                image_properties.mip_levels,
-                vk::SampleCountFlags::TYPE_1,
-                vk::Format::R8G8B8A8_SRGB,
-                vk::ImageTiling::OPTIMAL,
-                vk::ImageUsageFlags::TRANSFER_SRC
-                    | vk::ImageUsageFlags::TRANSFER_DST
-                    | vk::ImageUsageFlags::SAMPLED,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            );
-            texture = Some(Texture::new(
-                image_properties,
-                command_pool,
-                instance_devices,
-                vk::Format::R8G8B8A8_SRGB,
-                image_info,
-            ));
-        }
+        // let mut texture = None;
+        // if !properties.texture_buffer.is_empty() {
+        //     let image_properties =
+        //         ImageProperties::get_image_properties_from_buffer(properties.texture_buffer);
+        //     let image_info = ImageInfo::new(
+        //         image_properties.image_dimensions,
+        //         image_properties.mip_levels,
+        //         vk::SampleCountFlags::TYPE_1,
+        //         vk::Format::R8G8B8A8_SRGB,
+        //         vk::ImageTiling::OPTIMAL,
+        //         vk::ImageUsageFlags::TRANSFER_SRC
+        //             | vk::ImageUsageFlags::TRANSFER_DST
+        //             | vk::ImageUsageFlags::SAMPLED,
+        //         vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        //     );
+        //     texture = Some(Texture::new(
+        //         image_properties,
+        //         command_pool,
+        //         instance_devices,
+        //         vk::Format::R8G8B8A8_SRGB,
+        //         image_info,
+        //     ));
+        // }
 
         let buffers = ModelBuffers::new(
             &properties.vertices_and_indices,

@@ -42,7 +42,7 @@ pub(crate) fn create_command_buffers(
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
     objects: &[VulkanObject],
-    gui: &mut ImGui,
+    // gui: &mut ImGui,
 ) -> CommandBuffers {
     let device = &instance_devices.devices.logical.device;
 
@@ -87,14 +87,14 @@ pub(crate) fn create_command_buffers(
         },
     ];
 
-    let ImGui {
-        ref mut context,
-        ref mut gui_vk,
-    } = gui;
-    let ui = context.frame();
-    ImGui::new_frame(&ui);
-    let draw_data = ui.render();
-    ImGui::update_buffers(gui_vk, draw_data, instance_devices);
+    // let ImGui {
+    //     ref mut context,
+    //     ref mut gui_vk,
+    // } = gui;
+    // let ui = context.frame();
+    // ImGui::new_frame(&ui);
+    // let draw_data = ui.render();
+    // ImGui::update_buffers(gui_vk, draw_data, instance_devices);
 
     unsafe {
         for i in 0..swap_chain.images.len() {
@@ -123,7 +123,7 @@ pub(crate) fn create_command_buffers(
             });
 
             // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
-            ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
+            // ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
 
             device.cmd_end_render_pass(command_buffers[i]);
 

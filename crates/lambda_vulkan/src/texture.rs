@@ -141,12 +141,28 @@ fn create_texture_image(
     image.mip_levels(mip_levels)
 }
 
-#[derive(Clone, Debug, new)]
+#[derive(Clone, Debug)]
 pub struct ImageProperties {
     pub image_dimensions: (u32, u32),
     pub image_data: Vec<u8>,
     pub mip_levels: u32,
     pub size: u64,
+}
+
+impl ImageProperties {
+    pub fn new(
+        image_dimensions: (u32, u32),
+        image_data: &[u8],
+        mip_levels: u32,
+        size: vk::DeviceSize,
+    ) -> Self {
+        Self {
+            image_dimensions,
+            image_data: image_data.to_vec(),
+            mip_levels,
+            size,
+        }
+    }
 }
 
 impl ImageProperties {
@@ -160,7 +176,7 @@ impl ImageProperties {
             + 1.) as u32;
         let size = (std::mem::size_of::<u8>() as u32 * image_dimensions.0 * image_dimensions.1 * 4)
             as vk::DeviceSize;
-        Self::new(image_dimensions, image_data, mip_levels, size)
+        Self::new(image_dimensions, &image_data.to_vec(), mip_levels, size)
     }
 }
 
