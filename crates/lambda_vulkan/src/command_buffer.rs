@@ -1,6 +1,6 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, renderer::RenderPass, swap_chain::SwapChain,
-    utility::InstanceDevices, ImGui, VulkanObject,
+    any_as_u8_slice, device, frame_buffer::FrameBuffers, renderer::RenderPass,
+    swap_chain::SwapChain, utility::InstanceDevices, ImGui, Shader, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
@@ -118,8 +118,18 @@ pub(crate) fn create_command_buffers(
 
             device.cmd_set_scissor(command_buffers[i], 0, std::slice::from_ref(&scissor));
 
-            objects.iter().for_each(|model| {
-                bind_index_and_vertex_buffers(model, device, command_buffers[i], &[0_u64], i)
+            objects.iter().for_each(|object| {
+                if object.shader == Shader::PushConstant || object.shader == Shader::Ui {
+                    let push = any_as_u8_slice(&object.model);
+                    device.cmd_push_constants(
+                        command_buffers[i],
+                        object.graphics_pipeline.features.layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        push,
+                    )
+                }
+                bind_index_and_vertex_buffers(object, device, command_buffers[i], &[0_u64], i)
             });
 
             // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
@@ -254,12 +264,17 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
         object.graphics_pipeline.features.pipeline,
     );
 
+    let descriptor_sets = if object.shader == Shader::Ui || object.shader == Shader::PushConstant {
+        std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[0])
+    } else {
+        std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[index])
+    };
     device.cmd_bind_descriptor_sets(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
         object.graphics_pipeline.features.layout,
         0,
-        std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[index]),
+        descriptor_sets,
         &[],
     );
 

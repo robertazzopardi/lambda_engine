@@ -33,7 +33,7 @@ use imgui::{Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawV
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::{Indices, Vertex, Vertices, VerticesAndIndices};
 use lambda_window::prelude::Display;
-use nalgebra::{matrix, Matrix4};
+use nalgebra::{matrix, Matrix4, Vector3};
 use renderer::RenderPass;
 use resource::Resources;
 use swap_chain::SwapChain;
@@ -130,7 +130,6 @@ impl ImGui {
         let mut vertices: Vec<Vertex> = vec![];
         let mut indices = vec![];
         for draw_list in draw_data.draw_lists() {
-            dbg!("fgdwiu");
             let vtx_buffer = draw_list.vtx_buffer();
             let idx_buffer = draw_list.idx_buffer();
 
@@ -154,16 +153,17 @@ impl ImGui {
                 vertices_and_indices,
                 topology: ModelTopology::TriangleList,
                 cull_mode: CullMode::None,
-                shader: Shader::Ui,
+                shader: Shader::Vertex,
                 indexed: true,
-                model: orthographic_vk(
-                    0.0,
-                    draw_data.display_size[0],
-                    0.0,
-                    -draw_data.display_size[1],
-                    -1.0,
-                    1.0,
-                ),
+                // model: orthographic_vk(
+                //     0.0,
+                //     draw_data.display_size[0],
+                //     0.0,
+                //     -draw_data.display_size[1],
+                //     -1.0,
+                //     1.0,
+                // ),
+                model: Matrix4::from_axis_angle(&Vector3::x_axis(), 0.0f32.to_radians()),
             },
             texture,
         )
@@ -689,7 +689,6 @@ impl ImGui {
 
         // dbg!(draw_data.draw_lists_count());
         for draw_list in draw_data.draw_lists() {
-            dbg!("fgdwiu");
             let vtx_buffer = draw_list.vtx_buffer();
             let idx_buffer = draw_list.idx_buffer();
 
@@ -918,6 +917,7 @@ pub(crate) unsafe fn any_as_u8_slice<T: Sized>(any: &T) -> &[u8] {
 //
 //
 
+#[derive(Debug)]
 pub(crate) struct VulkanObjects(Vec<VulkanObject>);
 
 pub struct Vulkan {
@@ -1052,6 +1052,8 @@ impl Vulkan {
             &instance_devices,
         ));
 
+        dbg!(&objects);
+
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
             &swap_chain,
@@ -1177,6 +1179,7 @@ pub(crate) struct VulkanObject {
     buffers: ModelBuffers,
     indexed: bool,
     model: Matrix4<f32>,
+    shader: Shader,
 }
 
 impl VulkanObject {
@@ -1237,6 +1240,7 @@ impl VulkanObject {
             buffers,
             indexed: properties.indexed,
             model: properties.model,
+            shader: properties.shader,
         }
     }
 }
