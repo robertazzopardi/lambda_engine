@@ -7,24 +7,25 @@ use crate::{
     utility::InstanceDevices,
     CullMode, ModelTopology, Shader,
 };
-use ash::vk;
+use ash::{vk, Device};
+use imgui::DrawVert;
 use lambda_space::space::Vertex;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
-use std::{ffi::CString, mem};
+use std::{ffi::CStr, mem};
 
 #[derive(Default, Debug, Clone)]
 pub struct Descriptor {
-    pub descriptor_sets: Vec<vk::DescriptorSet>,
-    pub descriptor_pool: vk::DescriptorPool,
-    pub descriptor_set_layout: vk::DescriptorSetLayout,
-    pub uniform_buffers: Vec<Buffer>,
+    pub sets: Vec<vk::DescriptorSet>,
+    pub pool: vk::DescriptorPool,
+    pub set_layout: vk::DescriptorSetLayout,
 }
 
 #[derive(new, Default, Debug, Clone)]
 pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
+    pub cache: Option<vk::PipelineCache>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -34,6 +35,7 @@ pub struct GraphicsPipeline {
     pub topology: ModelTopology,
     pub cull_mode: CullMode,
     pub shader_type: Shader,
+    pub uniform_buffers: Vec<Buffer>,
 }
 
 impl GraphicsPipeline {
@@ -48,7 +50,8 @@ impl GraphicsPipeline {
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
 
-        let descriptor_set_layout = create_descriptor_set_layout(devices);
+        let descriptor_set_layout =
+            create_descriptor_set_layout(&devices.logical.device, shader_type);
 
         let features = create_pipeline_and_layout(
             devices,
@@ -60,33 +63,42 @@ impl GraphicsPipeline {
             shader_type,
         );
 
-        let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
+        let descriptor_pool =
+            create_descriptor_pool(&devices.logical.device, swap_chain.images.len() as u32);
 
         let uniform_buffers =
             create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
 
-        let descriptor_sets = create_descriptor_sets(
-            devices,
-            descriptor_set_layout,
-            descriptor_pool,
-            swap_chain.images.len() as u32,
-            texture,
-            &uniform_buffers,
-        );
+        let descriptor_sets = if shader_type == Shader::PushConstant || shader_type == Shader::Ui {
+            create_descriptor_set(
+                &devices.logical.device,
+                descriptor_pool,
+                texture.as_ref().unwrap(),
+            )
+        } else {
+            create_descriptor_sets(
+                &devices.logical.device,
+                descriptor_set_layout,
+                descriptor_pool,
+                swap_chain.images.len(),
+                texture,
+                &uniform_buffers,
+            )
+        };
 
-        let descriptor_set = Descriptor {
-            descriptor_sets,
-            descriptor_pool,
-            descriptor_set_layout,
-            uniform_buffers,
+        let descriptors = Descriptor {
+            sets: descriptor_sets,
+            pool: descriptor_pool,
+            set_layout: descriptor_set_layout,
         };
 
         Self {
             features,
-            descriptors: descriptor_set,
+            descriptors,
             topology,
             cull_mode,
             shader_type,
+            uniform_buffers,
         }
     }
 
@@ -99,7 +111,8 @@ impl GraphicsPipeline {
     ) -> Self {
         let InstanceDevices { devices, .. } = instance_devices;
 
-        let descriptor_set_layout = create_descriptor_set_layout(devices);
+        let descriptor_set_layout =
+            create_descriptor_set_layout(&devices.logical.device, self.shader_type);
 
         let features = create_pipeline_and_layout(
             devices,
@@ -111,29 +124,30 @@ impl GraphicsPipeline {
             self.shader_type,
         );
 
-        let descriptor_pool = create_descriptor_pool(devices, swap_chain.images.len() as u32);
+        let descriptor_pool =
+            create_descriptor_pool(&devices.logical.device, swap_chain.images.len() as u32);
 
         let uniform_buffers =
             create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
 
         let descriptor_sets = create_descriptor_sets(
-            devices,
+            &devices.logical.device,
             descriptor_set_layout,
             descriptor_pool,
-            swap_chain.images.len() as u32,
+            swap_chain.images.len(),
             texture,
             &uniform_buffers,
         );
 
         let descriptor_set = Descriptor {
-            descriptor_sets,
-            descriptor_pool,
-            descriptor_set_layout,
-            uniform_buffers,
+            sets: descriptor_sets,
+            pool: descriptor_pool,
+            set_layout: descriptor_set_layout,
         };
 
         Self {
             features,
+            uniform_buffers,
             descriptors: descriptor_set,
             topology: self.topology,
             cull_mode: self.cull_mode,
@@ -142,45 +156,49 @@ impl GraphicsPipeline {
     }
 }
 
-fn create_descriptor_set_layout(devices: &Devices) -> vk::DescriptorSetLayout {
-    let bindings = [
-        vk::DescriptorSetLayoutBinding {
-            binding: 0,
-            descriptor_count: 1,
-            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            stage_flags: vk::ShaderStageFlags::VERTEX,
-            ..Default::default()
-        },
-        vk::DescriptorSetLayoutBinding {
-            binding: 1,
-            descriptor_count: 1,
-            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            stage_flags: vk::ShaderStageFlags::FRAGMENT,
-            ..Default::default()
-        },
+fn create_descriptor_set_layout(device: &Device, shader_type: Shader) -> vk::DescriptorSetLayout {
+    let mut bindings: SmallVec<[vk::DescriptorSetLayoutBinding; 2]> = smallvec![
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_count(1)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .stage_flags(vk::ShaderStageFlags::VERTEX)
+            .build(),
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(1)
+            .descriptor_count(1)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .build(),
     ];
+    if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
+        bindings = smallvec![vk::DescriptorSetLayoutBinding::builder()
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .binding(0)
+            .descriptor_count(1)
+            .build()];
+    };
 
     let layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
 
     unsafe {
-        devices
-            .logical
-            .device
+        device
             .create_descriptor_set_layout(&layout_info, None)
             .expect("Failed to create descriptor set layout")
     }
 }
 
-fn create_descriptor_pool(devices: &Devices, swap_chain_image_count: u32) -> vk::DescriptorPool {
+fn create_descriptor_pool(device: &Device, swap_chain_image_count: u32) -> vk::DescriptorPool {
     let pool_sizes = &[
-        vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: swap_chain_image_count,
-        },
-        vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: swap_chain_image_count,
-        },
+        vk::DescriptorPoolSize::builder()
+            .ty(vk::DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(swap_chain_image_count)
+            .build(),
+        vk::DescriptorPoolSize::builder()
+            .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(swap_chain_image_count)
+            .build(),
     ];
 
     let pool_info = vk::DescriptorPoolCreateInfo::builder()
@@ -188,9 +206,7 @@ fn create_descriptor_pool(devices: &Devices, swap_chain_image_count: u32) -> vk:
         .max_sets(swap_chain_image_count);
 
     unsafe {
-        devices
-            .logical
-            .device
+        device
             .create_descriptor_pool(&pool_info, None)
             .expect("Failed to create descriptor pool!")
     }
@@ -202,29 +218,28 @@ fn create_uniform_buffers(
 ) -> Vec<Buffer> {
     let mut buffers = Vec::new();
 
-    for _i in 0..swap_chain_image_count {
-        let buffer = texture::create_buffer(
-            mem::size_of::<UniformBufferObject>().try_into().unwrap(),
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            instance_devices,
-        );
+    let buffer = texture::create_buffer(
+        mem::size_of::<UniformBufferObject>().try_into().unwrap(),
+        vk::BufferUsageFlags::UNIFORM_BUFFER,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        instance_devices,
+    );
+
+    for _ in 0..swap_chain_image_count {
         buffers.push(buffer)
     }
 
     buffers
 }
 
-fn create_shader_module(devices: &Devices, path: &str) -> vk::ShaderModule {
+fn create_shader_module(device: &Device, path: &str) -> vk::ShaderModule {
     let mut file = std::fs::File::open(path).unwrap();
     let spv = ash::util::read_spv(&mut file).unwrap();
 
     let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv);
 
     unsafe {
-        devices
-            .logical
-            .device
+        device
             .create_shader_module(&create_info, None)
             .expect("Failed to create shader module!")
     }
@@ -239,72 +254,71 @@ fn create_pipeline_and_layout(
     cull_mode: CullMode,
     shader_type: Shader,
 ) -> GraphicsPipelineFeatures {
-    let entry_point = CString::new("main").unwrap();
+    let device = &devices.logical.device;
 
-    let shader_folder: &str = shader_type.into();
-
-    let vert_shader_module = create_shader_module(
-        devices,
-        &format!(
-            "./crates/lambda_internal/src/shaders/{}/vert.spv",
-            shader_folder
-        ),
-    );
-
-    let frag_shader_module = create_shader_module(
-        devices,
-        &format!(
-            "./crates/lambda_internal/src/shaders/{}/frag.spv",
-            shader_folder
-        ),
-    );
-
-    let shader_stages = [
-        vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::VERTEX)
-            .module(vert_shader_module)
-            .name(&entry_point)
-            .build(),
-        vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::FRAGMENT)
-            .module(frag_shader_module)
-            .name(&entry_point)
-            .build(),
-    ];
+    let shader_modules = create_shader_stages(shader_type, device);
 
     let binding_description = vk::VertexInputBindingDescription::builder()
         .binding(0)
         .stride(mem::size_of::<Vertex>().try_into().unwrap())
         .input_rate(vk::VertexInputRate::VERTEX);
 
-    let mut attribute_descriptions = vec![
-        vk::VertexInputAttributeDescription {
-            binding: 0,
-            location: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: offset_of!(Vertex, pos) as u32,
-        },
-        vk::VertexInputAttributeDescription {
-            binding: 0,
-            location: 1,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: offset_of!(Vertex, colour) as u32,
-        },
+    let mut attribute_descriptions: SmallVec<[vk::VertexInputAttributeDescription; 2]> = smallvec![
+        vk::VertexInputAttributeDescription::builder()
+            .binding(0)
+            .location(0)
+            .format(vk::Format::R32G32B32_SFLOAT)
+            .offset(offset_of!(Vertex, pos) as u32)
+            .build(),
+        vk::VertexInputAttributeDescription::builder()
+            .binding(0)
+            .location(1)
+            .format(vk::Format::R32G32B32_SFLOAT)
+            .offset(offset_of!(Vertex, colour) as u32)
+            .build(),
     ];
 
-    if shader_type != Shader::Vertex {
-        attribute_descriptions.push(vk::VertexInputAttributeDescription {
-            binding: 0,
-            location: 2,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: offset_of!(Vertex, normal) as u32,
-        });
-        attribute_descriptions.push(vk::VertexInputAttributeDescription {
-            binding: 0,
-            location: 3,
-            format: vk::Format::R32G32_SFLOAT,
-            offset: offset_of!(Vertex, tex_coord) as u32,
-        });
+    if shader_type != Shader::Vertex
+        && shader_type != Shader::Ui
+        && shader_type != Shader::PushConstant
+    {
+        attribute_descriptions.extend([
+            vk::VertexInputAttributeDescription::builder()
+                .binding(0)
+                .location(2)
+                .format(vk::Format::R32G32B32_SFLOAT)
+                .offset(offset_of!(Vertex, normal) as u32)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .binding(0)
+                .location(3)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(offset_of!(Vertex, tex_coord) as u32)
+                .build(),
+        ]);
+    }
+
+    if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
+        attribute_descriptions = smallvec![
+            vk::VertexInputAttributeDescription::builder()
+                .location(0)
+                .binding(0)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(memoffset::offset_of!(DrawVert, pos) as u32)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .location(1)
+                .binding(0)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(memoffset::offset_of!(DrawVert, uv) as u32)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .location(2)
+                .binding(0)
+                .format(vk::Format::R8G8B8A8_UNORM)
+                .offset(memoffset::offset_of!(DrawVert, col) as u32)
+                .build(),
+        ];
     }
 
     let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
@@ -324,7 +338,7 @@ fn create_pipeline_and_layout(
         .max_depth(1.);
 
     let scissor = vk::Rect2D::builder()
-        .offset(vk::Offset2D { x: 0, y: 0 })
+        .offset(vk::Offset2D::default())
         .extent(swap_chain.extent);
 
     let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
@@ -343,22 +357,24 @@ fn create_pipeline_and_layout(
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 
-    let multi_sampling = vk::PipelineMultisampleStateCreateInfo::builder()
+    let mut multi_sampling = vk::PipelineMultisampleStateCreateInfo::builder()
         .rasterization_samples(devices.physical.samples)
         .sample_shading_enable(true)
         .min_sample_shading(0.2)
         .alpha_to_coverage_enable(false)
         .alpha_to_one_enable(false);
+    // if shader_type == Shader::Ui {
+    //     multi_sampling = multi_sampling.rasterization_samples(vk::SampleCountFlags::TYPE_1)
+    // }
 
-    let stencil_state = vk::StencilOpState {
-        fail_op: vk::StencilOp::KEEP,
-        pass_op: vk::StencilOp::KEEP,
-        depth_fail_op: vk::StencilOp::KEEP,
-        compare_op: vk::CompareOp::ALWAYS,
-        compare_mask: 0,
-        write_mask: 0,
-        reference: 0,
-    };
+    let stencil_state = vk::StencilOpState::builder()
+        .fail_op(vk::StencilOp::KEEP)
+        .pass_op(vk::StencilOp::KEEP)
+        .depth_fail_op(vk::StencilOp::KEEP)
+        .compare_op(vk::CompareOp::ALWAYS)
+        .compare_mask(0)
+        .write_mask(0)
+        .reference(0);
 
     let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
         .depth_test_enable(true)
@@ -366,18 +382,13 @@ fn create_pipeline_and_layout(
         .depth_compare_op(vk::CompareOp::LESS)
         .depth_bounds_test_enable(false)
         .stencil_test_enable(false)
-        .front(stencil_state)
-        .back(stencil_state)
+        .front(*stencil_state)
+        .back(*stencil_state)
         .min_depth_bounds(0.)
         .max_depth_bounds(1.);
 
     let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
-        .color_write_mask(
-            vk::ColorComponentFlags::R
-                | vk::ColorComponentFlags::G
-                | vk::ColorComponentFlags::B
-                | vk::ColorComponentFlags::A,
-        )
+        .color_write_mask(vk::ColorComponentFlags::RGBA)
         .blend_enable(true)
         .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
         .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
@@ -392,8 +403,18 @@ fn create_pipeline_and_layout(
         .attachments(std::slice::from_ref(&color_blend_attachment))
         .blend_constants([0., 0., 0., 0.]);
 
-    let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
+    let mut pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
         .set_layouts(std::slice::from_ref(descriptor_set_layout));
+
+    let push_constant_range = vk::PushConstantRange::builder()
+        .stage_flags(vk::ShaderStageFlags::VERTEX)
+        // .size(std::mem::size_of::<Push>().try_into().unwrap())
+        .size(64)
+        .offset(0);
+    if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
+        pipeline_layout_info =
+            pipeline_layout_info.push_constant_ranges(std::slice::from_ref(&push_constant_range));
+    }
 
     let dynamic_states = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
 
@@ -401,14 +422,12 @@ fn create_pipeline_and_layout(
         vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
 
     unsafe {
-        let layout = devices
-            .logical
-            .device
+        let layout = device
             .create_pipeline_layout(&pipeline_layout_info, None)
             .expect("Failed to create pipeline layout!");
 
         let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
-            .stages(&shader_stages)
+            .stages(&shader_modules.stages)
             .vertex_input_state(&vertex_input_info)
             .input_assembly_state(&input_assembly)
             .viewport_state(&view_port_state)
@@ -422,92 +441,178 @@ fn create_pipeline_and_layout(
             .base_pipeline_handle(vk::Pipeline::null())
             .depth_stencil_state(&depth_stencil);
 
-        let pipeline = devices
-            .logical
-            .device
-            .create_graphics_pipelines(
-                vk::PipelineCache::null(),
-                std::slice::from_ref(&pipeline_info),
-                None,
-            )
-            .expect("Failed to create graphics pipeline!");
+        let mut pipeline_cache = None;
+        if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
+            let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
+            pipeline_cache = Some(
+                device
+                    .create_pipeline_cache(&pipeline_cache_create_info, None)
+                    .expect("Could not create pipeline cache"),
+            );
+        }
 
-        devices
-            .logical
-            .device
-            .destroy_shader_module(vert_shader_module, None);
-        devices
-            .logical
-            .device
-            .destroy_shader_module(frag_shader_module, None);
+        let pipeline = if let Some(cache) = pipeline_cache {
+            device
+                .create_graphics_pipelines(cache, std::slice::from_ref(&pipeline_info), None)
+                .expect("Failed to create graphics pipeline!")
+        } else {
+            device
+                .create_graphics_pipelines(
+                    vk::PipelineCache::null(),
+                    std::slice::from_ref(&pipeline_info),
+                    None,
+                )
+                .expect("Failed to create graphics pipeline!")
+        };
 
-        GraphicsPipelineFeatures::new(pipeline[0], layout)
+        destroy_shader_modules(device, shader_modules.vert, shader_modules.frag);
+
+        GraphicsPipelineFeatures::new(pipeline[0], layout, pipeline_cache)
     }
 }
 
+#[inline]
+pub unsafe fn destroy_shader_modules(
+    device: &Device,
+    vert_shader_module: vk::ShaderModule,
+    frag_shader_module: vk::ShaderModule,
+) {
+    device.destroy_shader_module(vert_shader_module, None);
+    device.destroy_shader_module(frag_shader_module, None);
+}
+
+pub(crate) struct ShaderModules {
+    pub vert: vk::ShaderModule,
+    pub frag: vk::ShaderModule,
+    pub stages: [vk::PipelineShaderStageCreateInfo; 2],
+}
+
+pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> ShaderModules {
+    let shader_folder: &str = shader_type.into();
+
+    let vert = create_shader_module(
+        device,
+        &format!("./crates/lambda_internal/src/shaders/{shader_folder}/vert.spv"),
+    );
+    let frag = create_shader_module(
+        device,
+        &format!("./crates/lambda_internal/src/shaders/{shader_folder}/frag.spv"),
+    );
+
+    let entry_point = &CStr::from_bytes_with_nul(b"main\0").unwrap();
+    let stages = [
+        *vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::VERTEX)
+            .module(vert)
+            .name(entry_point),
+        *vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::FRAGMENT)
+            .module(frag)
+            .name(entry_point),
+    ];
+
+    ShaderModules { vert, frag, stages }
+}
+
+fn create_descriptor_set(
+    device: &Device,
+    descriptor_pool: vk::DescriptorPool,
+    texture: &Texture,
+) -> Vec<vk::DescriptorSet> {
+    // Descriptor Set Layout
+    let set_layout_bindings = vk::DescriptorSetLayoutBinding::builder()
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        .binding(0)
+        .descriptor_count(1);
+    let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
+        .bindings(std::slice::from_ref(&set_layout_bindings));
+    let descriptor_set_layout = unsafe {
+        device
+            .create_descriptor_set_layout(&descriptor_layout, None)
+            .expect("Could not create descriptor set layout!")
+    };
+
+    // Descriptor Set
+    let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+        .descriptor_pool(descriptor_pool)
+        .set_layouts(std::slice::from_ref(&descriptor_set_layout));
+    let descriptor_set = unsafe {
+        device
+            .allocate_descriptor_sets(&descriptor_set_alloc_info)
+            .expect("Could not allocate descriptor set!")[0]
+    };
+    let font_descriptor = vk::DescriptorImageInfo::builder()
+        .sampler(texture.sampler)
+        .image_view(texture.view)
+        .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+    let write_descriptor_set = vk::WriteDescriptorSet::builder()
+        .dst_set(descriptor_set)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .dst_binding(0)
+        .image_info(std::slice::from_ref(&font_descriptor));
+    unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) };
+
+    std::slice::from_ref(&descriptor_set).to_vec()
+}
+
 fn create_descriptor_sets(
-    devices: &Devices,
+    device: &Device,
     descriptor_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
-    swap_chain_image_count: u32,
+    swap_chain_image_count: usize,
     texture: &Option<Texture>,
     uniform_buffers: &[Buffer],
 ) -> Vec<vk::DescriptorSet> {
-    let layouts = vec![descriptor_layout; swap_chain_image_count as usize];
+    let layouts = vec![descriptor_layout; swap_chain_image_count];
 
-    let alloc_info = vk::DescriptorSetAllocateInfo {
-        descriptor_pool,
-        descriptor_set_count: swap_chain_image_count,
-        p_set_layouts: layouts.as_slice().as_ptr(),
-        ..Default::default()
-    };
+    let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+        .descriptor_pool(descriptor_pool)
+        .set_layouts(&layouts);
 
-    let image_info = texture.as_ref().map(|texture| vk::DescriptorImageInfo {
-        sampler: texture.sampler,
-        image_view: texture.image_view,
-        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+    let image_info = texture.as_ref().map(|texture| {
+        vk::DescriptorImageInfo::builder()
+            .sampler(texture.sampler)
+            .image_view(texture.view)
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .build()
     });
 
-    unsafe {
-        let descriptor_sets = devices
-            .logical
-            .device
+    let descriptor_sets = unsafe {
+        device
             .allocate_descriptor_sets(&alloc_info)
-            .expect("Failed to allocate descriptor sets!");
+            .expect("Failed to allocate descriptor sets!")
+    };
 
-        for i in 0..swap_chain_image_count as usize {
-            let buffer_info = vk::DescriptorBufferInfo::builder()
-                .buffer(uniform_buffers[i].buffer)
-                .offset(0)
-                .range(mem::size_of::<UniformBufferObject>().try_into().unwrap());
+    for i in 0..swap_chain_image_count {
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .buffer(uniform_buffers[i].buffer)
+            .offset(0)
+            .range(mem::size_of::<UniformBufferObject>().try_into().unwrap());
 
-            let mut descriptor_writes: SmallVec<[vk::WriteDescriptorSet; 2]> =
-                smallvec![vk::WriteDescriptorSet {
-                    dst_set: descriptor_sets[i],
-                    dst_binding: 0,
-                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                    p_buffer_info: std::slice::from_ref(&buffer_info.build()).as_ptr(),
-                    descriptor_count: 1,
-                    ..Default::default()
-                }];
+        let mut descriptor_writes: SmallVec<[vk::WriteDescriptorSet; 2]> =
+            smallvec![vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_sets[i])
+                .dst_binding(0)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_info))
+                .build()];
 
-            if let Some(image_info) = image_info {
-                descriptor_writes.push(vk::WriteDescriptorSet {
-                    dst_set: descriptor_sets[i],
-                    dst_binding: 1,
-                    descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                    p_image_info: std::slice::from_ref(&image_info).as_ptr(),
-                    descriptor_count: 1,
-                    ..Default::default()
-                })
-            }
-
-            devices
-                .logical
-                .device
-                .update_descriptor_sets(&descriptor_writes, &[]);
+        if let Some(image_info) = image_info {
+            descriptor_writes.push(
+                vk::WriteDescriptorSet::builder()
+                    .dst_set(descriptor_sets[i])
+                    .dst_binding(1)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .image_info(std::slice::from_ref(&image_info))
+                    .build(),
+            )
         }
 
-        descriptor_sets
+        unsafe {
+            device.update_descriptor_sets(&descriptor_writes, &[]);
+        }
     }
+
+    descriptor_sets
 }

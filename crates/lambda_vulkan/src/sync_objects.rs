@@ -1,5 +1,4 @@
-use crate::utility::InstanceDevices;
-use ash::vk;
+use ash::{vk, Device};
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
@@ -15,7 +14,7 @@ pub struct SyncObjects {
 }
 
 impl SyncObjects {
-    pub fn new(instance_devices: &InstanceDevices) -> Self {
+    pub fn new(device: &Device) -> Self {
         let semaphore_create_info = vk::SemaphoreCreateInfo::builder();
 
         let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
@@ -27,24 +26,13 @@ impl SyncObjects {
 
         unsafe {
             for i in 0..MAX_FRAMES_IN_FLIGHT {
-                image_available_semaphores[i] = instance_devices
-                    .devices
-                    .logical
-                    .device
+                image_available_semaphores[i] = device
                     .create_semaphore(&semaphore_create_info, None)
                     .unwrap();
-                render_finished_semaphores[i] = instance_devices
-                    .devices
-                    .logical
-                    .device
+                render_finished_semaphores[i] = device
                     .create_semaphore(&semaphore_create_info, None)
                     .unwrap();
-                in_flight_fences[i] = instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .create_fence(&fence_info, None)
-                    .unwrap();
+                in_flight_fences[i] = device.create_fence(&fence_info, None).unwrap();
             }
         }
 

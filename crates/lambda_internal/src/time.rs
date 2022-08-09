@@ -37,8 +37,8 @@ impl Time {
     pub fn new(fps: impl Fps) -> Self {
         Self {
             delta: fps.duration(),
-            elapsed: Duration::ZERO,
             now: std::time::Instant::now(),
+            elapsed: Duration::ZERO,
             accumulator: Duration::ZERO,
         }
     }

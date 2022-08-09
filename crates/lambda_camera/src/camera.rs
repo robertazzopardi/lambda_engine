@@ -75,6 +75,7 @@ impl CameraInternal {
         let look = input.look;
 
         // Movement
+        let speed = self.speed.0 * dt;
         // let (yaw_sin, yaw_cos) = yaw.sin_cos();
         // let speed = self.speed.0 * dt;
         // let forward = vector![yaw_cos, 0., yaw_sin].normalize() * look.z() as f32 * speed;
@@ -83,14 +84,14 @@ impl CameraInternal {
         let (yaw_sin, yaw_cos) = yaw.sin_cos();
         let forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
         let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
-        self.pos += forward * look.z() as f32 * self.speed.0 * dt;
-        self.pos += right * look.x() as f32 * self.speed.0 * dt;
-        self.pos.0.y += look.y() as f32 * self.speed.0;
+        self.pos += forward * look.z() as f32 * speed;
+        self.pos += right * look.x() as f32 * speed;
+        self.pos.0.y += look.y() as f32 * speed;
 
         // Zoom
-        // let (pitch_sin, pitch_cos) = self.orientation.pitch.sin_cos();
+        // let (pitch_sin, pitch_cos) = pitch.sin_cos();
         // let scroll_dir = vector![pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin];
-        // self.pos.0 += scroll_dir * input.mouse_scroll * self.speed.0 * self.sensitivity.0 * dt;
+        // self.pos.0 += scroll_dir * input.mouse_scroll * self.sensitivity.0 * speed;
 
         // Rotation
         let rot_speed = self.sensitivity.0 * dt;
@@ -103,16 +104,6 @@ impl CameraInternal {
         self.rotation = self.rotation.slerp(&rot, 0.2);
 
         input.mouse_delta = Default::default();
-
-        // dbg!(self.rotation.euler_angles());
-
-        // Keep the camera's angle from going too high/low.
-        // let angle = space::Angle(SAFE_FRAC_PI_2);
-        // if pitch < -*angle {
-        //     self.rotation *= UnitQuaternion::from_euler_angles(0., -angle.0, 0.);
-        // } else if pitch > *angle {
-        //     self.rotation *= UnitQuaternion::from_euler_angles(0., angle.0, 0.);
-        // }
     }
 }
 

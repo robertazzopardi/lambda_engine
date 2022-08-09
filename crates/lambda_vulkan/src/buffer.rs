@@ -3,7 +3,7 @@ use ash::vk;
 use lambda_space::space::{Vertex, VerticesAndIndices};
 use std::mem::size_of;
 
-#[derive(new, Default, Debug, Clone)]
+#[derive(new, Default, Debug, Clone, Copy)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
@@ -57,6 +57,7 @@ pub(crate) fn create_vertex_index_buffer<T: Copy>(
     instance_devices: &InstanceDevices,
 ) -> Buffer {
     let InstanceDevices { devices, .. } = instance_devices;
+    let device = &instance_devices.devices.logical.device;
 
     let staging = texture::create_buffer(
         buffer_size,
@@ -65,7 +66,7 @@ pub(crate) fn create_vertex_index_buffer<T: Copy>(
         instance_devices,
     );
 
-    memory::map_memory(&devices.logical.device, staging.memory, buffer_size, data);
+    memory::map_memory(device, staging.memory, buffer_size, data);
 
     let buffer = texture::create_buffer(
         buffer_size,
@@ -84,8 +85,8 @@ pub(crate) fn create_vertex_index_buffer<T: Copy>(
     );
 
     unsafe {
-        devices.logical.device.destroy_buffer(staging.buffer, None);
-        devices.logical.device.free_memory(staging.memory, None);
+        device.destroy_buffer(staging.buffer, None);
+        device.free_memory(staging.memory, None);
     }
 
     buffer
@@ -99,13 +100,14 @@ fn copy_buffer(
     src_buffer: vk::Buffer,
     dst_buffer: vk::Buffer,
 ) {
-    let command_buffer =
-        command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
+    let device = &devices.logical.device;
+
+    let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
 
     let copy_region = vk::BufferCopy::builder().size(size);
 
     unsafe {
-        devices.logical.device.cmd_copy_buffer(
+        device.cmd_copy_buffer(
             command_buffer,
             src_buffer,
             dst_buffer,
@@ -114,7 +116,7 @@ fn copy_buffer(
     }
 
     command_buffer::end_single_time_command(
-        &devices.logical.device,
+        device,
         devices.logical.queues.graphics,
         command_pool,
         command_buffer,

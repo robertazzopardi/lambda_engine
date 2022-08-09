@@ -16,6 +16,7 @@ nalgebra = "0.31.0"
 smallvec = "1.8.0"
 winit = "0.26.1"
 image = "0.24.2"
+imgui = "0.8.2"
 lambda_camera = { path = "../lambda_camera" }
 lambda_space = { path = "../lambda_space" }
 lambda_window = { path = "../lambda_window" }

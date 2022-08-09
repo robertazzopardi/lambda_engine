@@ -21,8 +21,8 @@ pub(crate) struct SwapChainSupport {
 
 #[derive(Clone)]
 pub struct SwapChain {
-    pub loader: Swapchain,
-    pub swap_chain: vk::SwapchainKHR,
+    pub swap_chain: Swapchain,
+    pub swap_chain_khr: vk::SwapchainKHR,
     pub image_format: vk::Format,
     pub extent: vk::Extent2D,
     pub images: Vec<vk::Image>,
@@ -99,8 +99,8 @@ impl SwapChain {
             let image_views = create_image_views(devices, &swap_chain_images, &surface_format, 1);
 
             SwapChain {
-                loader: swap_chain,
-                swap_chain: swap_chain_khr,
+                swap_chain,
+                swap_chain_khr,
                 images: swap_chain_images,
                 image_format: surface_format.format,
                 extent,
@@ -122,24 +122,22 @@ fn create_image_views(
         .r(vk::ComponentSwizzle::IDENTITY)
         .g(vk::ComponentSwizzle::IDENTITY)
         .b(vk::ComponentSwizzle::IDENTITY)
-        .a(vk::ComponentSwizzle::IDENTITY)
-        .build();
+        .a(vk::ComponentSwizzle::IDENTITY);
 
     let sub_resource_range = vk::ImageSubresourceRange::builder()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .base_mip_level(0)
         .level_count(mip_levels)
         .base_array_layer(0)
-        .layer_count(1)
-        .build();
+        .layer_count(1);
 
     for &image in swap_chain_images.iter() {
         let image_view_create_info = vk::ImageViewCreateInfo::builder()
             .image(image)
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(surface_format.format)
-            .components(components)
-            .subresource_range(sub_resource_range);
+            .components(*components)
+            .subresource_range(*sub_resource_range);
 
         let image_view = unsafe {
             devices
@@ -184,8 +182,8 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan) {
 
         vulkan
             .swap_chain
-            .loader
-            .destroy_swapchain(vulkan.swap_chain.swap_chain, None);
+            .swap_chain
+            .destroy_swapchain(vulkan.swap_chain.swap_chain_khr, None);
     }
 }
 
@@ -218,7 +216,7 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
     vulkan.frame_buffers = frame_buffer::create_frame_buffers(
         &vulkan.swap_chain,
         &vulkan.render_pass,
-        &vulkan.instance_devices,
+        device,
         &vulkan.resources,
     );
 
@@ -235,13 +233,14 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
         );
     });
 
-    vulkan.commander.buffers = command_buffer::create_command_buffers(
-        &vulkan.commander.pool,
+    vulkan.command_buffers = command_buffer::create_command_buffers(
+        &vulkan.command_pool,
         &vulkan.swap_chain,
         &vulkan.instance_devices,
         &vulkan.render_pass,
         &vulkan.frame_buffers,
         &models,
+        // &mut vulkan.gui,
     );
 }
 

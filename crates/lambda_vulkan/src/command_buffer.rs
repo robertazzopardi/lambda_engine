@@ -1,22 +1,15 @@
 use crate::{
-    device, frame_buffer::FrameBuffers, renderer::RenderPass, swap_chain::SwapChain,
-    utility::InstanceDevices, VulkanObject,
+    any_as_u8_slice, device, frame_buffer::FrameBuffers, renderer::RenderPass,
+    swap_chain::SwapChain, utility::InstanceDevices, Shader, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
-use std::ptr;
 
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
 
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandPool(vk::CommandPool);
-
-#[derive(new, Debug, Clone)]
-pub struct VkCommander {
-    pub buffers: CommandBuffers,
-    pub pool: CommandPool,
-}
 
 pub fn create_command_pool(
     instance_devices: &InstanceDevices,
@@ -29,7 +22,8 @@ pub fn create_command_pool(
         device::find_queue_family(instance, devices.physical.device, surface_loader, surface);
 
     let pool_info = vk::CommandPoolCreateInfo::builder()
-        .queue_family_index(queue_family_indices.graphics_family.unwrap());
+        .queue_family_index(queue_family_indices.graphics_family.unwrap())
+        .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
     CommandPool(unsafe {
         devices
@@ -47,13 +41,14 @@ pub(crate) fn create_command_buffers(
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
     objects: &[VulkanObject],
+    // gui: &mut ImGui,
 ) -> CommandBuffers {
+    let device = &instance_devices.devices.logical.device;
+
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(**command_pool)
         .command_buffer_count(swap_chain.images.len() as u32)
         .level(vk::CommandBufferLevel::PRIMARY);
-
-    let device = &instance_devices.devices.logical.device;
 
     let command_buffers = unsafe {
         device
@@ -72,8 +67,8 @@ pub(crate) fn create_command_buffers(
         .max_depth(1.);
 
     let scissor = vk::Rect2D::builder()
-        .offset(vk::Offset2D { x: 0, y: 0 })
-        .extent(vk::Extent2D { width, height });
+        .offset(vk::Offset2D::default())
+        .extent(swap_chain.extent);
 
     let begin_info = vk::CommandBufferBeginInfo::builder();
 
@@ -84,62 +79,114 @@ pub(crate) fn create_command_buffers(
             },
         },
         vk::ClearValue {
-            depth_stencil: vk::ClearDepthStencilValue {
-                depth: 1.,
-                stencil: 0,
-            },
+            depth_stencil: vk::ClearDepthStencilValue::builder()
+                .depth(1.)
+                .stencil(0)
+                .build(),
         },
     ];
 
-    let offsets = [0_u64];
+    // let ImGui {
+    //     ref mut context,
+    //     ref mut gui_vk,
+    // } = gui;
+    // let ui = context.frame();
+    // ImGui::new_frame(&ui);
+    // let draw_data = ui.render();
+    // ImGui::update_buffers(gui_vk, draw_data, instance_devices);
 
     unsafe {
         for i in 0..swap_chain.images.len() {
             device
-                .begin_command_buffer(command_buffers[i as usize], &begin_info)
+                .begin_command_buffer(command_buffers[i], &begin_info)
                 .expect("Failed to begin recording command buffer!");
 
-            let render_pass_begin_info = vk::RenderPassBeginInfo {
-                s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-                p_next: ptr::null(),
-                render_pass: render_pass.0,
-                framebuffer: frame_buffers[i],
-                render_area: vk::Rect2D {
-                    offset: vk::Offset2D { x: 0, y: 0 },
-                    extent: swap_chain.extent,
-                },
-                clear_value_count: clear_values.len() as u32,
-                p_clear_values: clear_values.as_ptr(),
-            };
+            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(render_pass.0)
+                .framebuffer(frame_buffers[i])
+                .render_area(*scissor)
+                .clear_values(&clear_values);
 
             device.cmd_begin_render_pass(
-                command_buffers[i as usize],
+                command_buffers[i],
                 &render_pass_begin_info,
                 vk::SubpassContents::INLINE,
             );
 
-            device.cmd_set_viewport(
-                command_buffers[i as usize],
-                0,
-                std::slice::from_ref(&view_port),
-            );
+            device.cmd_set_viewport(command_buffers[i], 0, std::slice::from_ref(&view_port));
 
-            device.cmd_set_scissor(
-                command_buffers[i as usize],
-                0,
-                std::slice::from_ref(&scissor),
-            );
+            device.cmd_set_scissor(command_buffers[i], 0, std::slice::from_ref(&scissor));
 
-            objects.iter().for_each(|model| {
-                bind_index_and_vertex_buffers(model, device, command_buffers[i], &offsets, i)
+            objects.iter().for_each(|object| {
+                if object.shader == Shader::PushConstant || object.shader == Shader::Ui {
+                    let push = any_as_u8_slice(&object.model);
+                    device.cmd_push_constants(
+                        command_buffers[i],
+                        object.graphics_pipeline.features.layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        push,
+                    )
+                }
+                bind_index_and_vertex_buffers(object, device, command_buffers[i], &[0_u64], i)
             });
 
-            device.cmd_end_render_pass(command_buffers[i as usize]);
+            // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
+            // ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
+
+            device.cmd_end_render_pass(command_buffers[i]);
+
+            // {
+            //     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            //         .render_pass(gui_vk.render_pass.0)
+            //         .framebuffer(gui_vk.frame_buffer)
+            //         .render_area(
+            //             vk::Rect2D::builder()
+            //                 .offset(vk::Offset2D::default())
+            //                 .extent(vk::Extent2D::builder().width(512).height(64).build())
+            //                 .build(),
+            //         )
+            //         .clear_values(&clear_values);
+            //     device.cmd_begin_render_pass(
+            //         command_buffers[i],
+            //         &render_pass_begin_info,
+            //         vk::SubpassContents::INLINE,
+            //     );
+            //     ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
+            //     device.cmd_end_render_pass(command_buffers[i]);
+            // }
+
+            //
 
             device
-                .end_command_buffer(command_buffers[i as usize])
+                .end_command_buffer(command_buffers[i])
                 .expect("Failed to record command buffer!");
         }
+
+        // GUI
+        // device
+        //     .begin_command_buffer(gui_vk.command_buffer, &begin_info)
+        //     .expect("Failed to begin recording command buffer!");
+        // let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+        //     .render_pass(gui_vk.render_pass.0)
+        //     .framebuffer(gui_vk.frame_buffer)
+        //     .render_area(
+        //         vk::Rect2D::builder()
+        //             .offset(vk::Offset2D::default())
+        //             .extent(vk::Extent2D::builder().width(512).height(64).build())
+        //             .build(),
+        //     )
+        //     .clear_values(&clear_values);
+        // device.cmd_begin_render_pass(
+        //     gui_vk.command_buffer,
+        //     &render_pass_begin_info,
+        //     vk::SubpassContents::INLINE,
+        // );
+        // ImGui::draw_frame(gui_vk, draw_data, device);
+        // device.cmd_end_render_pass(gui_vk.command_buffer);
+        // device
+        //     .end_command_buffer(gui_vk.command_buffer)
+        //     .expect("Failed to record command buffer!");
     }
 
     command_buffers.into()
@@ -149,26 +196,19 @@ pub fn begin_single_time_command(
     device: &ash::Device,
     command_pool: &vk::CommandPool,
 ) -> vk::CommandBuffer {
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-        p_next: std::ptr::null(),
-        command_buffer_count: 1,
-        command_pool: *command_pool,
-        level: vk::CommandBufferLevel::PRIMARY,
-    };
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+        .command_buffer_count(1)
+        .command_pool(*command_pool)
+        .level(vk::CommandBufferLevel::PRIMARY);
+
+    let command_buffer_begin_info =
+        vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
     let command_buffer = unsafe {
         device
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("Failed to allocate Command Buffers!")
     }[0];
-
-    let command_buffer_begin_info = vk::CommandBufferBeginInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-        p_next: std::ptr::null(),
-        p_inheritance_info: std::ptr::null(),
-        flags: vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT,
-    };
 
     unsafe {
         device
@@ -185,29 +225,20 @@ pub fn end_single_time_command(
     pool: &vk::CommandPool,
     buffer: vk::CommandBuffer,
 ) {
+    let buffers_to_submit = [buffer];
+
+    let submit_info = vk::SubmitInfo::builder().command_buffers(&buffers_to_submit);
+
     unsafe {
         device
             .end_command_buffer(buffer)
             .expect("Failed to record Command Buffer at Ending!");
-    }
-
-    let buffers_to_submit = [buffer];
-
-    let submit_infos = [vk::SubmitInfo {
-        command_buffer_count: 1,
-        p_command_buffers: buffers_to_submit.as_ptr(),
-        p_next: std::ptr::null(),
-        p_signal_semaphores: std::ptr::null(),
-        p_wait_dst_stage_mask: std::ptr::null(),
-        p_wait_semaphores: std::ptr::null(),
-        s_type: vk::StructureType::SUBMIT_INFO,
-        signal_semaphore_count: 0,
-        wait_semaphore_count: 0,
-    }];
-
-    unsafe {
         device
-            .queue_submit(submit_queue, &submit_infos, vk::Fence::null())
+            .queue_submit(
+                submit_queue,
+                std::slice::from_ref(&submit_info),
+                vk::Fence::null(),
+            )
             .expect("Failed to Queue Submit!");
         device
             .queue_wait_idle(submit_queue)
@@ -232,20 +263,26 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
         object.graphics_pipeline.features.pipeline,
     );
 
+    let descriptor_sets = if object.shader == Shader::Ui || object.shader == Shader::PushConstant {
+        std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[0])
+    } else {
+        std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[index])
+    };
     device.cmd_bind_descriptor_sets(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
         object.graphics_pipeline.features.layout,
         0,
-        std::slice::from_ref(&object.graphics_pipeline.descriptors.descriptor_sets[index]),
+        descriptor_sets,
         &[],
     );
 
-    let vertex_buffers = [object.buffers.vertex.buffer];
-
-    device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, offsets);
-
-    let object_and_vertices_and_indices = &object.vertices_and_indices;
+    device.cmd_bind_vertex_buffers(
+        command_buffer,
+        0,
+        std::slice::from_ref(&object.buffers.vertex.buffer),
+        offsets,
+    );
 
     if object.indexed {
         device.cmd_bind_index_buffer(
@@ -257,7 +294,7 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
 
         device.cmd_draw_indexed(
             command_buffer,
-            object_and_vertices_and_indices.indices.len() as u32,
+            object.vertices_and_indices.indices.len() as u32,
             1,
             0,
             0,
@@ -266,7 +303,7 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
     } else {
         device.cmd_draw(
             command_buffer,
-            object_and_vertices_and_indices.vertices.len() as u32,
+            object.vertices_and_indices.vertices.len() as u32,
             1,
             0,
             0,
