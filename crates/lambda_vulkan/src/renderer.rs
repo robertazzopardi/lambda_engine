@@ -6,51 +6,12 @@ use crate::{
     utility::InstanceDevices,
     Vulkan,
 };
-use ash::{vk, Device};
+use ash::vk;
 use lambda_camera::prelude::CameraInternal;
 use winit::window::Window;
 
 #[derive(Default, Debug, Clone, new)]
 pub(crate) struct RenderPass(pub vk::RenderPass);
-
-pub(crate) fn create_gui_render_pass(device: &Device) -> RenderPass {
-    let render_pass_attachments = vk::AttachmentDescription::builder()
-        .format(vk::Format::R8G8B8A8_UNORM)
-        .samples(vk::SampleCountFlags::TYPE_1)
-        .load_op(vk::AttachmentLoadOp::CLEAR)
-        .store_op(vk::AttachmentStoreOp::STORE)
-        .initial_layout(vk::ImageLayout::UNDEFINED)
-        .final_layout(vk::ImageLayout::PRESENT_SRC_KHR);
-
-    let color_attachment_refs = vk::AttachmentReference::builder()
-        .attachment(0)
-        .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-
-    let sub_passes = vk::SubpassDescription::builder()
-        .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-        .color_attachments(std::slice::from_ref(&color_attachment_refs));
-
-    let dependencies = vk::SubpassDependency::builder()
-        .src_subpass(vk::SUBPASS_EXTERNAL)
-        .dst_subpass(0)
-        .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-        .src_access_mask(vk::AccessFlags::empty())
-        .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-        .dst_access_mask(
-            vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-        );
-
-    let render_pass_create_info = vk::RenderPassCreateInfo::builder()
-        .attachments(std::slice::from_ref(&render_pass_attachments))
-        .subpasses(std::slice::from_ref(&sub_passes))
-        .dependencies(std::slice::from_ref(&dependencies));
-
-    RenderPass(unsafe {
-        device
-            .create_render_pass(&render_pass_create_info, None)
-            .expect("Failed to create render pass!")
-    })
-}
 
 pub(crate) fn create_render_pass(
     instance_devices: &InstanceDevices,

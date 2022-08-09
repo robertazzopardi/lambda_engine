@@ -1,10 +1,9 @@
 use crate::{
     any_as_u8_slice, device, frame_buffer::FrameBuffers, renderer::RenderPass,
-    swap_chain::SwapChain, utility::InstanceDevices, ImGui, Shader, VulkanObject,
+    swap_chain::SwapChain, utility::InstanceDevices, Shader, VulkanObject,
 };
 use ash::{extensions::khr::Surface, vk, Device};
 use derive_more::{Deref, From};
-use imgui::DrawData;
 
 #[derive(new, Debug, From, Deref, Clone)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
@@ -80,10 +79,10 @@ pub(crate) fn create_command_buffers(
             },
         },
         vk::ClearValue {
-            depth_stencil: vk::ClearDepthStencilValue {
-                depth: 1.,
-                stencil: 0,
-            },
+            depth_stencil: vk::ClearDepthStencilValue::builder()
+                .depth(1.)
+                .stencil(0)
+                .build(),
         },
     ];
 

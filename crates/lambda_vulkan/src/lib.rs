@@ -17,11 +17,7 @@ mod uniform_buffer;
 mod utility;
 
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
-use ash::{
-    extensions::khr::Surface,
-    vk::{self, Queue},
-    Device,
-};
+use ash::{extensions::khr::Surface, vk, Device};
 use buffer::{Buffer, ModelBuffers};
 use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
@@ -31,7 +27,7 @@ use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
 use imgui::{Condition, Context, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, Ui, Window};
 use lambda_camera::prelude::CameraInternal;
-use lambda_space::space::{Indices, Vertex, Vertices, VerticesAndIndices};
+use lambda_space::space::{Vertex, VerticesAndIndices};
 use lambda_window::prelude::Display;
 use nalgebra::{matrix, Matrix4, Vector3};
 use renderer::RenderPass;
@@ -167,421 +163,6 @@ impl ImGui {
             },
             texture,
         )
-    }
-
-    fn new(
-        instance_devices: &InstanceDevices,
-        command_pool: &vk::CommandPool,
-        swap_chain: &SwapChain,
-        render_pass: &RenderPass,
-    ) -> Self {
-        let mut context = Context::create();
-        context.set_ini_filename(None);
-
-        let style = context.style_mut();
-        style.use_classic_colors();
-        let io = context.io_mut();
-        io.display_size = [300., 100.];
-        io.display_framebuffer_scale = [1., 1.];
-
-        // let device = &instance_devices.devices.logical.device;
-
-        // let render_pass = renderer::create_gui_render_pass(device);
-
-        let width;
-        let height;
-        let mut data: Vec<u8> = vec![];
-        {
-            let mut font_atlas = context.fonts();
-            let font_atlas_texture = font_atlas.build_rgba32_texture();
-            width = font_atlas_texture.width;
-            height = font_atlas_texture.height;
-            data.extend(font_atlas_texture.data.iter())
-        }
-        let upload_size = width * height * 4;
-
-        let image_properties = ImageProperties::new((width, height), &data, 1, upload_size as u64);
-        let image_info = ImageInfo::new(
-            (width, height),
-            1,
-            vk::SampleCountFlags::TYPE_1,
-            vk::Format::R8G8B8A8_UNORM,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageUsageFlags::SAMPLED
-                | vk::ImageUsageFlags::TRANSFER_DST
-                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        );
-        let texture = Some(Texture::new(
-            image_properties,
-            command_pool,
-            instance_devices,
-            vk::Format::R8G8B8A8_UNORM,
-            image_info,
-        ));
-
-        // let font_image = utility::create_image(image_info, instance_devices);
-
-        // let font_view = utility::create_image_view(
-        //     &font_image,
-        //     vk::Format::R8G8B8A8_UNORM,
-        //     vk::ImageAspectFlags::COLOR,
-        //     device,
-        // );
-
-        // let staging = texture::create_buffer(
-        //     upload_size as vk::DeviceSize,
-        //     vk::BufferUsageFlags::TRANSFER_SRC,
-        //     vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        //     instance_devices,
-        // );
-
-        // memory::map_memory(
-        //     device,
-        //     staging.memory,
-        //     upload_size as vk::DeviceSize,
-        //     data.as_slice(),
-        // );
-
-        // let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-        //     .command_pool(*command_pool)
-        //     .level(vk::CommandBufferLevel::PRIMARY)
-        //     .command_buffer_count(1);
-
-        // let copy_cmd = unsafe {
-        //     device
-        //         .allocate_command_buffers(&command_buffer_allocate_info)
-        //         .expect("Could not allocate command buffers!")
-        // }[0];
-
-        // let cmd_buffer_info = vk::CommandBufferBeginInfo::default();
-        // unsafe {
-        //     device
-        //         .begin_command_buffer(copy_cmd, &cmd_buffer_info)
-        //         .expect("Could not begin command buffer!");
-        // }
-
-        // let sub_resource_range = vk::ImageSubresourceRange::builder()
-        //     .aspect_mask(vk::ImageAspectFlags::COLOR)
-        //     .base_mip_level(0)
-        //     .level_count(1)
-        //     .base_array_layer(0)
-        //     .layer_count(1);
-        // let mut image_memory_barrier = vk::ImageMemoryBarrier::builder()
-        //     .old_layout(vk::ImageLayout::UNDEFINED)
-        //     .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-        //     .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-        //     .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-        //     .image(font_image.image)
-        //     .subresource_range(*sub_resource_range)
-        //     .src_access_mask(vk::AccessFlags::empty())
-        //     .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
-        // unsafe {
-        //     device.cmd_pipeline_barrier(
-        //         copy_cmd,
-        //         vk::PipelineStageFlags::TOP_OF_PIPE,
-        //         vk::PipelineStageFlags::TRANSFER,
-        //         vk::DependencyFlags::empty(),
-        //         &[],
-        //         &[],
-        //         std::slice::from_ref(&image_memory_barrier),
-        //     )
-        // }
-
-        // let buffer_copy_region = vk::BufferImageCopy::builder()
-        //     .image_subresource(
-        //         vk::ImageSubresourceLayers::builder()
-        //             .aspect_mask(vk::ImageAspectFlags::COLOR)
-        //             .layer_count(1)
-        //             .build(),
-        //     )
-        //     .image_extent(
-        //         Extent3D::builder()
-        //             .width(width)
-        //             .height(height)
-        //             .depth(1)
-        //             .build(),
-        //     );
-
-        // unsafe {
-        //     device.cmd_copy_buffer_to_image(
-        //         copy_cmd,
-        //         staging.buffer,
-        //         font_image.image,
-        //         vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-        //         std::slice::from_ref(&buffer_copy_region),
-        //     )
-        // }
-
-        // image_memory_barrier.old_layout = vk::ImageLayout::TRANSFER_DST_OPTIMAL;
-        // image_memory_barrier.new_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
-        // image_memory_barrier.src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
-        // image_memory_barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
-        // unsafe {
-        //     device.cmd_pipeline_barrier(
-        //         copy_cmd,
-        //         vk::PipelineStageFlags::TRANSFER,
-        //         vk::PipelineStageFlags::FRAGMENT_SHADER,
-        //         vk::DependencyFlags::empty(),
-        //         &[],
-        //         &[],
-        //         std::slice::from_ref(&image_memory_barrier),
-        //     )
-        // }
-
-        // let submit_info =
-        //     vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&copy_cmd));
-        // let fence_info = vk::FenceCreateInfo::default();
-        // unsafe {
-        //     device
-        //         .end_command_buffer(copy_cmd)
-        //         .expect("Could not end command buffer!");
-        //     let fence = device
-        //         .create_fence(&fence_info, None)
-        //         .expect("Could not create fence!");
-        //     device
-        //         .queue_submit(*copy_queue, std::slice::from_ref(&submit_info), fence)
-        //         .expect("Could not submit queue!");
-        //     device
-        //         .wait_for_fences(std::slice::from_ref(&fence), true, 100_000_000_000)
-        //         .expect("Wait for fences failed!");
-        //     device.destroy_fence(fence, None);
-        //     device.free_command_buffers(*command_pool, std::slice::from_ref(&copy_cmd));
-
-        //     device.destroy_buffer(staging.buffer, None);
-        //     device.free_memory(staging.memory, None);
-        // };
-
-        // let sampler_info = vk::SamplerCreateInfo::builder()
-        //     .max_anisotropy(1.)
-        //     .mag_filter(vk::Filter::LINEAR)
-        //     .min_filter(vk::Filter::LINEAR)
-        //     .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
-        //     .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-        //     .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-        //     .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-        //     .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE);
-        // let sampler = unsafe {
-        //     device
-        //         .create_sampler(&sampler_info, None)
-        //         .expect("Could not create sampler!")
-        // };
-
-        let graphics_pipeline = GraphicsPipeline::new(
-            swap_chain,
-            render_pass.0,
-            &texture,
-            ModelTopology::TriangleList,
-            CullMode::None,
-            instance_devices,
-            Shader::Ui,
-        );
-
-        // // Descriptor Pool
-        // let pool_sizes = vk::DescriptorPoolSize::builder()
-        //     .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        //     .descriptor_count(1);
-        // let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-        //     .pool_sizes(std::slice::from_ref(&pool_sizes))
-        //     .max_sets(2);
-        // let descriptor_pool = unsafe {
-        //     device
-        //         .create_descriptor_pool(&descriptor_pool_info, None)
-        //         .expect("Could not create descriptor pool!")
-        // };
-
-        // // Descriptor Set Layout
-        // let set_layout_bindings = vk::DescriptorSetLayoutBinding::builder()
-        //     .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        //     .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-        //     .binding(0)
-        //     .descriptor_count(1);
-        // let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
-        //     .bindings(std::slice::from_ref(&set_layout_bindings));
-        // let descriptor_set_layout = unsafe {
-        //     device
-        //         .create_descriptor_set_layout(&descriptor_layout, None)
-        //         .expect("Could not create descriptor set layout!")
-        // };
-
-        // // Descriptor Set
-        // let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-        //     .descriptor_pool(descriptor_pool)
-        //     .set_layouts(std::slice::from_ref(&descriptor_set_layout));
-        // let descriptor_set = unsafe {
-        //     device
-        //         .allocate_descriptor_sets(&descriptor_set_alloc_info)
-        //         .expect("Could not allocate descriptor set!")[0]
-        // };
-        // let font_descriptor = vk::DescriptorImageInfo::builder()
-        //     .sampler(texture.sampler)
-        //     .image_view(texture.view)
-        //     .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-        // let write_descriptor_set = vk::WriteDescriptorSet::builder()
-        //     .dst_set(descriptor_set)
-        //     .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        //     .dst_binding(0)
-        //     .image_info(std::slice::from_ref(&font_descriptor));
-        // unsafe { device.update_descriptor_sets(std::slice::from_ref(&write_descriptor_set), &[]) }
-
-        // // Pipeline Cache
-        // let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
-        // let pipeline_cache = unsafe {
-        //     device
-        //         .create_pipeline_cache(&pipeline_cache_create_info, None)
-        //         .expect("Could not create pipeline cache")
-        // };
-
-        // let push_constant_range = vk::PushConstantRange::builder()
-        //     .stage_flags(vk::ShaderStageFlags::VERTEX)
-        //     // .size(std::mem::size_of::<Push>().try_into().unwrap())
-        //     .size(64)
-        //     .offset(0);
-        // let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-        //     .set_layouts(std::slice::from_ref(&descriptor_set_layout))
-        //     .push_constant_ranges(std::slice::from_ref(&push_constant_range));
-        // let pipeline_layout = unsafe {
-        //     device
-        //         .create_pipeline_layout(&pipeline_layout_create_info, None)
-        //         .expect("Could not create pipeline layout!")
-        // };
-
-        // // Graphics Pipeline
-        // let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        //     .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
-        //     .primitive_restart_enable(false);
-        // let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
-        //     .polygon_mode(vk::PolygonMode::FILL)
-        //     .cull_mode(vk::CullModeFlags::NONE)
-        //     .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
-        //     .depth_clamp_enable(false)
-        //     .line_width(1.);
-
-        // let blend_attachment_state = vk::PipelineColorBlendAttachmentState::builder()
-        //     .blend_enable(true)
-        //     .color_write_mask(vk::ColorComponentFlags::RGBA)
-        //     .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
-        //     .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-        //     .color_blend_op(vk::BlendOp::ADD)
-        //     .src_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-        //     .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
-        //     .alpha_blend_op(vk::BlendOp::ADD);
-
-        // let colour_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-        //     .attachments(std::slice::from_ref(&blend_attachment_state));
-
-        // let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
-        //     .depth_test_enable(false)
-        //     .depth_write_enable(false)
-        //     .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL)
-        //     .back(
-        //         vk::StencilOpState::builder()
-        //             .compare_op(vk::CompareOp::ALWAYS)
-        //             .build(),
-        //     );
-
-        // let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
-        //     .viewports(&[Default::default()])
-        //     .scissors(&[Default::default()])
-        //     .build();
-
-        // let multi_sample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-        //     .rasterization_samples(vk::SampleCountFlags::TYPE_1);
-
-        // let dynamic_state_enables = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-        // let dynamic_state =
-        //     vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state_enables);
-
-        // let vertex_input_bindings = vk::VertexInputBindingDescription::builder()
-        //     .binding(0)
-        //     .stride(std::mem::size_of::<DrawVert>().try_into().unwrap())
-        //     .input_rate(vk::VertexInputRate::VERTEX);
-        // let vertex_input_attributes = [
-        //     vk::VertexInputAttributeDescription::builder()
-        //         .location(0)
-        //         .binding(0)
-        //         .format(vk::Format::R32G32_SFLOAT)
-        //         .offset(memoffset::offset_of!(DrawVert, pos) as u32)
-        //         .build(),
-        //     vk::VertexInputAttributeDescription::builder()
-        //         .location(1)
-        //         .binding(0)
-        //         .format(vk::Format::R32G32_SFLOAT)
-        //         .offset(memoffset::offset_of!(DrawVert, uv) as u32)
-        //         .build(),
-        //     vk::VertexInputAttributeDescription::builder()
-        //         .location(2)
-        //         .binding(0)
-        //         .format(vk::Format::R8G8B8A8_UNORM)
-        //         .offset(memoffset::offset_of!(DrawVert, col) as u32)
-        //         .build(),
-        // ];
-        // let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
-        //     .vertex_attribute_descriptions(&vertex_input_attributes)
-        //     .vertex_binding_descriptions(std::slice::from_ref(&vertex_input_bindings));
-
-        // let shader_modules = create_shader_stages(Shader::Ui, device);
-
-        // let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
-        //     .layout(pipeline_layout)
-        //     .render_pass(render_pass.0)
-        //     .base_pipeline_index(-1)
-        //     .input_assembly_state(&input_assembly_state)
-        //     .rasterization_state(&rasterization_state)
-        //     .color_blend_state(&colour_blend_state)
-        //     .multisample_state(&multi_sample_state)
-        //     .viewport_state(&view_port_state)
-        //     .depth_stencil_state(&depth_stencil_state)
-        //     .dynamic_state(&dynamic_state)
-        //     .stages(&shader_modules.stages)
-        //     .vertex_input_state(&vertex_input_state);
-
-        // let pipeline = unsafe {
-        //     device
-        //         .create_graphics_pipelines(
-        //             pipeline_cache,
-        //             std::slice::from_ref(&pipeline_create_info),
-        //             None,
-        //         )
-        //         .expect("Could not create graphics pipeline!")[0]
-        // };
-
-        // unsafe { destroy_shader_modules(device, shader_modules.vert, shader_modules.frag) };
-
-        // let frame_buffer = frame_buffer::create_frame_buffer(
-        //     &render_pass,
-        //     &[texture.as_ref().unwrap().view],
-        //     device,
-        //     width,
-        //     height,
-        // );
-
-        Self {
-            context,
-            gui_vk: GuiVk {
-                // sampler,
-                vertex_buffer: None,
-                index_buffer: None,
-                vertex_count: 0,
-                index_count: 0,
-                // font_memory: texture.image.memory,
-                // frame_buffer,
-                // resource: Resource {
-                //     image: font_image,
-                //     view: font_view,
-                // },
-                texture,
-                // pipeline_cache,
-                // pipeline_layout,
-                // pipeline,
-                // descriptor_pool,
-                // descriptor_set_layout,
-                // descriptor_set,
-                graphics_pipeline,
-                // command_buffer: copy_cmd,
-                // render_pass,
-            },
-        }
     }
 
     #[inline]
@@ -841,18 +422,9 @@ impl ImGui {
 
     unsafe fn destroy(&self, device: &Device) {
         let GuiVk {
-            // sampler,
             vertex_buffer,
             index_buffer,
-            // render_pass,
-            // font_memory,
-            // resource,
             texture,
-            // pipeline_cache,
-            // pipeline_layout,
-            // pipeline,
-            // descriptor_pool,
-            // descriptor_set_layout,
             graphics_pipeline,
             ..
         } = &self.gui_vk;
@@ -908,16 +480,7 @@ pub(crate) unsafe fn any_as_u8_slice<T: Sized>(any: &T) -> &[u8] {
     std::slice::from_raw_parts(ptr, std::mem::size_of::<T>())
 }
 
-//
-//
-//
-//
-//
-//
-//
-//
-
-#[derive(Debug)]
+#[derive(Debug, Deref, DerefMut)]
 pub(crate) struct VulkanObjects(Vec<VulkanObject>);
 
 pub struct Vulkan {
@@ -934,17 +497,14 @@ pub struct Vulkan {
     pub(crate) frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
     pub(crate) objects: VulkanObjects,
-    // pub gui: ImGui,
 }
 
 impl Vulkan {
     #[inline]
     pub fn wait_device_idle(&self) {
+        let device = &self.instance_devices.devices.logical.device;
         unsafe {
-            self.instance_devices
-                .devices
-                .logical
-                .device
+            device
                 .device_wait_idle()
                 .expect("Failed to wait for device idle state");
         }
@@ -1004,30 +564,6 @@ impl Vulkan {
             geom_properties
                 .iter()
                 .map(|property| {
-                    let mut texture = None;
-                    if !property.texture_buffer.is_empty() {
-                        let image_properties = ImageProperties::get_image_properties_from_buffer(
-                            property.texture_buffer,
-                        );
-                        let image_info = ImageInfo::new(
-                            image_properties.image_dimensions,
-                            image_properties.mip_levels,
-                            vk::SampleCountFlags::TYPE_1,
-                            vk::Format::R8G8B8A8_SRGB,
-                            vk::ImageTiling::OPTIMAL,
-                            vk::ImageUsageFlags::TRANSFER_SRC
-                                | vk::ImageUsageFlags::TRANSFER_DST
-                                | vk::ImageUsageFlags::SAMPLED,
-                            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-                        );
-                        texture = Some(Texture::new(
-                            image_properties,
-                            &command_pool,
-                            &instance_devices,
-                            vk::Format::R8G8B8A8_SRGB,
-                            image_info,
-                        ));
-                    }
                     VulkanObject::new(
                         &command_pool,
                         swap_chain_len,
@@ -1035,7 +571,7 @@ impl Vulkan {
                         &render_pass,
                         &instance_devices,
                         property,
-                        texture,
+                        property.create_texture(&command_pool, &instance_devices),
                     )
                 })
                 .collect(),
@@ -1043,7 +579,6 @@ impl Vulkan {
 
         let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
 
-        // let mut gui = ImGui::new(&instance_devices, &command_pool, &swap_chain, &render_pass);
         objects.0.push(ImGui::object(
             &command_pool,
             swap_chain_len,
@@ -1052,7 +587,7 @@ impl Vulkan {
             &instance_devices,
         ));
 
-        dbg!(&objects);
+        // dbg!(&objects);
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
@@ -1061,7 +596,6 @@ impl Vulkan {
             &render_pass,
             &frame_buffers,
             &objects.0,
-            // &mut gui,
         );
 
         Self {
@@ -1078,7 +612,6 @@ impl Vulkan {
             frame_buffers,
             instance_devices,
             objects,
-            // gui,
         }
     }
 
@@ -1096,49 +629,25 @@ impl Drop for Vulkan {
     fn drop(&mut self) {
         swap_chain::cleanup_swap_chain(self);
 
-        unsafe {
-            // self.gui
-            //     .destroy(&self.instance_devices.devices.logical.device);
+        let device = &self.instance_devices.devices.logical.device;
 
+        unsafe {
             self.objects.0.iter().for_each(|object| {
-                device::recreate_drop(
-                    &object.graphics_pipeline,
-                    &self.instance_devices.devices.logical.device,
-                );
-                device::destroy(object, &self.instance_devices.devices.logical.device);
+                device::recreate_drop(&object.graphics_pipeline, device);
+                device::destroy(object, device);
             });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
-                self.instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
-                self.instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
-                self.instance_devices
-                    .devices
-                    .logical
-                    .device
-                    .destroy_fence(self.sync_objects.in_flight_fences[i], None);
+                device.destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
+                device.destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
+                device.destroy_fence(self.sync_objects.in_flight_fences[i], None);
             }
 
-            self.instance_devices
-                .devices
-                .logical
-                .device
-                .destroy_command_pool(*self.command_pool, None);
+            device.destroy_command_pool(*self.command_pool, None);
 
             dbg!("2");
 
-            self.instance_devices
-                .devices
-                .logical
-                .device
-                .destroy_device(None);
+            device.destroy_device(None);
 
             println!("here");
 
@@ -1171,6 +680,39 @@ pub struct GeomProperties<'a> {
     model: Matrix4<f32>,
 }
 
+impl<'a> GeomProperties<'a> {
+    fn create_texture(
+        &self,
+        command_pool: &CommandPool,
+        instance_devices: &InstanceDevices,
+    ) -> Option<Texture> {
+        let mut texture = None;
+        if !self.texture_buffer.is_empty() {
+            let image_properties =
+                ImageProperties::get_image_properties_from_buffer(self.texture_buffer);
+            let image_info = ImageInfo::new(
+                image_properties.image_dimensions,
+                image_properties.mip_levels,
+                vk::SampleCountFlags::TYPE_1,
+                vk::Format::R8G8B8A8_SRGB,
+                vk::ImageTiling::OPTIMAL,
+                vk::ImageUsageFlags::TRANSFER_SRC
+                    | vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED,
+                vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            );
+            texture = Some(Texture::new(
+                image_properties,
+                command_pool,
+                instance_devices,
+                vk::Format::R8G8B8A8_SRGB,
+                image_info,
+            ));
+        }
+        texture
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct VulkanObject {
     vertices_and_indices: VerticesAndIndices,
@@ -1192,30 +734,6 @@ impl VulkanObject {
         properties: &GeomProperties,
         texture: Option<Texture>,
     ) -> Self {
-        // let mut texture = None;
-        // if !properties.texture_buffer.is_empty() {
-        //     let image_properties =
-        //         ImageProperties::get_image_properties_from_buffer(properties.texture_buffer);
-        //     let image_info = ImageInfo::new(
-        //         image_properties.image_dimensions,
-        //         image_properties.mip_levels,
-        //         vk::SampleCountFlags::TYPE_1,
-        //         vk::Format::R8G8B8A8_SRGB,
-        //         vk::ImageTiling::OPTIMAL,
-        //         vk::ImageUsageFlags::TRANSFER_SRC
-        //             | vk::ImageUsageFlags::TRANSFER_DST
-        //             | vk::ImageUsageFlags::SAMPLED,
-        //         vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        //     );
-        //     texture = Some(Texture::new(
-        //         image_properties,
-        //         command_pool,
-        //         instance_devices,
-        //         vk::Format::R8G8B8A8_SRGB,
-        //         image_info,
-        //     ));
-        // }
-
         let buffers = ModelBuffers::new(
             &properties.vertices_and_indices,
             command_pool,
@@ -1317,8 +835,10 @@ const LIGHT: &str = "light";
 const LIGHT_TEXTURE: &str = "light_texture";
 const TEXTURE: &str = "texture";
 const VERTEX: &str = "vertex";
-const PUSH_CONSTANT: &str = "push_constant";
 const UI: &str = "ui";
+// const PUSH_CONSTANT: &str = "push_constant";
+/// For now ui and push constant will be the same
+const PUSH_CONSTANT: &str = UI;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shader {

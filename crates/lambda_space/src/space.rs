@@ -54,11 +54,6 @@ impl std::ops::AddAssign<Vector3<f32>> for Pos3 {
     }
 }
 
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, PartialOrd, AddAssign, Deref, DerefMut, Neg, From, new,
-)]
-pub struct Angle(pub f32);
-
 #[derive(Default, Debug, PartialEq, Clone, Copy, new)]
 pub struct Rotation {
     pub x: f32,
@@ -116,14 +111,14 @@ pub struct Vertex {
 }
 
 impl From<DrawVert> for Vertex {
-    fn from(imgui_vert: DrawVert) -> Self {
-        let DrawVert { pos, uv, col } = imgui_vert;
+    fn from(vert: DrawVert) -> Self {
+        let DrawVert { pos, uv, col } = vert;
         // dbg!(point![pos[0] / 10., pos[1] / 10., 1.]);
         Self {
-            pos: point![pos[0] / 100., pos[1] / 100., 1.],
+            pos: point![pos[0] / 100., pos[1] / 100., 0.],
             colour: vector![col[0] as f32, col[1] as f32, col[2] as f32],
-            normal: vector![uv[0], uv[1], 1.],
-            tex_coord: vector![1., 1.],
+            normal: vector![uv[0], uv[1], 0.],
+            tex_coord: vector![0., 1.],
         }
     }
 }
