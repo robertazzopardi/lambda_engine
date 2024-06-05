@@ -240,7 +240,6 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
         &vulkan.render_pass,
         &vulkan.frame_buffers,
         &models,
-        // &mut vulkan.gui,
     );
 }
 

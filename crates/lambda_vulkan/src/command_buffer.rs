@@ -41,7 +41,6 @@ pub(crate) fn create_command_buffers(
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
     objects: &[VulkanObject],
-    // gui: &mut ImGui,
 ) -> CommandBuffers {
     let device = &instance_devices.devices.logical.device;
 
@@ -86,15 +85,6 @@ pub(crate) fn create_command_buffers(
         },
     ];
 
-    // let ImGui {
-    //     ref mut context,
-    //     ref mut gui_vk,
-    // } = gui;
-    // let ui = context.frame();
-    // ImGui::new_frame(&ui);
-    // let draw_data = ui.render();
-    // ImGui::update_buffers(gui_vk, draw_data, instance_devices);
-
     unsafe {
         for i in 0..swap_chain.images.len() {
             device
@@ -131,62 +121,12 @@ pub(crate) fn create_command_buffers(
                 bind_index_and_vertex_buffers(object, device, command_buffers[i], &[0_u64], i)
             });
 
-            // ImGui::draw_frame(gui_vk, draw_data, device, &gui_vk.command_buffer);
-            // ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
-
             device.cmd_end_render_pass(command_buffers[i]);
-
-            // {
-            //     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-            //         .render_pass(gui_vk.render_pass.0)
-            //         .framebuffer(gui_vk.frame_buffer)
-            //         .render_area(
-            //             vk::Rect2D::builder()
-            //                 .offset(vk::Offset2D::default())
-            //                 .extent(vk::Extent2D::builder().width(512).height(64).build())
-            //                 .build(),
-            //         )
-            //         .clear_values(&clear_values);
-            //     device.cmd_begin_render_pass(
-            //         command_buffers[i],
-            //         &render_pass_begin_info,
-            //         vk::SubpassContents::INLINE,
-            //     );
-            //     ImGui::draw_frame(gui_vk, draw_data, device, command_buffers[i]);
-            //     device.cmd_end_render_pass(command_buffers[i]);
-            // }
-
-            //
 
             device
                 .end_command_buffer(command_buffers[i])
                 .expect("Failed to record command buffer!");
         }
-
-        // GUI
-        // device
-        //     .begin_command_buffer(gui_vk.command_buffer, &begin_info)
-        //     .expect("Failed to begin recording command buffer!");
-        // let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-        //     .render_pass(gui_vk.render_pass.0)
-        //     .framebuffer(gui_vk.frame_buffer)
-        //     .render_area(
-        //         vk::Rect2D::builder()
-        //             .offset(vk::Offset2D::default())
-        //             .extent(vk::Extent2D::builder().width(512).height(64).build())
-        //             .build(),
-        //     )
-        //     .clear_values(&clear_values);
-        // device.cmd_begin_render_pass(
-        //     gui_vk.command_buffer,
-        //     &render_pass_begin_info,
-        //     vk::SubpassContents::INLINE,
-        // );
-        // ImGui::draw_frame(gui_vk, draw_data, device);
-        // device.cmd_end_render_pass(gui_vk.command_buffer);
-        // device
-        //     .end_command_buffer(gui_vk.command_buffer)
-        //     .expect("Failed to record command buffer!");
     }
 
     command_buffers.into()

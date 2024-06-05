@@ -8,7 +8,6 @@ use crate::{
     CullMode, ModelTopology, Shader,
 };
 use ash::{vk, Device};
-use imgui::DrawVert;
 use lambda_space::space::Vertex;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
@@ -296,29 +295,6 @@ fn create_pipeline_and_layout(
                 .offset(offset_of!(Vertex, tex_coord) as u32)
                 .build(),
         ]);
-    }
-
-    if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
-        attribute_descriptions = smallvec![
-            vk::VertexInputAttributeDescription::builder()
-                .location(0)
-                .binding(0)
-                .format(vk::Format::R32G32_SFLOAT)
-                .offset(memoffset::offset_of!(DrawVert, pos) as u32)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
-                .location(1)
-                .binding(0)
-                .format(vk::Format::R32G32_SFLOAT)
-                .offset(memoffset::offset_of!(DrawVert, uv) as u32)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
-                .location(2)
-                .binding(0)
-                .format(vk::Format::R8G8B8A8_UNORM)
-                .offset(memoffset::offset_of!(DrawVert, col) as u32)
-                .build(),
-        ];
     }
 
     let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()

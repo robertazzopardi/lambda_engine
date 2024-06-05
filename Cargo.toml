@@ -2,7 +2,7 @@
 name = "lambda_engine"
 version = "0.1.0"
 edition = "2021"
-categories = ["game-engines", "graphics", "gui", "rendering"]
+categories = ["game-engines", "graphics", "rendering"]
 description = "A simple vulkan based game engine"
 homepage = "https://github.com/robertazzopardi/lambda_engine"
 keywords = ["game", "engine", "gamedev", "graphics"]

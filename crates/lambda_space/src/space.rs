@@ -1,5 +1,4 @@
 use derive_more::{AddAssign, Deref, DerefMut, From, Neg};
-use imgui::DrawVert;
 use nalgebra::{point, vector, Point3, Vector2, Vector3};
 
 pub trait Pos {}
@@ -108,19 +107,6 @@ pub struct Vertex {
     pub colour: Vector3<f32>,
     pub normal: Vector3<f32>,
     pub tex_coord: Vector2<f32>,
-}
-
-impl From<DrawVert> for Vertex {
-    fn from(vert: DrawVert) -> Self {
-        let DrawVert { pos, uv, col } = vert;
-        // dbg!(point![pos[0] / 10., pos[1] / 10., 1.]);
-        Self {
-            pos: point![pos[0] / 100., pos[1] / 100., 0.],
-            colour: vector![col[0] as f32, col[1] as f32, col[2] as f32],
-            normal: vector![uv[0], uv[1], 0.],
-            tex_coord: vector![0., 1.],
-        }
-    }
 }
 
 #[derive(new, Clone, Default, Debug, From, Deref, DerefMut)]
