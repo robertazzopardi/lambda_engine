@@ -104,7 +104,7 @@ fn copy_buffer(
 
     let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
 
-    let copy_region = vk::BufferCopy::builder().size(size);
+    let copy_region = vk::BufferCopy::default().size(size);
 
     unsafe {
         device.cmd_copy_buffer(

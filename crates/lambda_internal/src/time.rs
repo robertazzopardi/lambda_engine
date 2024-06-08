@@ -1,6 +1,6 @@
 use lambda_camera::camera::CameraInternal;
 use lambda_vulkan::Vulkan;
-use lambda_window::window::Input;
+use lambda_window::window::{Input, RenderBackend};
 use std::time::{Duration, Instant};
 
 pub trait Fps {
@@ -50,10 +50,16 @@ impl Time {
         self.accumulator += frame_time;
     }
 
-    pub fn step(&mut self, camera: &mut CameraInternal, backend: &mut Vulkan, input: &mut Input) {
+    pub fn step(
+        &mut self,
+        camera: &mut CameraInternal,
+        input: &mut Input,
+        renderer: &mut Box<dyn RenderBackend>,
+    ) {
         while self.accumulator >= self.delta {
             camera.update(input, self.delta.as_secs_f32());
-            backend.ubo.update(&backend.swap_chain.extent, camera);
+            // backend.ubo.update(&backend.swap_chain.extent, camera);
+            renderer.update(camera.matrix());
 
             self.accumulator -= self.delta;
             self.elapsed += self.delta;

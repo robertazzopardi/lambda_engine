@@ -7,7 +7,7 @@ use crate::{
     Vulkan,
 };
 use ash::{
-    extensions::khr::{Surface, Swapchain},
+    khr::{surface, swapchain},
     vk::{self, PresentModeKHR, SurfaceCapabilitiesKHR, SurfaceFormatKHR},
 };
 use winit::window::Window;
@@ -21,7 +21,7 @@ pub(crate) struct SwapChainSupport {
 
 #[derive(Clone)]
 pub struct SwapChain {
-    pub swap_chain: Swapchain,
+    pub swap_chain: swapchain::Device,
     pub swap_chain_khr: vk::SwapchainKHR,
     pub image_format: vk::Format,
     pub extent: vk::Extent2D,
@@ -33,7 +33,7 @@ impl SwapChain {
     pub fn new(
         InstanceDevices { instance, devices }: &InstanceDevices,
         surface: vk::SurfaceKHR,
-        surface_loader: &Surface,
+        surface_loader: &surface::Instance,
         window: &Window,
     ) -> SwapChain {
         let SwapChainSupport {
@@ -55,7 +55,7 @@ impl SwapChain {
             swap_chain_image_count = capabilities.max_image_count;
         }
 
-        let mut create_info = vk::SwapchainCreateInfoKHR::builder()
+        let mut create_info = vk::SwapchainCreateInfoKHR::default()
             .surface(surface)
             .min_image_count(swap_chain_image_count)
             .image_format(surface_format.format)
@@ -85,7 +85,7 @@ impl SwapChain {
             create_info.p_queue_family_indices = queue_family_indices_arr.as_ptr();
         }
 
-        let swap_chain = Swapchain::new(instance, &devices.logical.device);
+        let swap_chain = swapchain::Device::new(instance, &devices.logical.device);
 
         unsafe {
             let swap_chain_khr = swap_chain
@@ -118,13 +118,13 @@ fn create_image_views(
 ) -> Vec<vk::ImageView> {
     let mut swap_chain_image_views = vec![];
 
-    let components = vk::ComponentMapping::builder()
+    let components = vk::ComponentMapping::default()
         .r(vk::ComponentSwizzle::IDENTITY)
         .g(vk::ComponentSwizzle::IDENTITY)
         .b(vk::ComponentSwizzle::IDENTITY)
         .a(vk::ComponentSwizzle::IDENTITY);
 
-    let sub_resource_range = vk::ImageSubresourceRange::builder()
+    let sub_resource_range = vk::ImageSubresourceRange::default()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .base_mip_level(0)
         .level_count(mip_levels)
@@ -132,12 +132,12 @@ fn create_image_views(
         .layer_count(1);
 
     for &image in swap_chain_images.iter() {
-        let image_view_create_info = vk::ImageViewCreateInfo::builder()
+        let image_view_create_info = vk::ImageViewCreateInfo::default()
             .image(image)
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(surface_format.format)
-            .components(*components)
-            .subresource_range(*sub_resource_range);
+            .components(components)
+            .subresource_range(sub_resource_range);
 
         let image_view = unsafe {
             devices
@@ -246,7 +246,7 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
 pub(crate) fn query_swap_chain_support(
     devices: &Devices,
     surface: vk::SurfaceKHR,
-    surface_loader: &Surface,
+    surface_loader: &surface::Instance,
 ) -> SwapChainSupport {
     let capabilities = unsafe {
         surface_loader

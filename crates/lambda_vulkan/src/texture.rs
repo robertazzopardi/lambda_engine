@@ -53,7 +53,7 @@ fn create_texture_sampler(
     unsafe {
         let properties = instance.get_physical_device_properties(devices.physical.device);
 
-        let sampler_create_info = vk::SamplerCreateInfo::builder()
+        let sampler_create_info = vk::SamplerCreateInfo::default()
             .mag_filter(vk::Filter::LINEAR)
             .min_filter(vk::Filter::LINEAR)
             .address_mode_u(vk::SamplerAddressMode::REPEAT)
@@ -188,7 +188,7 @@ pub(crate) fn create_buffer(
 ) -> Buffer {
     let device = &instance_devices.devices.logical.device;
 
-    let image_buffer_info = vk::BufferCreateInfo::builder()
+    let image_buffer_info = vk::BufferCreateInfo::default()
         .size(size)
         .usage(usage)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
@@ -206,7 +206,7 @@ pub(crate) fn create_buffer(
             instance_devices,
         );
 
-        let image_buffer_allocate_info = vk::MemoryAllocateInfo::builder()
+        let image_buffer_allocate_info = vk::MemoryAllocateInfo::default()
             .allocation_size(memory_requirements.size)
             .memory_type_index(memory_type_index);
 
@@ -256,14 +256,14 @@ fn transition_image_layout(
         panic!("Unsupported layout transition!")
     }
 
-    let subresource_range = vk::ImageSubresourceRange::builder()
+    let subresource_range = vk::ImageSubresourceRange::default()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .base_mip_level(0)
         .level_count(mip_levels)
         .base_array_layer(0)
         .layer_count(1);
 
-    let image_barriers = vk::ImageMemoryBarrier::builder()
+    let image_barriers = vk::ImageMemoryBarrier::default()
         .src_access_mask(src_access_mask)
         .dst_access_mask(dst_access_mask)
         .old_layout(x)
@@ -271,7 +271,7 @@ fn transition_image_layout(
         .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
         .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
         .image(image)
-        .subresource_range(*subresource_range);
+        .subresource_range(subresource_range);
 
     unsafe {
         device.cmd_pipeline_barrier(
@@ -298,7 +298,7 @@ fn copy_buffer_to_image(
     let command_buffer =
         command_buffer::begin_single_time_command(&devices.logical.device, command_pool);
 
-    let image_sub_resource = vk::ImageSubresourceLayers::builder()
+    let image_sub_resource = vk::ImageSubresourceLayers::default()
         .aspect_mask(vk::ImageAspectFlags::COLOR)
         .mip_level(0)
         .base_array_layer(0)
@@ -306,11 +306,11 @@ fn copy_buffer_to_image(
 
     let (width, height) = image_dimensions;
 
-    let region = vk::BufferImageCopy::builder()
+    let region = vk::BufferImageCopy::default()
         .buffer_offset(0)
         .buffer_row_length(0)
         .buffer_image_height(0)
-        .image_subresource(*image_sub_resource)
+        .image_subresource(image_sub_resource)
         .image_offset(vk::Offset3D::default())
         .image_extent(vk::Extent3D {
             width,
@@ -358,18 +358,17 @@ fn generate_mip_maps(
 
     let command_buffer = command_buffer::begin_single_time_command(device, command_pool);
 
-    let mut image_barrier = vk::ImageMemoryBarrier::builder()
+    let mut image_barrier = vk::ImageMemoryBarrier::default()
         .image(image)
         .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
         .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
         .subresource_range(
-            vk::ImageSubresourceRange::builder()
+            vk::ImageSubresourceRange::default()
                 .aspect_mask(vk::ImageAspectFlags::COLOR)
                 .base_mip_level(mip_levels)
                 .level_count(1)
                 .base_array_layer(0)
-                .layer_count(1)
-                .build(),
+                .layer_count(1),
         );
 
     let mut x = mip_dimension.coords.data.0[0][0];
@@ -382,34 +381,31 @@ fn generate_mip_maps(
         image_barrier.src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
         image_barrier.dst_access_mask = vk::AccessFlags::TRANSFER_READ;
 
-        let blits = vk::ImageBlit::builder()
+        let blits = vk::ImageBlit::default()
             .src_subresource(
-                vk::ImageSubresourceLayers::builder()
+                vk::ImageSubresourceLayers::default()
                     .aspect_mask(vk::ImageAspectFlags::COLOR)
                     .mip_level(i - 1)
                     .base_array_layer(0)
-                    .layer_count(1)
-                    .build(),
+                    .layer_count(1),
             )
             .src_offsets([
                 vk::Offset3D::default(),
-                vk::Offset3D::builder().x(x).y(y).z(1).build(),
+                vk::Offset3D::default().x(x).y(y).z(1),
             ])
             .dst_subresource(
-                vk::ImageSubresourceLayers::builder()
+                vk::ImageSubresourceLayers::default()
                     .aspect_mask(vk::ImageAspectFlags::COLOR)
                     .mip_level(i)
                     .base_array_layer(0)
-                    .layer_count(1)
-                    .build(),
+                    .layer_count(1),
             )
             .dst_offsets([
                 vk::Offset3D::default(),
-                vk::Offset3D::builder()
+                vk::Offset3D::default()
                     .x(cmp::max(x / 2, 1))
                     .y(cmp::max(y / 2, 1))
-                    .z(1)
-                    .build(),
+                    .z(1),
             ]);
 
         unsafe {

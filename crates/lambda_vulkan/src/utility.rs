@@ -1,11 +1,14 @@
 use crate::{
-    debug::{self, create_debug_messenger, Debugger, ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS},
+    debug::{self, vulkan_debug_callback, Debugger, ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS},
     device::Devices,
     memory,
 };
-use ash::{extensions::ext::DebugUtils, vk, Device, Entry, Instance};
+use ash::{
+    vk::{self, EXT_DEBUG_UTILS_NAME},
+    Device, Entry, Instance,
+};
 use std::ffi::CString;
-use winit::window::Window;
+use winit::{raw_window_handle::HasDisplayHandle, window::Window};
 
 #[derive(new, Default, Debug, Clone)]
 pub struct Image {
@@ -55,23 +58,25 @@ impl EntryInstance {
             .map(|raw_name| raw_name.as_ptr())
             .collect();
 
-        let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
+        let surface_extensions =
+            ash_window::enumerate_required_extensions(window.display_handle().unwrap().into())
+                .unwrap();
         let mut extension_names_raw = surface_extensions.to_vec();
 
         if ENABLE_VALIDATION_LAYERS {
-            extension_names_raw.push(DebugUtils::name().as_ptr());
+            extension_names_raw.push(EXT_DEBUG_UTILS_NAME.as_ptr());
         }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
-            extension_names_raw.push(vk::KhrPortabilityEnumerationFn::name().as_ptr());
+            extension_names_raw.push(vk::KHR_PORTABILITY_ENUMERATION_NAME.as_ptr());
             // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
-            extension_names_raw.push(vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());
+            extension_names_raw.push(vk::KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_NAME.as_ptr());
         }
 
         let app_name = CString::new("Vulkan").unwrap();
         let engine_name = CString::new("No Engine").unwrap();
 
-        let app_info = vk::ApplicationInfo::builder()
+        let app_info = vk::ApplicationInfo::default()
             .application_name(&app_name)
             .application_version(0)
             .engine_name(&engine_name)
@@ -93,14 +98,17 @@ impl EntryInstance {
                 vk::InstanceCreateFlags::default()
             };
 
-            let mut create_info = vk::InstanceCreateInfo::builder()
+            let mut create_info = vk::InstanceCreateInfo::default()
                 .application_info(&app_info)
                 .flags(create_flags)
                 .enabled_extension_names(extension_names_raw.as_slice());
 
             if ENABLE_VALIDATION_LAYERS {
                 if let Some(debugging) = debugging {
-                    debug_create_info = create_debug_messenger(debugging);
+                    debug_create_info = vk::DebugUtilsMessengerCreateInfoEXT::default()
+                        .message_severity(debugging.message_level.flags)
+                        .message_type(debugging.message_type.flags)
+                        .pfn_user_callback(Some(vulkan_debug_callback));
                     create_info = create_info
                         .enabled_layer_names(&layers_names_raw)
                         .push_next(&mut debug_create_info);
@@ -119,14 +127,13 @@ impl EntryInstance {
 pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) -> Image {
     let device = &instance_devices.devices.logical.device;
 
-    let image_info = vk::ImageCreateInfo::builder()
+    let image_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
         .extent(
-            vk::Extent3D::builder()
+            vk::Extent3D::default()
                 .width(info.dimensions.0)
                 .height(info.dimensions.1)
-                .depth(1)
-                .build(),
+                .depth(1),
         )
         .mip_levels(info.mip_levels)
         .array_layers(1)
@@ -149,7 +156,7 @@ pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) 
             info.properties,
             instance_devices,
         );
-        let alloc_info = vk::MemoryAllocateInfo::builder()
+        let alloc_info = vk::MemoryAllocateInfo::default()
             .allocation_size(memory_requirements.size)
             .memory_type_index(memory_type_index);
 
@@ -171,18 +178,18 @@ pub(crate) fn create_image_view(
     aspect_mask: vk::ImageAspectFlags,
     device: &Device,
 ) -> vk::ImageView {
-    let sub_resource_range = vk::ImageSubresourceRange::builder()
+    let sub_resource_range = vk::ImageSubresourceRange::default()
         .aspect_mask(aspect_mask)
         .base_mip_level(0)
         .level_count(image.mip_levels)
         .base_array_layer(0)
         .layer_count(1);
 
-    let image_view_info = vk::ImageViewCreateInfo::builder()
+    let image_view_info = vk::ImageViewCreateInfo::default()
         .image(image.image)
         .view_type(vk::ImageViewType::TYPE_2D)
         .format(format)
-        .subresource_range(*sub_resource_range);
+        .subresource_range(sub_resource_range);
 
     unsafe {
         device

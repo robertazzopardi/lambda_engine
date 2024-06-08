@@ -17,7 +17,7 @@ mod uniform_buffer;
 mod utility;
 
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
-use ash::{extensions::khr::Surface, vk, Device};
+use ash::{khr::surface, vk, Device};
 use buffer::{Buffer, ModelBuffers};
 use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
@@ -27,15 +27,16 @@ use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
 use lambda_camera::prelude::CameraInternal;
 use lambda_space::space::{Vertex, VerticesAndIndices};
-use lambda_window::prelude::Display;
+use lambda_window::{prelude::Display, window::RenderBackend};
 use nalgebra::{matrix, Matrix4, Vector3};
 use renderer::RenderPass;
 use resource::Resources;
-use swap_chain::SwapChain;
+use swap_chain::{recreate_swap_chain, SwapChain};
 use sync_objects::SyncObjects;
 use texture::{create_buffer, ImageProperties, Texture};
-use uniform_buffer::UniformBufferObject;
+use uniform_buffer::{update_uniform_buffers, UniformBufferObject};
 use utility::{EntryInstance, ImageInfo, InstanceDevices};
+use winit::window::Window;
 
 pub mod prelude {
     pub use crate::{
@@ -79,7 +80,7 @@ pub struct Vulkan {
     pub(crate) resources: Resources,
     pub(crate) render_pass: RenderPass,
     pub(crate) surface: vk::SurfaceKHR,
-    pub(crate) surface_loader: Surface,
+    pub(crate) surface_loader: surface::Instance,
     pub swap_chain: SwapChain,
     pub(crate) sync_objects: SyncObjects,
     pub ubo: UniformBufferObject,
@@ -87,6 +88,131 @@ pub struct Vulkan {
     pub(crate) frame_buffers: FrameBuffers,
     pub instance_devices: InstanceDevices,
     pub(crate) objects: VulkanObjects,
+}
+
+impl RenderBackend for Vulkan {
+    fn create(window: &Window) -> Self
+    where
+        Self: Sized,
+    {
+        Self::new(window, &[], None)
+    }
+
+    fn destroy(&self) {
+        self.wait_device_idle();
+    }
+
+    fn update(&mut self, view: Matrix4<f32>) {
+        self.ubo.update(&self.swap_chain.extent, view);
+    }
+
+    fn render(&mut self, window: &Window, current_frame: &mut usize, resized: &mut bool, dt: f32) {
+        let device = &mut self.instance_devices.devices.logical.device;
+
+        let image_available_semaphore =
+            self.sync_objects.image_available_semaphores[*current_frame];
+        let in_flight_fence = self.sync_objects.in_flight_fences[*current_frame];
+        let render_finished_semaphore =
+            self.sync_objects.render_finished_semaphores[*current_frame];
+
+        unsafe {
+            device
+                .wait_for_fences(
+                    &self.sync_objects.in_flight_fences,
+                    true,
+                    vk::DeviceSize::MAX,
+                )
+                .expect("Failed to wait for Fence!");
+
+            let (image_index, _is_sub_optimal) = {
+                let result = self.swap_chain.swap_chain.acquire_next_image(
+                    self.swap_chain.swap_chain_khr,
+                    vk::DeviceSize::MAX,
+                    image_available_semaphore,
+                    vk::Fence::null(),
+                );
+                match result {
+                    Ok(image_index) => image_index,
+                    Err(vk_result) => match vk_result {
+                        vk::Result::ERROR_OUT_OF_DATE_KHR => {
+                            recreate_swap_chain(self, window);
+                            return;
+                        }
+                        _ => panic!("Failed to acquire Swap Chain vk::Image!"),
+                    },
+                }
+            };
+
+            update_uniform_buffers(
+                device,
+                &mut self.objects,
+                &self.ubo,
+                image_index.try_into().unwrap(),
+                dt,
+            );
+
+            if self.sync_objects.images_in_flight[image_index as usize] != vk::Fence::null() {
+                device
+                    .wait_for_fences(
+                        std::slice::from_ref(
+                            &self.sync_objects.images_in_flight[image_index as usize],
+                        ),
+                        true,
+                        vk::DeviceSize::MAX,
+                    )
+                    .expect("Could not wait for images in flight");
+            }
+
+            self.sync_objects.images_in_flight[image_index as usize] = in_flight_fence;
+
+            let submit_infos = vk::SubmitInfo::default()
+                .wait_semaphores(std::slice::from_ref(&image_available_semaphore))
+                .wait_dst_stage_mask(std::slice::from_ref(
+                    &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                ))
+                .command_buffers(std::slice::from_ref(
+                    &self.command_buffers[image_index as usize],
+                ))
+                .signal_semaphores(std::slice::from_ref(&render_finished_semaphore));
+
+            device
+                .reset_fences(std::slice::from_ref(&in_flight_fence))
+                .expect("Failed to reset Fence!");
+
+            device
+                .queue_submit(
+                    self.instance_devices.devices.logical.queues.present,
+                    std::slice::from_ref(&submit_infos),
+                    in_flight_fence,
+                )
+                .expect("Failed to execute queue submit.");
+
+            let present_info = vk::PresentInfoKHR::default()
+                .wait_semaphores(std::slice::from_ref(&render_finished_semaphore))
+                .swapchains(std::slice::from_ref(&self.swap_chain.swap_chain_khr))
+                .image_indices(std::slice::from_ref(&image_index));
+
+            let result = self.swap_chain.swap_chain.queue_present(
+                self.instance_devices.devices.logical.queues.present,
+                &present_info,
+            );
+
+            let is_resized = match result {
+                Ok(_) => *resized,
+                Err(vk_result) => match vk_result {
+                    vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
+                    _ => panic!("Failed to execute queue present."),
+                },
+            };
+
+            if is_resized {
+                *resized = false;
+                recreate_swap_chain(self, window);
+            }
+
+            *current_frame = (*current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        }
+    }
 }
 
 impl Vulkan {
@@ -101,12 +227,11 @@ impl Vulkan {
     }
 
     pub fn new(
-        display: &Display,
-        camera: &CameraInternal,
+        window: &Window,
         geom_properties: &[GeomProperties],
         debugging: Option<Debugger>,
     ) -> Self {
-        let entry_instance = EntryInstance::new(&display.window, debugging);
+        let entry_instance = EntryInstance::new(window, debugging);
 
         let debugger = if cfg!(debug_assertions) {
             debugging.map(|debugging| debug::debugger(&entry_instance, debugging))
@@ -114,11 +239,8 @@ impl Vulkan {
             None
         };
 
-        let surface = lambda_window::create_surface(
-            &display.window,
-            &entry_instance.instance,
-            &entry_instance.entry,
-        );
+        let surface =
+            lambda_window::create_surface(window, &entry_instance.instance, &entry_instance.entry);
 
         let surface_loader = create_surface(&entry_instance);
 
@@ -129,8 +251,7 @@ impl Vulkan {
             devices,
         };
 
-        let swap_chain =
-            SwapChain::new(&instance_devices, surface, &surface_loader, &display.window);
+        let swap_chain = SwapChain::new(&instance_devices, surface, &surface_loader, window);
 
         let render_pass = renderer::create_render_pass(&instance_devices, &swap_chain);
 
@@ -167,7 +288,7 @@ impl Vulkan {
                 .collect(),
         );
 
-        let ubo = UniformBufferObject::new(&swap_chain.extent, camera);
+        let ubo = UniformBufferObject::default();
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
@@ -249,9 +370,9 @@ impl Drop for Vulkan {
 #[derive(Clone, Debug, Deref, DerefMut, Default)]
 pub struct TextureBuffer(pub Vec<u8>);
 
-#[derive(Debug, new)]
-pub struct GeomProperties<'a> {
-    texture_buffer: &'a [u8],
+#[derive(Debug, Clone)]
+pub struct GeomProperties {
+    texture_buffer: Vec<u8>,
     vertices_and_indices: VerticesAndIndices,
     topology: ModelTopology,
     cull_mode: CullMode,
@@ -260,7 +381,27 @@ pub struct GeomProperties<'a> {
     model: Matrix4<f32>,
 }
 
-impl<'a> GeomProperties<'a> {
+impl GeomProperties {
+    pub fn new(
+        texture_buffer: &[u8],
+        vertices_and_indices: VerticesAndIndices,
+        topology: ModelTopology,
+        cull_mode: CullMode,
+        shader: Shader,
+        indexed: bool,
+        model: Matrix4<f32>,
+    ) -> Self {
+        Self {
+            texture_buffer: texture_buffer.to_vec(),
+            vertices_and_indices,
+            topology,
+            cull_mode,
+            shader,
+            indexed,
+            model,
+        }
+    }
+
     fn create_texture(
         &self,
         command_pool: &CommandPool,
@@ -269,7 +410,7 @@ impl<'a> GeomProperties<'a> {
         let mut texture = None;
         if !self.texture_buffer.is_empty() {
             let image_properties =
-                ImageProperties::get_image_properties_from_buffer(self.texture_buffer);
+                ImageProperties::get_image_properties_from_buffer(&self.texture_buffer);
             let image_info = ImageInfo::new(
                 image_properties.image_dimensions,
                 image_properties.mip_levels,
@@ -347,8 +488,8 @@ impl VulkanObject {
 pub(crate) struct WindowSize(vk::Extent2D);
 
 #[inline]
-pub(crate) fn create_surface(entry_instance: &EntryInstance) -> Surface {
-    Surface::new(&entry_instance.entry, &entry_instance.instance)
+pub(crate) fn create_surface(entry_instance: &EntryInstance) -> surface::Instance {
+    surface::Instance::new(&entry_instance.entry, &entry_instance.instance)
 }
 
 #[derive(Clone, Copy, Debug, Default)]

@@ -68,7 +68,7 @@ impl GraphicsPipeline {
         let uniform_buffers =
             create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
 
-        let descriptor_sets = if shader_type == Shader::PushConstant || shader_type == Shader::Ui {
+        let descriptor_sets = if shader_type == Shader::PushConstant {
             create_descriptor_set(
                 &devices.logical.device,
                 descriptor_pool,
@@ -157,29 +157,26 @@ impl GraphicsPipeline {
 
 fn create_descriptor_set_layout(device: &Device, shader_type: Shader) -> vk::DescriptorSetLayout {
     let mut bindings: SmallVec<[vk::DescriptorSetLayoutBinding; 2]> = smallvec![
-        vk::DescriptorSetLayoutBinding::builder()
+        vk::DescriptorSetLayoutBinding::default()
             .binding(0)
             .descriptor_count(1)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .stage_flags(vk::ShaderStageFlags::VERTEX)
-            .build(),
-        vk::DescriptorSetLayoutBinding::builder()
+            .stage_flags(vk::ShaderStageFlags::VERTEX),
+        vk::DescriptorSetLayoutBinding::default()
             .binding(1)
             .descriptor_count(1)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-            .build(),
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT),
     ];
-    if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
-        bindings = smallvec![vk::DescriptorSetLayoutBinding::builder()
+    if shader_type == Shader::PushConstant {
+        bindings = smallvec![vk::DescriptorSetLayoutBinding::default()
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .stage_flags(vk::ShaderStageFlags::FRAGMENT)
             .binding(0)
-            .descriptor_count(1)
-            .build()];
+            .descriptor_count(1)];
     };
 
-    let layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+    let layout_info = vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings);
 
     unsafe {
         device
@@ -190,17 +187,15 @@ fn create_descriptor_set_layout(device: &Device, shader_type: Shader) -> vk::Des
 
 fn create_descriptor_pool(device: &Device, swap_chain_image_count: u32) -> vk::DescriptorPool {
     let pool_sizes = &[
-        vk::DescriptorPoolSize::builder()
+        vk::DescriptorPoolSize::default()
             .ty(vk::DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(swap_chain_image_count)
-            .build(),
-        vk::DescriptorPoolSize::builder()
+            .descriptor_count(swap_chain_image_count),
+        vk::DescriptorPoolSize::default()
             .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(swap_chain_image_count)
-            .build(),
+            .descriptor_count(swap_chain_image_count),
     ];
 
-    let pool_info = vk::DescriptorPoolCreateInfo::builder()
+    let pool_info = vk::DescriptorPoolCreateInfo::default()
         .pool_sizes(pool_sizes)
         .max_sets(swap_chain_image_count);
 
@@ -235,7 +230,7 @@ fn create_shader_module(device: &Device, path: &str) -> vk::ShaderModule {
     let mut file = std::fs::File::open(path).unwrap();
     let spv = ash::util::read_spv(&mut file).unwrap();
 
-    let create_info = vk::ShaderModuleCreateInfo::builder().code(&spv);
+    let create_info = vk::ShaderModuleCreateInfo::default().code(&spv);
 
     unsafe {
         device
@@ -257,55 +252,48 @@ fn create_pipeline_and_layout(
 
     let shader_modules = create_shader_stages(shader_type, device);
 
-    let binding_description = vk::VertexInputBindingDescription::builder()
+    let binding_description = vk::VertexInputBindingDescription::default()
         .binding(0)
         .stride(mem::size_of::<Vertex>().try_into().unwrap())
         .input_rate(vk::VertexInputRate::VERTEX);
 
     let mut attribute_descriptions: SmallVec<[vk::VertexInputAttributeDescription; 2]> = smallvec![
-        vk::VertexInputAttributeDescription::builder()
+        vk::VertexInputAttributeDescription::default()
             .binding(0)
             .location(0)
             .format(vk::Format::R32G32B32_SFLOAT)
-            .offset(offset_of!(Vertex, pos) as u32)
-            .build(),
-        vk::VertexInputAttributeDescription::builder()
+            .offset(offset_of!(Vertex, pos) as u32),
+        vk::VertexInputAttributeDescription::default()
             .binding(0)
             .location(1)
             .format(vk::Format::R32G32B32_SFLOAT)
-            .offset(offset_of!(Vertex, colour) as u32)
-            .build(),
+            .offset(offset_of!(Vertex, colour) as u32),
     ];
 
-    if shader_type != Shader::Vertex
-        && shader_type != Shader::Ui
-        && shader_type != Shader::PushConstant
-    {
+    if shader_type != Shader::Vertex && shader_type != Shader::PushConstant {
         attribute_descriptions.extend([
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .binding(0)
                 .location(2)
                 .format(vk::Format::R32G32B32_SFLOAT)
-                .offset(offset_of!(Vertex, normal) as u32)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
+                .offset(offset_of!(Vertex, normal) as u32),
+            vk::VertexInputAttributeDescription::default()
                 .binding(0)
                 .location(3)
                 .format(vk::Format::R32G32_SFLOAT)
-                .offset(offset_of!(Vertex, tex_coord) as u32)
-                .build(),
+                .offset(offset_of!(Vertex, tex_coord) as u32),
         ]);
     }
 
-    let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
+    let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::default()
         .vertex_binding_descriptions(std::slice::from_ref(&binding_description))
         .vertex_attribute_descriptions(&attribute_descriptions);
 
-    let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
+    let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::default()
         .topology(topology.into())
         .primitive_restart_enable(false);
 
-    let view_port = vk::Viewport::builder()
+    let view_port = vk::Viewport::default()
         .x(0.)
         .y(0.)
         .width(swap_chain.extent.width as f32)
@@ -313,15 +301,15 @@ fn create_pipeline_and_layout(
         .min_depth(0.)
         .max_depth(1.);
 
-    let scissor = vk::Rect2D::builder()
+    let scissor = vk::Rect2D::default()
         .offset(vk::Offset2D::default())
         .extent(swap_chain.extent);
 
-    let view_port_state = vk::PipelineViewportStateCreateInfo::builder()
+    let view_port_state = vk::PipelineViewportStateCreateInfo::default()
         .viewports(std::slice::from_ref(&view_port))
         .scissors(std::slice::from_ref(&scissor));
 
-    let rasterizer = vk::PipelineRasterizationStateCreateInfo::builder()
+    let rasterizer = vk::PipelineRasterizationStateCreateInfo::default()
         .depth_clamp_enable(false)
         .rasterizer_discard_enable(false)
         .polygon_mode(vk::PolygonMode::FILL)
@@ -333,17 +321,14 @@ fn create_pipeline_and_layout(
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 
-    let mut multi_sampling = vk::PipelineMultisampleStateCreateInfo::builder()
+    let multi_sampling = vk::PipelineMultisampleStateCreateInfo::default()
         .rasterization_samples(devices.physical.samples)
         .sample_shading_enable(true)
         .min_sample_shading(0.2)
         .alpha_to_coverage_enable(false)
         .alpha_to_one_enable(false);
-    // if shader_type == Shader::Ui {
-    //     multi_sampling = multi_sampling.rasterization_samples(vk::SampleCountFlags::TYPE_1)
-    // }
 
-    let stencil_state = vk::StencilOpState::builder()
+    let stencil_state = vk::StencilOpState::default()
         .fail_op(vk::StencilOp::KEEP)
         .pass_op(vk::StencilOp::KEEP)
         .depth_fail_op(vk::StencilOp::KEEP)
@@ -352,18 +337,18 @@ fn create_pipeline_and_layout(
         .write_mask(0)
         .reference(0);
 
-    let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
+    let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::default()
         .depth_test_enable(true)
         .depth_write_enable(true)
         .depth_compare_op(vk::CompareOp::LESS)
         .depth_bounds_test_enable(false)
         .stencil_test_enable(false)
-        .front(*stencil_state)
-        .back(*stencil_state)
+        .front(stencil_state)
+        .back(stencil_state)
         .min_depth_bounds(0.)
         .max_depth_bounds(1.);
 
-    let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
+    let color_blend_attachment = vk::PipelineColorBlendAttachmentState::default()
         .color_write_mask(vk::ColorComponentFlags::RGBA)
         .blend_enable(true)
         .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
@@ -373,21 +358,21 @@ fn create_pipeline_and_layout(
         .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
         .alpha_blend_op(vk::BlendOp::ADD);
 
-    let color_blending = vk::PipelineColorBlendStateCreateInfo::builder()
+    let color_blending = vk::PipelineColorBlendStateCreateInfo::default()
         .logic_op_enable(false)
         .logic_op(vk::LogicOp::COPY)
         .attachments(std::slice::from_ref(&color_blend_attachment))
         .blend_constants([0., 0., 0., 0.]);
 
-    let mut pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
+    let mut pipeline_layout_info = vk::PipelineLayoutCreateInfo::default()
         .set_layouts(std::slice::from_ref(descriptor_set_layout));
 
-    let push_constant_range = vk::PushConstantRange::builder()
+    let push_constant_range = vk::PushConstantRange::default()
         .stage_flags(vk::ShaderStageFlags::VERTEX)
         // .size(std::mem::size_of::<Push>().try_into().unwrap())
         .size(64)
         .offset(0);
-    if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
+    if shader_type == Shader::PushConstant {
         pipeline_layout_info =
             pipeline_layout_info.push_constant_ranges(std::slice::from_ref(&push_constant_range));
     }
@@ -395,15 +380,27 @@ fn create_pipeline_and_layout(
     let dynamic_states = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
 
     let dynamic_state_create_info =
-        vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
+        vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
 
     unsafe {
         let layout = device
             .create_pipeline_layout(&pipeline_layout_info, None)
             .expect("Failed to create pipeline layout!");
 
-        let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
-            .stages(&shader_modules.stages)
+        let entry_point = &CStr::from_bytes_with_nul(b"main\0").unwrap();
+        let stages = [
+            vk::PipelineShaderStageCreateInfo::default()
+                .stage(vk::ShaderStageFlags::VERTEX)
+                .module(shader_modules.vert)
+                .name(entry_point),
+            vk::PipelineShaderStageCreateInfo::default()
+                .stage(vk::ShaderStageFlags::FRAGMENT)
+                .module(shader_modules.frag)
+                .name(entry_point),
+        ];
+
+        let pipeline_info = vk::GraphicsPipelineCreateInfo::default()
+            .stages(&stages)
             .vertex_input_state(&vertex_input_info)
             .input_assembly_state(&input_assembly)
             .viewport_state(&view_port_state)
@@ -418,7 +415,7 @@ fn create_pipeline_and_layout(
             .depth_stencil_state(&depth_stencil);
 
         let mut pipeline_cache = None;
-        if shader_type == Shader::Ui || shader_type == Shader::PushConstant {
+        if shader_type == Shader::PushConstant {
             let pipeline_cache_create_info = vk::PipelineCacheCreateInfo::default();
             pipeline_cache = Some(
                 device
@@ -460,7 +457,6 @@ pub unsafe fn destroy_shader_modules(
 pub(crate) struct ShaderModules {
     pub vert: vk::ShaderModule,
     pub frag: vk::ShaderModule,
-    pub stages: [vk::PipelineShaderStageCreateInfo; 2],
 }
 
 pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> ShaderModules {
@@ -475,19 +471,7 @@ pub(crate) fn create_shader_stages(shader_type: Shader, device: &Device) -> Shad
         &format!("./crates/lambda_internal/src/shaders/{shader_folder}/frag.spv"),
     );
 
-    let entry_point = &CStr::from_bytes_with_nul(b"main\0").unwrap();
-    let stages = [
-        *vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::VERTEX)
-            .module(vert)
-            .name(entry_point),
-        *vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::FRAGMENT)
-            .module(frag)
-            .name(entry_point),
-    ];
-
-    ShaderModules { vert, frag, stages }
+    ShaderModules { vert, frag }
 }
 
 fn create_descriptor_set(
@@ -496,12 +480,12 @@ fn create_descriptor_set(
     texture: &Texture,
 ) -> Vec<vk::DescriptorSet> {
     // Descriptor Set Layout
-    let set_layout_bindings = vk::DescriptorSetLayoutBinding::builder()
+    let set_layout_bindings = vk::DescriptorSetLayoutBinding::default()
         .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
         .stage_flags(vk::ShaderStageFlags::FRAGMENT)
         .binding(0)
         .descriptor_count(1);
-    let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::builder()
+    let descriptor_layout = vk::DescriptorSetLayoutCreateInfo::default()
         .bindings(std::slice::from_ref(&set_layout_bindings));
     let descriptor_set_layout = unsafe {
         device
@@ -510,7 +494,7 @@ fn create_descriptor_set(
     };
 
     // Descriptor Set
-    let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+    let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::default()
         .descriptor_pool(descriptor_pool)
         .set_layouts(std::slice::from_ref(&descriptor_set_layout));
     let descriptor_set = unsafe {
@@ -518,11 +502,11 @@ fn create_descriptor_set(
             .allocate_descriptor_sets(&descriptor_set_alloc_info)
             .expect("Could not allocate descriptor set!")[0]
     };
-    let font_descriptor = vk::DescriptorImageInfo::builder()
+    let font_descriptor = vk::DescriptorImageInfo::default()
         .sampler(texture.sampler)
         .image_view(texture.view)
         .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-    let write_descriptor_set = vk::WriteDescriptorSet::builder()
+    let write_descriptor_set = vk::WriteDescriptorSet::default()
         .dst_set(descriptor_set)
         .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
         .dst_binding(0)
@@ -542,16 +526,15 @@ fn create_descriptor_sets(
 ) -> Vec<vk::DescriptorSet> {
     let layouts = vec![descriptor_layout; swap_chain_image_count];
 
-    let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+    let alloc_info = vk::DescriptorSetAllocateInfo::default()
         .descriptor_pool(descriptor_pool)
         .set_layouts(&layouts);
 
     let image_info = texture.as_ref().map(|texture| {
-        vk::DescriptorImageInfo::builder()
+        vk::DescriptorImageInfo::default()
             .sampler(texture.sampler)
             .image_view(texture.view)
             .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-            .build()
     });
 
     let descriptor_sets = unsafe {
@@ -561,27 +544,25 @@ fn create_descriptor_sets(
     };
 
     for i in 0..swap_chain_image_count {
-        let buffer_info = vk::DescriptorBufferInfo::builder()
+        let buffer_info = vk::DescriptorBufferInfo::default()
             .buffer(uniform_buffers[i].buffer)
             .offset(0)
             .range(mem::size_of::<UniformBufferObject>().try_into().unwrap());
 
         let mut descriptor_writes: SmallVec<[vk::WriteDescriptorSet; 2]> =
-            smallvec![vk::WriteDescriptorSet::builder()
+            smallvec![vk::WriteDescriptorSet::default()
                 .dst_set(descriptor_sets[i])
                 .dst_binding(0)
                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-                .buffer_info(std::slice::from_ref(&buffer_info))
-                .build()];
+                .buffer_info(std::slice::from_ref(&buffer_info))];
 
-        if let Some(image_info) = image_info {
+        if let Some(ref image_info) = image_info {
             descriptor_writes.push(
-                vk::WriteDescriptorSet::builder()
+                vk::WriteDescriptorSet::default()
                     .dst_set(descriptor_sets[i])
                     .dst_binding(1)
                     .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                    .image_info(std::slice::from_ref(&image_info))
-                    .build(),
+                    .image_info(std::slice::from_ref(&image_info)),
             )
         }
 

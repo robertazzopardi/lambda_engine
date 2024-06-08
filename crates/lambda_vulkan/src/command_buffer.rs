@@ -2,7 +2,7 @@ use crate::{
     any_as_u8_slice, device, frame_buffer::FrameBuffers, renderer::RenderPass,
     swap_chain::SwapChain, utility::InstanceDevices, Shader, VulkanObject,
 };
-use ash::{extensions::khr::Surface, vk, Device};
+use ash::{khr::surface, vk, Device};
 use derive_more::{Deref, From};
 
 #[derive(new, Debug, From, Deref, Clone)]
@@ -13,7 +13,7 @@ pub struct CommandPool(vk::CommandPool);
 
 pub fn create_command_pool(
     instance_devices: &InstanceDevices,
-    surface_loader: &Surface,
+    surface_loader: &surface::Instance,
     surface: &vk::SurfaceKHR,
 ) -> CommandPool {
     let InstanceDevices { devices, instance } = instance_devices;
@@ -21,7 +21,7 @@ pub fn create_command_pool(
     let queue_family_indices =
         device::find_queue_family(instance, devices.physical.device, surface_loader, surface);
 
-    let pool_info = vk::CommandPoolCreateInfo::builder()
+    let pool_info = vk::CommandPoolCreateInfo::default()
         .queue_family_index(queue_family_indices.graphics_family.unwrap())
         .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
@@ -44,7 +44,7 @@ pub(crate) fn create_command_buffers(
 ) -> CommandBuffers {
     let device = &instance_devices.devices.logical.device;
 
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::default()
         .command_pool(**command_pool)
         .command_buffer_count(swap_chain.images.len() as u32)
         .level(vk::CommandBufferLevel::PRIMARY);
@@ -57,7 +57,7 @@ pub(crate) fn create_command_buffers(
 
     let vk::Extent2D { width, height } = swap_chain.extent;
 
-    let view_port = vk::Viewport::builder()
+    let view_port = vk::Viewport::default()
         .x(0.)
         .y(0.)
         .width(width as f32)
@@ -65,11 +65,11 @@ pub(crate) fn create_command_buffers(
         .min_depth(0.)
         .max_depth(1.);
 
-    let scissor = vk::Rect2D::builder()
+    let scissor = vk::Rect2D::default()
         .offset(vk::Offset2D::default())
         .extent(swap_chain.extent);
 
-    let begin_info = vk::CommandBufferBeginInfo::builder();
+    let begin_info = vk::CommandBufferBeginInfo::default();
 
     let clear_values = [
         vk::ClearValue {
@@ -78,10 +78,7 @@ pub(crate) fn create_command_buffers(
             },
         },
         vk::ClearValue {
-            depth_stencil: vk::ClearDepthStencilValue::builder()
-                .depth(1.)
-                .stencil(0)
-                .build(),
+            depth_stencil: vk::ClearDepthStencilValue::default().depth(1.).stencil(0),
         },
     ];
 
@@ -91,10 +88,10 @@ pub(crate) fn create_command_buffers(
                 .begin_command_buffer(command_buffers[i], &begin_info)
                 .expect("Failed to begin recording command buffer!");
 
-            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            let render_pass_begin_info = vk::RenderPassBeginInfo::default()
                 .render_pass(render_pass.0)
                 .framebuffer(frame_buffers[i])
-                .render_area(*scissor)
+                .render_area(scissor)
                 .clear_values(&clear_values);
 
             device.cmd_begin_render_pass(
@@ -108,7 +105,7 @@ pub(crate) fn create_command_buffers(
             device.cmd_set_scissor(command_buffers[i], 0, std::slice::from_ref(&scissor));
 
             objects.iter().for_each(|object| {
-                if object.shader == Shader::PushConstant || object.shader == Shader::Ui {
+                if object.shader == Shader::PushConstant {
                     let push = any_as_u8_slice(&object.model);
                     device.cmd_push_constants(
                         command_buffers[i],
@@ -136,13 +133,13 @@ pub fn begin_single_time_command(
     device: &ash::Device,
     command_pool: &vk::CommandPool,
 ) -> vk::CommandBuffer {
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::default()
         .command_buffer_count(1)
         .command_pool(*command_pool)
         .level(vk::CommandBufferLevel::PRIMARY);
 
     let command_buffer_begin_info =
-        vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
     let command_buffer = unsafe {
         device
@@ -167,7 +164,7 @@ pub fn end_single_time_command(
 ) {
     let buffers_to_submit = [buffer];
 
-    let submit_info = vk::SubmitInfo::builder().command_buffers(&buffers_to_submit);
+    let submit_info = vk::SubmitInfo::default().command_buffers(&buffers_to_submit);
 
     unsafe {
         device
@@ -203,7 +200,7 @@ pub(crate) unsafe fn bind_index_and_vertex_buffers(
         object.graphics_pipeline.features.pipeline,
     );
 
-    let descriptor_sets = if object.shader == Shader::Ui || object.shader == Shader::PushConstant {
+    let descriptor_sets = if object.shader == Shader::PushConstant {
         std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[0])
     } else {
         std::slice::from_ref(&object.graphics_pipeline.descriptors.sets[index])

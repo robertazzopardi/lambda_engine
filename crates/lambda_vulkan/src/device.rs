@@ -1,10 +1,7 @@
 use crate::{
     graphics_pipeline::GraphicsPipeline, sync_objects::MAX_FRAMES_IN_FLIGHT, VulkanObject,
 };
-use ash::{
-    extensions::khr::{Surface, Swapchain},
-    vk, Device, Instance,
-};
+use ash::{khr::surface, vk, Device, Instance};
 
 #[derive(new, Debug, Clone)]
 pub struct PhysicalDeviceProperties {
@@ -44,7 +41,11 @@ pub struct Devices {
 }
 
 impl Devices {
-    pub fn new(instance: &Instance, surface: &vk::SurfaceKHR, surface_loader: &Surface) -> Self {
+    pub fn new(
+        instance: &Instance,
+        surface: &vk::SurfaceKHR,
+        surface_loader: &surface::Instance,
+    ) -> Self {
         let physical = pick_physical_device(instance, surface, surface_loader);
 
         let logical = create_logical_device(instance, &physical, surface, surface_loader);
@@ -56,7 +57,7 @@ impl Devices {
 pub(crate) fn find_queue_family(
     instance: &Instance,
     physical_device: vk::PhysicalDevice,
-    surface_loader: &Surface,
+    surface_loader: &surface::Instance,
     surface: &vk::SurfaceKHR,
 ) -> QueueFamilyIndices {
     let queue_families =
@@ -96,7 +97,7 @@ fn create_logical_device(
     instance: &Instance,
     physical_device_properties: &PhysicalDeviceProperties,
     surface: &vk::SurfaceKHR,
-    surface_loader: &Surface,
+    surface_loader: &surface::Instance,
 ) -> LogicalDeviceFeatures {
     let PhysicalDeviceProperties {
         device,
@@ -110,7 +111,7 @@ fn create_logical_device(
     //     portability_subset_extension.as_ptr(),
     // ];
 
-    let features = vk::PhysicalDeviceFeatures::builder()
+    let features = vk::PhysicalDeviceFeatures::default()
         .sampler_anisotropy(true)
         .sample_rate_shading(true)
         .fill_mode_non_solid(true)
@@ -118,17 +119,17 @@ fn create_logical_device(
 
     let priorities = 1.0;
 
-    let queue_info = vk::DeviceQueueCreateInfo::builder()
+    let queue_info = vk::DeviceQueueCreateInfo::default()
         .queue_family_index(*queue_family_index)
         .queue_priorities(std::slice::from_ref(&priorities));
 
     let device_extension_names_raw = [
-        Swapchain::name().as_ptr(),
+        vk::KHR_SWAPCHAIN_NAME.as_ptr(),
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        vk::KhrPortabilitySubsetFn::name().as_ptr(),
+        vk::KHR_PORTABILITY_SUBSET_NAME.as_ptr(),
     ];
 
-    let device_create_info = vk::DeviceCreateInfo::builder()
+    let device_create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(std::slice::from_ref(&queue_info))
         .enabled_extension_names(&device_extension_names_raw)
         .enabled_features(&features);
@@ -150,7 +151,7 @@ fn create_logical_device(
 fn pick_physical_device(
     instance: &Instance,
     surface: &vk::SurfaceKHR,
-    surface_loader: &Surface,
+    surface_loader: &surface::Instance,
 ) -> PhysicalDeviceProperties {
     unsafe {
         let devices = instance

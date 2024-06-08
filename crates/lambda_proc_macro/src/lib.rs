@@ -5,16 +5,34 @@ mod utility;
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::ToTokens;
+use syn::parse::{Parse, ParseStream};
+
+struct Input {
+    v: Vec<syn::Ident>,
+}
+
+impl Parse for Input {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let mut v = Vec::new();
+
+        while !input.is_empty() {
+            let arg = input.parse::<syn::Ident>()?;
+            v.push(arg);
+        }
+
+        Ok(Self { v })
+    }
+}
 
 #[proc_macro_attribute]
 pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
+    let args = syn::parse_macro_input!(args as Input);
 
     let mut actions = Vec::new();
     let mut vertices_and_indices = Vec::new();
     let mut features = Vec::new();
 
-    args.clone().into_iter().for_each(|arg| {
+    args.v.clone().into_iter().for_each(|arg| {
         let cased = arg.to_token_stream().to_string().to_case(Case::Snake);
 
         let cased_tokens = syn::Ident::new(&cased, proc_macro2::Span::call_site());
@@ -30,6 +48,8 @@ pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let vis = item_struct.vis;
     let struct_name = item_struct.ident;
+
+    let args = args.v;
 
     quote::quote! {
         #[lambda_internal::lambda_geometry::enum_dispatch(GeomBuilder, Behavior)]
@@ -65,8 +85,8 @@ pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
-    let shape_type = args.first().unwrap();
+    let args = syn::parse_macro_input!(args as Input);
+    let shape_type = args.v.first().unwrap();
 
     let item_struct = syn::parse_macro_input!(input as syn::ItemStruct);
 

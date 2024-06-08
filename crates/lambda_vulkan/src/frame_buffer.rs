@@ -37,7 +37,7 @@ pub(crate) fn create_frame_buffer<const N: usize>(
     width: u32,
     height: u32,
 ) -> vk::Framebuffer {
-    let frame_buffer_info = vk::FramebufferCreateInfo::builder()
+    let frame_buffer_info = vk::FramebufferCreateInfo::default()
         .render_pass(render_pass.0)
         .attachments(attachments)
         .width(width)

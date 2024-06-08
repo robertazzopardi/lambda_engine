@@ -15,9 +15,9 @@ pub struct SyncObjects {
 
 impl SyncObjects {
     pub fn new(device: &Device) -> Self {
-        let semaphore_create_info = vk::SemaphoreCreateInfo::builder();
+        let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
-        let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+        let fence_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
 
         let mut image_available_semaphores: ImageSemaphoreArray = Default::default();
         let mut render_finished_semaphores: ImageSemaphoreArray = Default::default();

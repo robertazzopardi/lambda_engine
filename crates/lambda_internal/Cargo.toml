@@ -5,8 +5,8 @@ edition = "2021"
 include = ["src/**/*"]
 
 [dependencies]
-derive_builder = "0.11.2"
-winit = "0.26.1"
+derive_builder = "0.20.0"
+winit = "0.30.0"
 lambda_camera = { path = "../lambda_camera" }
 lambda_geometry = { path = "../lambda_geometry" }
 lambda_proc_macro = { path = "../lambda_proc_macro" }

@@ -1,5 +1,5 @@
 use crate::utility::EntryInstance;
-use ash::{extensions::ext::DebugUtils, vk, Entry};
+use ash::{ext::debug_utils, vk, Entry};
 use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 
@@ -9,31 +9,33 @@ pub(crate) const VALIDATION_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
 #[derive(Clone)]
 pub(crate) struct Debug {
     pub messenger: vk::DebugUtilsMessengerEXT,
-    pub utils: DebugUtils,
+    pub utils: debug_utils::Instance,
 }
 
 pub(crate) fn check_validation_layer_support(entry: &Entry) -> bool {
-    let mut layer_properties = entry
-        .enumerate_instance_layer_properties()
-        .expect("Could not enumerate instance layer properties");
+    unsafe {
+        let mut layer_properties = entry
+            .enumerate_instance_layer_properties()
+            .expect("Could not enumerate instance layer properties");
 
-    for validation_layer in VALIDATION_LAYERS.into_iter() {
-        let mut found_layer = false;
+        for validation_layer in VALIDATION_LAYERS.into_iter() {
+            let mut found_layer = false;
 
-        for property in layer_properties.iter_mut() {
-            let terminated_string =
-                String::from_utf8(property.layer_name.into_iter().map(|b| b as u8).collect())
-                    .unwrap();
-            let property_layer = terminated_string.trim_matches(char::from(0));
+            for property in layer_properties.iter_mut() {
+                let terminated_string =
+                    String::from_utf8(property.layer_name.into_iter().map(|b| b as u8).collect())
+                        .unwrap();
+                let property_layer = terminated_string.trim_matches(char::from(0));
 
-            if validation_layer == property_layer {
-                found_layer = true;
-                break;
+                if validation_layer == property_layer {
+                    found_layer = true;
+                    break;
+                }
             }
-        }
 
-        if !found_layer {
-            return false;
+            if !found_layer {
+                return false;
+            }
         }
     }
 
@@ -43,7 +45,7 @@ pub(crate) fn check_validation_layer_support(entry: &Entry) -> bool {
 /// # Safety
 ///
 /// Expand on the safety of this function
-unsafe extern "system" fn vulkan_debug_callback(
+pub unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
@@ -83,10 +85,10 @@ pub struct MessageLevel {
 }
 
 impl MessageLevel {
-    /// MessageLevel Builder
+    /// MessageLevel default
     ///
     /// Info message severity enabled by default
-    pub const fn builder() -> Self {
+    pub const fn default() -> Self {
         Self {
             flags: vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
         }
@@ -111,13 +113,13 @@ impl MessageLevel {
     }
 
     pub fn all() -> Self {
-        Self::builder().error().verbose().warning()
+        Self::default().error().verbose().warning()
     }
 }
 
 impl Default for MessageLevel {
     fn default() -> Self {
-        Self::builder().error().verbose().warning()
+        Self::default().error().verbose().warning()
     }
 }
 
@@ -128,10 +130,10 @@ pub struct MessageType {
 }
 
 impl MessageType {
-    /// MessageType Builder
+    /// MessageType default
     ///
     /// General type message enabled by default
-    pub const fn builder() -> Self {
+    pub const fn default() -> Self {
         Self {
             flags: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL,
         }
@@ -150,13 +152,13 @@ impl MessageType {
     }
 
     pub fn all() -> Self {
-        Self::builder().validation().performance()
+        Self::default().validation().performance()
     }
 }
 
 impl Default for MessageType {
     fn default() -> Self {
-        Self::builder().validation().performance()
+        Self::default().validation().performance()
     }
 }
 
@@ -172,22 +174,16 @@ impl Debugger {
     }
 }
 
-#[inline]
-pub(crate) fn create_debug_messenger(debugging: Debugger) -> vk::DebugUtilsMessengerCreateInfoEXT {
-    vk::DebugUtilsMessengerCreateInfoEXT::builder()
-        .message_severity(debugging.message_level.flags)
-        .message_type(debugging.message_type.flags)
-        .pfn_user_callback(Some(vulkan_debug_callback))
-        .build()
-}
-
 pub(crate) fn debugger(
     EntryInstance { entry, instance }: &EntryInstance,
     debug_properties: Debugger,
 ) -> Debug {
-    let create_info = create_debug_messenger(debug_properties);
+    let create_info = vk::DebugUtilsMessengerCreateInfoEXT::default()
+        .message_severity(debug_properties.message_level.flags)
+        .message_type(debug_properties.message_type.flags)
+        .pfn_user_callback(Some(vulkan_debug_callback));
 
-    let utils = DebugUtils::new(entry, instance);
+    let utils = debug_utils::Instance::new(entry, instance);
 
     let messenger = unsafe {
         utils

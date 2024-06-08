@@ -19,5 +19,8 @@ fn main() {
             .build(),
     );
 
-    Engine::default().geometries(vec![plane]).build().run()
+    Engine::default()
+        //.geometries(vec![plane])
+        // .build()
+        .run()
 }
