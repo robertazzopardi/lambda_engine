@@ -1,4 +1,4 @@
-use lambda_engine::prelude::*;
+use wave_engine::prelude::*;
 
 const SATURN_TEXTURE: &str = "./examples/assets/textures/2k_saturn.jpg";
 const RING_TEXTURE: &str = "./examples/assets/textures/2k_saturn_ring_alpha.png";

@@ -1,4 +1,4 @@
-use lambda_engine::prelude::*;
+use wave_engine::prelude::*;
 
 const VIKING_MODEL: &str = "./examples/assets/models/viking_room_model/viking_room.obj";
 const VIKING_MODEL_TEXTURE: &str = "./examples/assets/models/viking_room_model/viking_room.png";

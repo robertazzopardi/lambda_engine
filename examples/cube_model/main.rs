@@ -1,4 +1,4 @@
-use lambda_engine::prelude::*;
+use wave_engine::prelude::*;
 
 const CUBE_MODEL: &str = "./examples/assets/models/cube_model/cube.obj";
 const SATURN_TEXTURE: &str = "./examples/assets/textures/2k_saturn.jpg";

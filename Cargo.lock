@@ -880,105 +880,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lambda_camera"
-version = "0.1.0"
-dependencies = [
- "derive_builder",
- "lambda_space",
- "lambda_window",
- "nalgebra",
- "winit",
-]
-
-[[package]]
-name = "lambda_engine"
-version = "0.1.0"
-dependencies = [
- "lambda_internal",
-]
-
-[[package]]
-name = "lambda_geometry"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "derive_builder",
- "derive_more",
- "enum_dispatch",
- "lambda_space",
- "lambda_vulkan",
- "nalgebra",
- "tobj",
-]
-
-[[package]]
-name = "lambda_internal"
-version = "0.1.0"
-dependencies = [
- "derive_builder",
- "lambda_camera",
- "lambda_geometry",
- "lambda_proc_macro",
- "lambda_space",
- "lambda_vulkan",
- "lambda_window",
- "winit",
-]
-
-[[package]]
-name = "lambda_proc_macro"
-version = "0.1.0"
-dependencies = [
- "convert_case 0.6.0",
- "proc-macro2",
- "quote",
- "syn 2.0.66",
-]
-
-[[package]]
-name = "lambda_space"
-version = "0.1.0"
-dependencies = [
- "derive-new",
- "derive_more",
- "nalgebra",
-]
-
-[[package]]
-name = "lambda_tooling"
-version = "0.1.0"
-
-[[package]]
-name = "lambda_vulkan"
-version = "0.1.0"
-dependencies = [
- "ash",
- "ash-window",
- "derive-new",
- "derive_builder",
- "derive_more",
- "image",
- "lambda_camera",
- "lambda_space",
- "lambda_window",
- "memoffset",
- "nalgebra",
- "smallvec",
- "winit",
-]
-
-[[package]]
-name = "lambda_window"
-version = "0.1.0"
-dependencies = [
- "ash",
- "ash-window",
- "lambda_space",
- "nalgebra",
- "winit",
-]
-
-[[package]]
 name = "lebe"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2197,6 +2098,105 @@ name = "wasm-bindgen-shared"
 version = "0.2.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
+
+[[package]]
+name = "wave_camera"
+version = "0.1.0"
+dependencies = [
+ "derive_builder",
+ "nalgebra",
+ "wave_space",
+ "wave_window",
+ "winit",
+]
+
+[[package]]
+name = "wave_engine"
+version = "0.1.0"
+dependencies = [
+ "wave_internal",
+]
+
+[[package]]
+name = "wave_geometry"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "derive_builder",
+ "derive_more",
+ "enum_dispatch",
+ "nalgebra",
+ "tobj",
+ "wave_space",
+ "wave_vulkan",
+]
+
+[[package]]
+name = "wave_internal"
+version = "0.1.0"
+dependencies = [
+ "derive_builder",
+ "wave_camera",
+ "wave_geometry",
+ "wave_proc_macro",
+ "wave_space",
+ "wave_vulkan",
+ "wave_window",
+ "winit",
+]
+
+[[package]]
+name = "wave_proc_macro"
+version = "0.1.0"
+dependencies = [
+ "convert_case 0.6.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
+name = "wave_space"
+version = "0.1.0"
+dependencies = [
+ "derive-new",
+ "derive_more",
+ "nalgebra",
+]
+
+[[package]]
+name = "wave_tooling"
+version = "0.1.0"
+
+[[package]]
+name = "wave_vulkan"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "ash-window",
+ "derive-new",
+ "derive_builder",
+ "derive_more",
+ "image",
+ "memoffset",
+ "nalgebra",
+ "smallvec",
+ "wave_camera",
+ "wave_space",
+ "wave_window",
+ "winit",
+]
+
+[[package]]
+name = "wave_window"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "ash-window",
+ "nalgebra",
+ "wave_space",
+ "winit",
+]
 
 [[package]]
 name = "wayland-backend"

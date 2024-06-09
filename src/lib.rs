@@ -1,1 +1,1 @@
-pub use lambda_internal::*;
+pub use wave_internal::*;

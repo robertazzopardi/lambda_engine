@@ -1,21 +1,21 @@
 [package]
-name = "lambda_engine"
+name = "wave_engine"
 version = "0.1.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "rendering"]
 description = "A simple vulkan based game engine"
-homepage = "https://github.com/robertazzopardi/lambda_engine"
+homepage = "https://github.com/robertazzopardi/wave_engine"
 keywords = ["game", "engine", "gamedev", "graphics"]
 license = "MIT"
 readme = "README.md"
 include = ["src/**/*"]
-repository = "https://github.com/robertazzopardi/lambda_engine"
+repository = "https://github.com/robertazzopardi/wave_engine"
 
 [workspace]
 members = ["crates/*"]
 
 [dependencies]
-lambda_internal = { path = "crates/lambda_internal", default-features = false }
+wave_internal = { path = "crates/wave_internal", default-features = false }
 
 [features]
 vulkan = []

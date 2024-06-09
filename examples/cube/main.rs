@@ -1,4 +1,4 @@
-use lambda_engine::prelude::*;
+use wave_engine::prelude::*;
 
 #[geometry(Cube)]
 struct BoxGeom;

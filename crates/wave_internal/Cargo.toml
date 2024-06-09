@@ -1,0 +1,15 @@
+[package]
+name = "wave_internal"
+version = "0.1.0"
+edition = "2021"
+include = ["src/**/*"]
+
+[dependencies]
+derive_builder = "0.20.0"
+winit = "0.30.0"
+wave_camera = { path = "../wave_camera" }
+wave_geometry = { path = "../wave_geometry" }
+wave_proc_macro = { path = "../wave_proc_macro" }
+wave_space = { path = "../wave_space" }
+wave_vulkan = { path = "../wave_vulkan" }
+wave_window = { path = "../wave_window" }

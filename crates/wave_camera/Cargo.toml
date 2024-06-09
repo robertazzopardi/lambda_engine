@@ -1,0 +1,13 @@
+[package]
+name = "wave_camera"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+derive_builder = "0.20.0"
+nalgebra = "0.32.5"
+winit = "0.30.0"
+wave_space = { path = "../wave_space" }
+wave_window = { path = "../wave_window" }

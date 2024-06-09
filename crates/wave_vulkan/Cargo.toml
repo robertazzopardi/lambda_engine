@@ -1,0 +1,21 @@
+[package]
+name = "wave_vulkan"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ash = "0.38.0"
+ash-window = "0.13.0"
+derive_builder = "0.20.0"
+derive_more = "0.99.17"
+derive-new = "0.6.0"
+memoffset = "0.9.1"
+nalgebra = "0.32.5"
+smallvec = "1.13.2"
+winit = "0.30.0"
+image = "0.25.1"
+wave_camera = { path = "../wave_camera" }
+wave_space = { path = "../wave_space" }
+wave_window = { path = "../wave_window" }
