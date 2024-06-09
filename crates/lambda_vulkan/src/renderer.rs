@@ -1,11 +1,4 @@
-use crate::{
-    resource,
-    swap_chain::{recreate_swap_chain, SwapChain},
-    sync_objects::MAX_FRAMES_IN_FLIGHT,
-    uniform_buffer::update_uniform_buffers,
-    utility::InstanceDevices,
-    Vulkan,
-};
+use crate::{resource, swap_chain::SwapChain, utility::InstanceDevices};
 use ash::vk;
 use winit::window::Window;
 

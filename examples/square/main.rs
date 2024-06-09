@@ -19,8 +19,7 @@ fn main() {
             .build(),
     );
 
-    Engine::default()
-        //.geometries(vec![plane])
-        // .build()
-        .run()
+    let mut engine = Engine::default();
+    engine.add_geometry(&[plane]);
+    engine.run();
 }
