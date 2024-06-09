@@ -21,5 +21,5 @@ fn main() {
             .build(),
     );
 
-    Engine::default().geometries(vec![cube]).build().run()
+    Engine::default().with_geometry(&[cube]).run()
 }

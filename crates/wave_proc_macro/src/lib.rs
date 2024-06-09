@@ -5,7 +5,10 @@ mod utility;
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::parse::{Parse, ParseStream};
+use syn::{
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+};
 
 struct Input {
     v: Vec<syn::Ident>,
@@ -15,10 +18,11 @@ impl Parse for Input {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut v = Vec::new();
 
-        while !input.is_empty() {
-            let arg = input.parse::<syn::Ident>()?;
-            v.push(arg);
-        }
+        Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(input)?
+            .iter()
+            .for_each(|arg| {
+                v.push(arg.clone());
+            });
 
         Ok(Self { v })
     }
@@ -32,7 +36,7 @@ pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut vertices_and_indices = Vec::new();
     let mut features = Vec::new();
 
-    args.v.clone().into_iter().for_each(|arg| {
+    args.v.iter().for_each(|arg| {
         let cased = arg.to_token_stream().to_string().to_case(Case::Snake);
 
         let cased_tokens = syn::Ident::new(&cased, proc_macro2::Span::call_site());

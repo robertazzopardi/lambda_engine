@@ -1,7 +1,7 @@
+use std::time::{Duration, Instant};
 use wave_camera::camera::CameraInternal;
 use wave_vulkan::Vulkan;
 use wave_window::window::{Input, RenderBackend};
-use std::time::{Duration, Instant};
 
 pub trait Fps {
     fn duration(self) -> Duration;
@@ -58,7 +58,6 @@ impl Time {
     ) {
         while self.accumulator >= self.delta {
             camera.update(input, self.delta.as_secs_f32());
-            // backend.ubo.update(&backend.swap_chain.extent, camera);
             renderer.update(camera.matrix());
 
             self.accumulator -= self.delta;

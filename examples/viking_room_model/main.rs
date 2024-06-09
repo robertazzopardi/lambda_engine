@@ -28,8 +28,5 @@ fn main() {
             .build(),
     );
 
-    Engine::default()
-        .geometries(vec![viking_model])
-        .build()
-        .run()
+    Engine::default().with_geometry(&[viking_model]).run()
 }

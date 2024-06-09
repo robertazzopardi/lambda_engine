@@ -29,8 +29,5 @@ fn main() {
             .build(),
     );
 
-    Engine::default()
-        .geometries(vec![monkey_model])
-        .build()
-        .run()
+    Engine::default().with_geometry(&[monkey_model]).run()
 }

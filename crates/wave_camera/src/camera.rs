@@ -1,8 +1,8 @@
 use derive_builder::Builder;
-use wave_space::space::{self, Pos3};
-use wave_window::window::Input;
 use nalgebra::{matrix, point, vector, Matrix4, Point3, UnitQuaternion, Vector3};
 use std::{cmp::PartialEq, f32::consts::FRAC_PI_2};
+use wave_space::space::{self, Pos3};
+use wave_window::window::Input;
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
@@ -70,6 +70,7 @@ impl CameraInternal {
     }
 
     pub fn update(&mut self, input: &mut Input, dt: f32) {
+        dbg!(&input);
         let (_, pitch, yaw) = self.rotation.euler_angles();
 
         let look = input.look;

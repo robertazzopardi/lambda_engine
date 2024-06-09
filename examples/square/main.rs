@@ -19,7 +19,5 @@ fn main() {
             .build(),
     );
 
-    let mut engine = Engine::default();
-    engine.add_geometry(&[plane]);
-    engine.run();
+    Engine::default().with_geometry(&[plane]).run();
 }

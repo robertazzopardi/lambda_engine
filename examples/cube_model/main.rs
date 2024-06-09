@@ -28,9 +28,8 @@ fn main() {
             .build(),
     );
 
-    Engine::<Geom>::default()
-        .geometries(vec![model])
-        .debugging(Some(Debugger::all()))
-        .build()
+    Engine::default()
+        .with_geometry(&[model])
+        // .debugging(Some(Debugger::all()))
         .run()
 }

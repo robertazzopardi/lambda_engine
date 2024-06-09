@@ -16,7 +16,6 @@ pub struct Engine {
     resolution: Resolution,
     camera: Option<CameraInternal>,
     debugging: Option<Debugger>,
-    input: Input,
 }
 
 impl Default for Engine {
@@ -29,13 +28,12 @@ impl Default for Engine {
             resolution: Resolution::ResFullHD,
             camera: Some(Camera::default().build()),
             debugging: None,
-            input: Input::default(),
         }
     }
 }
 
 impl Engine {
-    pub fn with_geometry<T: GeomBuilder + Behavior>(&mut self, geometries: &[T]) -> &mut Self {
+    pub fn with_geometry<T: GeomBuilder + Behavior>(mut self, geometries: &[T]) -> Self {
         geometries
             .iter()
             .for_each(|geom| self.geometries.push(geom.features()));
@@ -43,28 +41,20 @@ impl Engine {
         self
     }
 
-    #[inline]
-    pub fn add_geometry<T: GeomBuilder + Behavior>(&mut self, geometries: &[T]) -> &mut Self {
-        self.with_geometry(geometries)
-    }
-
     pub fn run(self) {
-        let mut display = Display::new(Box::new(self));
-
-        display.start();
+        Display::new(Box::new(self)).start();
     }
 }
 
 impl Drawable for Engine {
-    fn draw(&mut self, window: &Window, renderer: &mut Box<dyn RenderBackend>) {
+    fn draw(&mut self, window: &Window, input: &mut Input, renderer: &mut Box<dyn RenderBackend>) {
         self.time.tick();
 
         // self.geometries.iter_mut().for_each(Behavior::actions);
 
-        // backend.update_objects(&self.get_geom_properties());
+        // backend.update_objects(&self.geometries);
 
-        self.time
-            .step(&mut self.camera.unwrap(), &mut self.input, renderer);
+        self.time.step(&mut self.camera.unwrap(), input, renderer);
 
         renderer.render(
             window,

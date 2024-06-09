@@ -1,16 +1,16 @@
-use wave_space::space;
 use nalgebra::Matrix4;
+use wave_space::space;
 use winit::{
     application::ApplicationHandler,
-    dpi::{LogicalSize, PhysicalPosition, Size},
-    event::{DeviceEvent, ElementState, Event, MouseScrollDelta, WindowEvent},
+    dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size},
+    event::{DeviceEvent, DeviceId, MouseScrollDelta, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    keyboard::KeyCode,
-    window::{CursorIcon, Window, WindowAttributes, WindowId},
+    keyboard::{Key, NamedKey},
+    window::{Cursor, CursorIcon, Window, WindowId},
 };
 
 pub trait Drawable {
-    fn draw(&mut self, window: &Window, renderer: &mut Box<dyn RenderBackend>);
+    fn draw(&mut self, window: &Window, input: &mut Input, renderer: &mut Box<dyn RenderBackend>);
 
     fn create_renderer(&self, window: &Window) -> Box<dyn RenderBackend>;
 }
@@ -61,32 +61,28 @@ impl From<Resolution> for LogicalSize<f64> {
 
 pub struct Display {
     pub window: Option<Window>,
-    pub drawable: Box<dyn Drawable>,
+    drawable: Box<dyn Drawable>,
     pub renderer: Option<Box<dyn RenderBackend>>,
+    pub input: Input,
 }
 
 impl ApplicationHandler for Display {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let logical_size: LogicalSize<f64> = Resolution::ResHD.into();
 
-        //         // NOTE/TODO add these properties to the public api
-        //         window.set_resizable(false);
-        //         window.set_cursor_icon(CursorIcon::Crosshair);
-        //         // let PhysicalSize { width, height } = window.inner_size();
-        //         // window
-        //         //     .set_cursor_position(PhysicalPosition::new(width / 2, height / 2))
-        //         //     .expect("Could not center the mouse");
-        //         // window
-        //         //     .set_cursor_grab(true)
-        //         //     .expect("Could not container mouse");
-        //         // window.set_cursor_visible(false);
+        let window_attributes = Window::default_attributes()
+            .with_inner_size(Size::Logical(logical_size))
+            .with_resizable(false)
+            .with_cursor(Cursor::Icon(CursorIcon::Crosshair));
 
-        let mut window_attributes =
-            Window::default_attributes().with_inner_size(Size::Logical(logical_size));
-
-        let mut window = event_loop
+        let window = event_loop
             .create_window(window_attributes)
             .expect("Could not create window");
+
+        let PhysicalSize { width, height } = window.inner_size();
+        window
+            .set_cursor_position(PhysicalPosition::new(width / 2, height / 2))
+            .expect("Could not center the cursor");
 
         self.renderer = Some(self.drawable.create_renderer(&window));
 
@@ -114,7 +110,7 @@ impl ApplicationHandler for Display {
                     // the program to gracefully handle redraws requested by the OS.
 
                     if let Some(renderer) = &mut self.renderer {
-                        self.drawable.draw(&window, renderer);
+                        self.drawable.draw(&window, &mut self.input, renderer);
                     }
 
                     // Queue a RedrawRequested event.
@@ -125,7 +121,49 @@ impl ApplicationHandler for Display {
                     window.request_redraw();
                 }
             }
+            WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } => {
+                // Dispatch actions only on press.
+                if event.state.is_pressed() {
+                    process_keyboard(&mut self.input, &event.logical_key);
+                }
+
+                dbg!("here");
+            }
+            WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+            } => {}
             _ => (),
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        match event {
+            DeviceEvent::MouseWheel { delta, .. } => {
+                self.input.mouse_scroll = -match delta {
+                    MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.,
+                    MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                        scroll as f32
+                    }
+                };
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                if !self.input.first_mouse_event.0 {
+                    self.input.mouse_delta = delta
+                }
+                self.input.first_mouse_event.0 = false;
+            }
+            _ => {}
         }
     }
 
@@ -140,6 +178,7 @@ impl Display {
     pub fn new(drawable: Box<dyn Drawable>) -> Self {
         let display = Self {
             drawable,
+            input: Input::default(),
             window: None,
             renderer: None,
         };
@@ -162,23 +201,23 @@ impl Display {
     }
 }
 
-fn process_keyboard(input: &mut Input, key: KeyCode, state: ElementState) {
-    let amount = (state == ElementState::Pressed) as i8;
-    match key {
-        KeyCode::KeyW | KeyCode::ArrowUp => input.look.set_forward(amount),
-        KeyCode::KeyS | KeyCode::ArrowDown => {
+fn process_keyboard(input: &mut Input, key: &Key) {
+    let amount = 1;
+    match key.as_ref() {
+        Key::Character("w") | Key::Named(NamedKey::ArrowUp) => input.look.set_forward(amount),
+        Key::Character("s") | Key::Named(NamedKey::ArrowDown) => {
             input.look.set_back(amount);
         }
-        KeyCode::KeyA | KeyCode::ArrowLeft => {
+        Key::Character("a") | Key::Named(NamedKey::ArrowLeft) => {
             input.look.set_left(amount);
         }
-        KeyCode::KeyD | KeyCode::ArrowRight => {
+        Key::Character("d") | Key::Named(NamedKey::ArrowRight) => {
             input.look.set_right(amount);
         }
-        KeyCode::Space => {
+        Key::Named(NamedKey::Space) => {
             input.look.set_up(amount);
         }
-        KeyCode::ShiftLeft => {
+        Key::Named(NamedKey::Shift) => {
             input.look.set_down(amount);
         }
         _ => (),
@@ -196,67 +235,11 @@ impl Default for FirstCheck {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Input {
-    pub mouse_pressed: bool,
     pub mouse_scroll: f32,
     pub mouse_delta: (f64, f64),
     pub look: space::LookDirection,
     first_mouse_event: FirstCheck,
 }
-
-// pub fn handle_inputs(
-//     control_flow: &mut ControlFlow,
-//     event: Event<()>,
-//     window: &Window,
-//     input: &mut Input,
-// ) {
-//     *control_flow = ControlFlow::Poll;
-//
-//     match event {
-//         Event::WindowEvent {
-//             window_id,
-//             event: WindowEvent::CloseRequested,
-//         } => {
-//             if window_id == window.id() {
-//                 *control_flow = ControlFlow::Exit;
-//             }
-//         }
-//         Event::WindowEvent {
-//             event:
-//                 WindowEvent::KeyboardInput {
-//                     input:
-//                         KeyboardInput {
-//                             virtual_keycode: Some(key),
-//                             state,
-//                             ..
-//                         },
-//                     ..
-//                 },
-//             ..
-//         } => process_keyboard(input, key, state),
-//         Event::WindowEvent {
-//             event: WindowEvent::MouseInput { state, .. },
-//             ..
-//         } => input.mouse_pressed = state == ElementState::Pressed,
-//         Event::DeviceEvent { event, .. } => match event {
-//             DeviceEvent::MouseWheel { delta, .. } => {
-//                 input.mouse_scroll = -match delta {
-//                     MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.,
-//                     MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
-//                         scroll as f32
-//                     }
-//                 };
-//             }
-//             DeviceEvent::MouseMotion { delta } => {
-//                 if !input.first_mouse_event.0 {
-//                     input.mouse_delta = delta
-//                 }
-//                 input.first_mouse_event.0 = false;
-//             }
-//             _ => {}
-//         },
-//         _ => {}
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
