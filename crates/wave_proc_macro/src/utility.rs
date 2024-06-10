@@ -1,6 +1,6 @@
 use quote::quote;
 
-pub(crate) fn geometry_fields() -> proc_macro2::TokenStream {
+pub fn geometry_fields() -> proc_macro2::TokenStream {
     let mut struct_fields = proc_macro2::TokenStream::default();
     struct_fields.extend(quote! {
         pub texture: wave_internal::wave_vulkan::TextureBuffer,

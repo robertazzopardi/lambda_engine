@@ -30,6 +30,9 @@ compile_shaders: clean_shaders
 
 check:
 	cargo clippy -- \
-		-D warnings \
-		-D clippy::pedantic \
-		-D clippy::nursery
+	    -Dwarnings \
+            -Dclippy::pedantic \
+            -Dclippy::nursery \
+            -Dclippy::correctness \
+            -Dclippy::complexity \
+            -Dclippy::perf 

@@ -10,11 +10,11 @@ use syn::{
     punctuated::Punctuated,
 };
 
-struct Input {
+struct InputVec {
     v: Vec<syn::Ident>,
 }
 
-impl Parse for Input {
+impl Parse for InputVec {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut v = Vec::new();
 
@@ -30,7 +30,7 @@ impl Parse for Input {
 
 #[proc_macro_attribute]
 pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = syn::parse_macro_input!(args as Input);
+    let args = syn::parse_macro_input!(args as InputVec);
 
     let mut actions = Vec::new();
     let mut vertices_and_indices = Vec::new();
@@ -87,10 +87,20 @@ pub fn geometry_system(args: TokenStream, input: TokenStream) -> TokenStream {
     .into()
 }
 
+struct Input {
+    v: syn::Ident,
+}
+
+impl Parse for Input {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        Ok(Self { v: input.parse()? })
+    }
+}
+
 #[proc_macro_attribute]
 pub fn geometry(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = syn::parse_macro_input!(args as Input);
-    let shape_type = args.v.first().unwrap();
+    let shape_type = args.v;
 
     let item_struct = syn::parse_macro_input!(input as syn::ItemStruct);
 

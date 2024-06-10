@@ -40,7 +40,8 @@ pub enum Resolution {
 }
 
 impl Resolution {
-    pub fn sized(w: u32, h: u32) -> LogicalSize<u32> {
+    #[must_use]
+    pub const fn sized(w: u32, h: u32) -> LogicalSize<u32> {
         LogicalSize::new(w, h)
     }
 }
@@ -48,13 +49,13 @@ impl Resolution {
 impl From<Resolution> for LogicalSize<f64> {
     fn from(res: Resolution) -> Self {
         match res {
-            Resolution::ResSD => LogicalSize::new(640., 480.),
-            Resolution::ResHD => LogicalSize::new(1_280., 720.),
-            Resolution::ResFullHD => LogicalSize::new(1_920., 1_080.),
-            Resolution::ResQHD => LogicalSize::new(2_560., 1_440.),
-            Resolution::Res2K => LogicalSize::new(2_048., 1_080.),
-            Resolution::Res4K => LogicalSize::new(3_840., 2_160.),
-            Resolution::Res8K => LogicalSize::new(7_680., 4_320.),
+            Resolution::ResSD => Self::new(640., 480.),
+            Resolution::ResHD => Self::new(1_280., 720.),
+            Resolution::ResFullHD => Self::new(1_920., 1_080.),
+            Resolution::ResQHD => Self::new(2_560., 1_440.),
+            Resolution::Res2K => Self::new(2_048., 1_080.),
+            Resolution::Res4K => Self::new(3_840., 2_160.),
+            Resolution::Res8K => Self::new(7_680., 4_320.),
         }
     }
 }
@@ -95,7 +96,7 @@ impl ApplicationHandler for Display {
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
@@ -130,36 +131,32 @@ impl ApplicationHandler for Display {
                 if event.state.is_pressed() {
                     process_keyboard(&mut self.input, &event.logical_key);
                 }
-
-                dbg!("here");
             }
-            WindowEvent::MouseInput {
-                device_id,
-                state,
-                button,
-            } => {}
+            // WindowEvent::MouseInput {
+            //     device_id,
+            //     state,
+            //     button,
+            // } => {}
             _ => (),
         }
     }
 
     fn device_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
-        device_id: DeviceId,
+        _event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
         event: DeviceEvent,
     ) {
         match event {
             DeviceEvent::MouseWheel { delta, .. } => {
                 self.input.mouse_scroll = -match delta {
-                    MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.,
-                    MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
-                        scroll as f32
-                    }
+                    MouseScrollDelta::LineDelta(_, scroll) => f64::from(scroll * 100.),
+                    MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => scroll,
                 };
             }
             DeviceEvent::MouseMotion { delta } => {
                 if !self.input.first_mouse_event.0 {
-                    self.input.mouse_delta = delta
+                    self.input.mouse_delta = delta;
                 }
                 self.input.first_mouse_event.0 = false;
             }
@@ -167,7 +164,7 @@ impl ApplicationHandler for Display {
         }
     }
 
-    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
         if let Some(renderer) = &self.renderer {
             renderer.destroy();
         }
@@ -175,8 +172,8 @@ impl ApplicationHandler for Display {
 }
 
 impl Display {
+    #[must_use]
     pub fn new(drawable: Box<dyn Drawable>) -> Self {
-        
         Self {
             drawable,
             input: Input::default(),
@@ -186,18 +183,21 @@ impl Display {
     }
 
     pub fn start(&mut self) {
-        let event_loop = EventLoop::new().unwrap();
+        if let Ok(event_loop) = EventLoop::new() {
+            // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
+            // dispatched any events. This is ideal for games and similar applications.
+            event_loop.set_control_flow(ControlFlow::Poll);
 
-        // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
-        // dispatched any events. This is ideal for games and similar applications.
-        event_loop.set_control_flow(ControlFlow::Poll);
+            // ControlFlow::Wait pauses the event loop if no events are available to process.
+            // This is ideal for non-game applications that only update in response to user
+            // input, and uses significantly less power/CPU time than ControlFlow::Poll.
+            // event_loop.set_control_flow(ControlFlow::Wait);
 
-        // ControlFlow::Wait pauses the event loop if no events are available to process.
-        // This is ideal for non-game applications that only update in response to user
-        // input, and uses significantly less power/CPU time than ControlFlow::Poll.
-        // event_loop.set_control_flow(ControlFlow::Wait);
-
-        event_loop.run_app(self).expect("Could not start app");
+            match event_loop.run_app(self) {
+                Ok(()) => (),
+                Err(e) => eprintln!("Error: {e}"),
+            }
+        }
     }
 }
 
@@ -235,7 +235,7 @@ impl Default for FirstCheck {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Input {
-    pub mouse_scroll: f32,
+    pub mouse_scroll: f64,
     pub mouse_delta: (f64, f64),
     pub look: space::LookDirection,
     first_mouse_event: FirstCheck,
@@ -243,7 +243,6 @@ pub struct Input {
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn test_resolution() {
@@ -258,26 +257,26 @@ mod tests {
         // let res_custom = Resolution::sized(3_442, 2_349);
         //
         // let logical_res: LogicalSize<u32> = res_2k.into();
-        // assert_eq!(logical_res, LogicalSize::new(2_048, 1_080));
+        // assert_eq!(logical_res, Self::new(2_048, 1_080));
         //
         // let logical_res: LogicalSize<u32> = res_4k.into();
-        // assert_eq!(logical_res, LogicalSize::new(3_840, 2_160));
+        // assert_eq!(logical_res, Self::new(3_840, 2_160));
         //
         // let logical_res: LogicalSize<u32> = res_8k.into();
-        // assert_eq!(logical_res, LogicalSize::new(7_680, 4_320));
+        // assert_eq!(logical_res, Self::new(7_680, 4_320));
         //
         // let logical_res: LogicalSize<u32> = res_fhd.into();
-        // assert_eq!(logical_res, LogicalSize::new(1_920, 1_080));
+        // assert_eq!(logical_res, Self::new(1_920, 1_080));
         //
         // let logical_res: LogicalSize<u32> = res_hd.into();
-        // assert_eq!(logical_res, LogicalSize::new(1_280, 720));
+        // assert_eq!(logical_res, Self::new(1_280, 720));
         //
         // let logical_res: LogicalSize<u32> = res_qhd.into();
-        // assert_eq!(logical_res, LogicalSize::new(2_560, 1_440));
+        // assert_eq!(logical_res, Self::new(2_560, 1_440));
         //
         // let logical_res: LogicalSize<u32> = res_sd.into();
-        // assert_eq!(logical_res, LogicalSize::new(640, 480));
+        // assert_eq!(logical_res, Self::new(640, 480));
         //
-        // assert_eq!(res_custom, LogicalSize::new(3_442, 2_349));
+        // assert_eq!(res_custom, Self::new(3_442, 2_349));
     }
 }

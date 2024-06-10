@@ -10,6 +10,12 @@ pub mod prelude {
     pub use crate::window::{Display, Resolution};
 }
 
+/// Create a Vulkan surface from a window.
+///
+/// # Panics
+///
+/// Panics if the surface cannot be created.
+#[must_use]
 pub fn create_surface(window: &Window, instance: &Instance, entry: &Entry) -> vk::SurfaceKHR {
     unsafe {
         ash_window::create_surface(
