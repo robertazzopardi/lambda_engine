@@ -1,6 +1,5 @@
 use crate::utility::EntryInstance;
 use ash::{ext::debug_utils, vk, Entry};
-use derive_new::new;
 use std::{borrow::Cow, ffi::CStr};
 
 pub(crate) const ENABLE_VALIDATION_LAYERS: bool = cfg!(debug_assertions);
@@ -162,13 +161,20 @@ impl Default for MessageType {
     }
 }
 
-#[derive(new, Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Debugger {
     pub message_level: MessageLevel,
     pub message_type: MessageType,
 }
 
 impl Debugger {
+    pub fn new(message_level: MessageLevel, message_type: MessageType) -> Self {
+        Self {
+            message_level,
+            message_type,
+        }
+    }
+
     pub fn all() -> Self {
         Self::new(MessageLevel::all(), MessageType::all())
     }

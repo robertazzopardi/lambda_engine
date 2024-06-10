@@ -3,23 +3,49 @@ use crate::{
 };
 use ash::{khr::surface, vk, Device, Instance};
 
-#[derive(new, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct PhysicalDeviceProperties {
     pub device: vk::PhysicalDevice,
     pub queue_family_index: u32,
     pub samples: vk::SampleCountFlags,
 }
 
-#[derive(Debug, new, Clone)]
+impl PhysicalDeviceProperties {
+    pub fn new(
+        device: vk::PhysicalDevice,
+        queue_family_index: u32,
+        samples: vk::SampleCountFlags,
+    ) -> Self {
+        Self {
+            device,
+            queue_family_index,
+            samples,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Queues {
     pub present: vk::Queue,
     pub graphics: vk::Queue,
 }
 
-#[derive(new, Clone)]
+impl Queues {
+    pub fn new(present: vk::Queue, graphics: vk::Queue) -> Self {
+        Self { present, graphics }
+    }
+}
+
+#[derive(Clone)]
 pub struct LogicalDeviceFeatures {
     pub device: Device,
     pub queues: Queues,
+}
+
+impl LogicalDeviceFeatures {
+    pub fn new(device: Device, queues: Queues) -> Self {
+        Self { device, queues }
+    }
 }
 
 #[derive(Default, Debug)]

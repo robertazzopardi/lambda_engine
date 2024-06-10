@@ -15,7 +15,7 @@ pub struct Engine {
     time: Time,
     resolution: Resolution,
     camera: Option<CameraInternal>,
-    debugging: Option<Debugger>,
+    debugger: Option<Debugger>,
 }
 
 impl Default for Engine {
@@ -27,7 +27,7 @@ impl Default for Engine {
             time: Time::default(),
             resolution: Resolution::ResFullHD,
             camera: Some(Camera::default().build()),
-            debugging: None,
+            debugger: None,
         }
     }
 }
@@ -38,6 +38,11 @@ impl Engine {
             .iter()
             .for_each(|geom| self.geometries.push(geom.features()));
 
+        self
+    }
+
+    pub fn with_debugger(mut self, debugger: Debugger) -> Self {
+        self.debugger = Some(debugger);
         self
     }
 
@@ -68,6 +73,6 @@ impl Drawable for Engine {
     where
         Self: Sized,
     {
-        Box::new(Vulkan::new(window, &self.geometries, self.debugging))
+        Box::new(Vulkan::new(window, &self.geometries, self.debugger))
     }
 }

@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate derive_new;
-
 mod buffer;
 mod command_buffer;
 pub mod debug;
@@ -25,9 +22,6 @@ use derive_more::{Deref, DerefMut};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
-use wave_camera::prelude::CameraInternal;
-use wave_space::space::{Vertex, VerticesAndIndices};
-use wave_window::{prelude::Display, window::RenderBackend};
 use nalgebra::{matrix, Matrix4, Vector3};
 use renderer::RenderPass;
 use resource::Resources;
@@ -36,6 +30,9 @@ use sync_objects::SyncObjects;
 use texture::{create_buffer, ImageProperties, Texture};
 use uniform_buffer::{update_uniform_buffers, UniformBufferObject};
 use utility::{EntryInstance, ImageInfo, InstanceDevices};
+use wave_camera::prelude::CameraInternal;
+use wave_space::space::{Vertex, VerticesAndIndices};
+use wave_window::{prelude::Display, window::RenderBackend};
 use winit::window::Window;
 
 pub mod prelude {

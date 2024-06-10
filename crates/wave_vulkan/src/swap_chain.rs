@@ -12,11 +12,24 @@ use ash::{
 };
 use winit::window::Window;
 
-#[derive(new)]
 pub(crate) struct SwapChainSupport {
     capabilities: SurfaceCapabilitiesKHR,
     surface_formats: Vec<SurfaceFormatKHR>,
     present_modes: Vec<PresentModeKHR>,
+}
+
+impl SwapChainSupport {
+    pub fn new(
+        capabilities: SurfaceCapabilitiesKHR,
+        surface_formats: Vec<SurfaceFormatKHR>,
+        present_modes: Vec<PresentModeKHR>,
+    ) -> Self {
+        Self {
+            capabilities,
+            surface_formats,
+            present_modes,
+        }
+    }
 }
 
 #[derive(Clone)]

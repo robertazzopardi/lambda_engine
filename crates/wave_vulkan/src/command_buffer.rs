@@ -5,10 +5,10 @@ use crate::{
 use ash::{khr::surface, vk, Device};
 use derive_more::{Deref, From};
 
-#[derive(new, Debug, From, Deref, Clone)]
+#[derive(Debug, From, Deref, Clone)]
 pub struct CommandBuffers(Vec<vk::CommandBuffer>);
 
-#[derive(new, Debug, From, Deref, Clone)]
+#[derive(Debug, From, Deref, Clone)]
 pub struct CommandPool(vk::CommandPool);
 
 pub fn create_command_pool(

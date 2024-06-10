@@ -30,6 +30,6 @@ fn main() {
 
     Engine::default()
         .with_geometry(&[model])
-        // .debugging(Some(Debugger::all()))
+        .with_debugger(Debugger::all())
         .run()
 }

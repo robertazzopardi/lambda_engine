@@ -1,12 +1,18 @@
 use crate::{command_buffer, device::Devices, memory, texture, utility::InstanceDevices};
 use ash::vk;
-use wave_space::space::{Vertex, VerticesAndIndices};
 use std::mem::size_of;
+use wave_space::space::{Vertex, VerticesAndIndices};
 
-#[derive(new, Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
+}
+
+impl Buffer {
+    pub fn new(buffer: vk::Buffer, memory: vk::DeviceMemory) -> Self {
+        Self { buffer, memory }
+    }
 }
 
 #[derive(Default, Debug, Clone)]

@@ -10,22 +10,29 @@ use ash::{
 use std::ffi::CString;
 use winit::{raw_window_handle::HasDisplayHandle, window::Window};
 
-#[derive(new, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Image {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
-    #[new(value = "1")]
     pub mip_levels: u32,
 }
 
 impl Image {
+    pub fn new(image: vk::Image, memory: vk::DeviceMemory) -> Self {
+        Self {
+            image,
+            memory,
+            mip_levels: 1,
+        }
+    }
+
     pub fn mip_levels(mut self, mip_levels: u32) -> Self {
         self.mip_levels = mip_levels;
         self
     }
 }
 
-#[derive(new, Debug)]
+#[derive(Debug)]
 pub struct ImageInfo {
     dimensions: (u32, u32),
     mip_levels: u32,
@@ -36,7 +43,29 @@ pub struct ImageInfo {
     properties: vk::MemoryPropertyFlags,
 }
 
-#[derive(new, Clone)]
+impl ImageInfo {
+    pub fn new(
+        dimensions: (u32, u32),
+        mip_levels: u32,
+        samples: vk::SampleCountFlags,
+        format: vk::Format,
+        tiling: vk::ImageTiling,
+        usage: vk::ImageUsageFlags,
+        properties: vk::MemoryPropertyFlags,
+    ) -> Self {
+        Self {
+            dimensions,
+            mip_levels,
+            samples,
+            format,
+            tiling,
+            usage,
+            properties,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct InstanceDevices {
     pub instance: Instance,
     pub devices: Devices,

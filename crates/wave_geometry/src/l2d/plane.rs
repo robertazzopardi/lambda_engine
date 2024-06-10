@@ -1,10 +1,10 @@
 use crate::{vector2, VerticesAndIndices, WHITE};
 use derive_builder::Builder;
+use nalgebra::{Matrix4, Point3, UnitQuaternion, Vector3};
 use wave_space::{
     space::{Vertex, Vertices},
     vertex,
 };
-use nalgebra::{Matrix4, Point3, UnitQuaternion, Vector3};
 
 const SQUARE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
@@ -60,18 +60,18 @@ pub(crate) fn square_from_vertices(vertices: &[[f32; 3]]) -> Vertices {
         tex_coords.extend(tex_coord);
     }
 
-    Vertices::new(
-        vertices
-            .iter()
-            .enumerate()
-            .map(|(index, vert)| {
-                vertex!(
-                    Point3::new(vert[0], vert[1], vert[2]),
-                    WHITE,
-                    Vector3::zeros(),
-                    tex_coords[index]
-                )
-            })
-            .collect::<Vec<Vertex>>(),
-    )
+    let verts = vertices
+        .iter()
+        .enumerate()
+        .map(|(index, vert)| {
+            vertex!(
+                Point3::new(vert[0], vert[1], vert[2]),
+                WHITE,
+                Vector3::zeros(),
+                tex_coords[index]
+            )
+        })
+        .collect::<Vec<Vertex>>();
+
+    Vertices::from(verts)
 }

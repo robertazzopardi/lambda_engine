@@ -1,6 +1,5 @@
 use crate::{memory, VulkanObjects};
 use ash::{vk, Device};
-use wave_camera::prelude::CameraInternal;
 use nalgebra::{Matrix, Matrix4, Perspective3};
 
 #[derive(Debug, PartialEq, Default)]
@@ -9,11 +8,17 @@ pub struct UniformBufferObject {
     proj: Matrix4<f32>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, new, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct UniformBuffer {
     model: Matrix4<f32>,
     view: Matrix4<f32>,
     proj: Matrix4<f32>,
+}
+
+impl UniformBuffer {
+    pub fn new(model: Matrix4<f32>, view: Matrix4<f32>, proj: Matrix4<f32>) -> Self {
+        Self { model, view, proj }
+    }
 }
 
 impl UniformBufferObject {

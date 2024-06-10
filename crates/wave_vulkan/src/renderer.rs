@@ -1,13 +1,8 @@
 use crate::{resource, swap_chain::SwapChain, utility::InstanceDevices};
 use ash::vk;
-use winit::window::Window;
 
-#[derive(Default, Debug, Clone, new)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct RenderPass(pub vk::RenderPass);
-
-pub trait Renderer {
-    fn render(&mut self, window: &Window);
-}
 
 pub(crate) fn create_render_pass(
     instance_devices: &InstanceDevices,

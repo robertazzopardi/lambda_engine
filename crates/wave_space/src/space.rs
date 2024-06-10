@@ -53,7 +53,7 @@ impl std::ops::AddAssign<Vector3<f32>> for Pos3 {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Clone, Copy, new)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct Rotation {
     pub x: f32,
     pub y: f32,
@@ -101,7 +101,7 @@ impl LookDirection {
     }
 }
 
-#[derive(Clone, Copy, Debug, new)]
+#[derive(Clone, Copy, Debug)]
 pub struct Vertex {
     pub pos: Point3<f32>,
     pub colour: Vector3<f32>,
@@ -109,14 +109,36 @@ pub struct Vertex {
     pub tex_coord: Vector2<f32>,
 }
 
-#[derive(new, Clone, Default, Debug, From, Deref, DerefMut)]
+impl Vertex {
+    pub fn new(
+        pos: Point3<f32>,
+        colour: Vector3<f32>,
+        normal: Vector3<f32>,
+        tex_coord: Vector2<f32>,
+    ) -> Self {
+        Self {
+            pos,
+            colour,
+            normal,
+            tex_coord,
+        }
+    }
+}
+
+#[derive(Clone, Default, Debug, From, Deref, DerefMut)]
 pub struct Vertices(Vec<Vertex>);
 
-#[derive(new, Clone, Default, Debug, From, Deref, DerefMut)]
+#[derive(Clone, Default, Debug, From, Deref, DerefMut)]
 pub struct Indices(Vec<u16>);
 
-#[derive(new, Clone, Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct VerticesAndIndices {
     pub vertices: Vertices,
     pub indices: Indices,
+}
+
+impl VerticesAndIndices {
+    pub fn new(vertices: Vertices, indices: Indices) -> Self {
+        Self { vertices, indices }
+    }
 }

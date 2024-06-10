@@ -8,4 +8,3 @@ edition = "2021"
 [dependencies]
 derive_more = "0.99.17"
 nalgebra = "0.32.5"
-derive-new = "0.6.0"

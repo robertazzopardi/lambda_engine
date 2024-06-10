@@ -10,8 +10,8 @@ pub(crate) fn find_memory_type(
         unsafe { instance.get_physical_device_memory_properties(devices.physical.device) };
 
     for i in 0..mem_properties.memory_type_count {
-        if ((1 << i) & type_filter) != 0
-            && mem_properties.memory_types[i as usize].property_flags & properties == properties
+        if (type_filter & (1 << i)) != 0
+            && (mem_properties.memory_types[i as usize].property_flags & properties) == properties
         {
             return i;
         }

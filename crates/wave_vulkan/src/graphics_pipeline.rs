@@ -8,10 +8,10 @@ use crate::{
     CullMode, ModelTopology, Shader,
 };
 use ash::{vk, Device};
-use wave_space::space::Vertex;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
 use std::{ffi::CStr, mem};
+use wave_space::space::Vertex;
 
 #[derive(Default, Debug, Clone)]
 pub struct Descriptor {
@@ -20,11 +20,25 @@ pub struct Descriptor {
     pub set_layout: vk::DescriptorSetLayout,
 }
 
-#[derive(new, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct GraphicsPipelineFeatures {
     pub pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
     pub cache: Option<vk::PipelineCache>,
+}
+
+impl GraphicsPipelineFeatures {
+    pub fn new(
+        pipeline: vk::Pipeline,
+        layout: vk::PipelineLayout,
+        cache: Option<vk::PipelineCache>,
+    ) -> Self {
+        Self {
+            pipeline,
+            layout,
+            cache,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
