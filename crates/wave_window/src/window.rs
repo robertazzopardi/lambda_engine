@@ -110,7 +110,7 @@ impl ApplicationHandler for Display {
                     // the program to gracefully handle redraws requested by the OS.
 
                     if let Some(renderer) = &mut self.renderer {
-                        self.drawable.draw(&window, &mut self.input, renderer);
+                        self.drawable.draw(window, &mut self.input, renderer);
                     }
 
                     // Queue a RedrawRequested event.
@@ -176,13 +176,13 @@ impl ApplicationHandler for Display {
 
 impl Display {
     pub fn new(drawable: Box<dyn Drawable>) -> Self {
-        let display = Self {
+        
+        Self {
             drawable,
             input: Input::default(),
             window: None,
             renderer: None,
-        };
-        display
+        }
     }
 
     pub fn start(&mut self) {
@@ -243,7 +243,7 @@ pub struct Input {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     #[test]
     fn test_resolution() {

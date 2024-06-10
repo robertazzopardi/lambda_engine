@@ -13,8 +13,8 @@ pub mod prelude {
 pub fn create_surface(window: &Window, instance: &Instance, entry: &Entry) -> vk::SurfaceKHR {
     unsafe {
         ash_window::create_surface(
-            &entry,
-            &instance,
+            entry,
+            instance,
             window.display_handle().unwrap().as_raw(),
             window.window_handle().unwrap().as_raw(),
             None,

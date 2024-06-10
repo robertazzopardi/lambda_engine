@@ -14,25 +14,24 @@ mod uniform_buffer;
 mod utility;
 
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
-use ash::{khr::surface, vk, Device};
-use buffer::{Buffer, ModelBuffers};
+use ash::{khr::surface, vk};
+use buffer::{ModelBuffers};
 use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
 use derive_more::{Deref, DerefMut};
 use device::Devices;
 use frame_buffer::FrameBuffers;
 use graphics_pipeline::GraphicsPipeline;
-use nalgebra::{matrix, Matrix4, Vector3};
+use nalgebra::{matrix, Matrix4};
 use renderer::RenderPass;
 use resource::Resources;
 use swap_chain::{recreate_swap_chain, SwapChain};
 use sync_objects::SyncObjects;
-use texture::{create_buffer, ImageProperties, Texture};
+use texture::{ImageProperties, Texture};
 use uniform_buffer::{update_uniform_buffers, UniformBufferObject};
 use utility::{EntryInstance, ImageInfo, InstanceDevices};
-use wave_camera::prelude::CameraInternal;
-use wave_space::space::{Vertex, VerticesAndIndices};
-use wave_window::{prelude::Display, window::RenderBackend};
+use wave_space::space::{VerticesAndIndices};
+use wave_window::{window::RenderBackend};
 use winit::window::Window;
 
 pub mod prelude {
@@ -268,7 +267,7 @@ impl Vulkan {
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
-        let mut objects = VulkanObjects(
+        let objects = VulkanObjects(
             geom_properties
                 .iter()
                 .map(|property| {

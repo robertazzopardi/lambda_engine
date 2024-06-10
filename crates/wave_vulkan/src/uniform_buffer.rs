@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn test_ubo_update() {
         let extent = vk::Extent2D::default().height(1920).width(1080);
-        let mut camera = Camera::default().pos(Pos3::new(5., 6., 7.)).build();
+        let camera = Camera::default().pos(Pos3::new(5., 6., 7.)).build();
         // let mut ubo = UniformBufferObject::new(&extent, &camera);
         //
         // camera.pos = Pos3::new(-5., -1., 3.);

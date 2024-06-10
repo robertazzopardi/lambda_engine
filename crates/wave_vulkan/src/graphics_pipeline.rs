@@ -576,7 +576,7 @@ fn create_descriptor_sets(
                     .dst_set(descriptor_sets[i])
                     .dst_binding(1)
                     .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                    .image_info(std::slice::from_ref(&image_info)),
+                    .image_info(std::slice::from_ref(image_info)),
             )
         }
 

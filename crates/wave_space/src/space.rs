@@ -1,5 +1,5 @@
-use derive_more::{AddAssign, Deref, DerefMut, From, Neg};
-use nalgebra::{point, vector, Point3, Vector2, Vector3};
+use derive_more::{Deref, DerefMut, From};
+use nalgebra::{vector, Point3, Vector2, Vector3};
 
 pub trait Pos {}
 
