@@ -5,7 +5,7 @@ pub mod utility;
 
 use derive_more::Deref;
 pub use enum_dispatch::enum_dispatch;
-use wave_space::space::{Vertex, VerticesAndIndices};
+use wave_space::space::{VerticesAndIndices};
 use wave_vulkan::GeomProperties;
 use nalgebra::{vector, Vector3};
 

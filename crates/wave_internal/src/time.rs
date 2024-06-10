@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 use wave_camera::camera::CameraInternal;
-use wave_vulkan::Vulkan;
 use wave_window::window::{Input, RenderBackend};
 
 pub trait Fps {

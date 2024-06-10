@@ -27,3 +27,9 @@ compile_shaders: clean_shaders
 		GLSLC $(call FIXPATH,$(SRC)/shaders/$$texture_type/shader.vert) -o $(call FIXPATH,$(SRC)/shaders/$$texture_type/vert.spv) ; \
 		GLSLC $(call FIXPATH,$(SRC)/shaders/$$texture_type/shader.frag) -o $(call FIXPATH,$(SRC)/shaders/$$texture_type/frag.spv) ; \
 	done
+
+check:
+	cargo clippy -- \
+		-D warnings \
+		-D clippy::pedantic \
+		-D clippy::nursery
