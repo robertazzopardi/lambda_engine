@@ -1,4 +1,11 @@
-GLSLC=$(VULKAN_SDK)/macOS/bin/glslc -O -std=450 --target-env=vulkan1.3
+OS_NAME := $(shell uname -s | tr A-Z a-z)
+
+GLSLC=glslc
+GLSLC_FLAGS=-O -std=450 --target-env=vulkan1.3
+
+ifeq ($(UNAME_S),Darwin)
+	GLSLC=$(VULKAN_SDK)/macOS/bin/glslc
+endif
 
 SRC							:= crates/wave_internal/src
 
@@ -24,8 +31,8 @@ clean_shaders:
 
 compile_shaders: clean_shaders
 	for texture_type in $(SHADER_FOLDERS) ; do \
-		GLSLC $(call FIXPATH,$(SRC)/shaders/$$texture_type/shader.vert) -o $(call FIXPATH,$(SRC)/shaders/$$texture_type/vert.spv) ; \
-		GLSLC $(call FIXPATH,$(SRC)/shaders/$$texture_type/shader.frag) -o $(call FIXPATH,$(SRC)/shaders/$$texture_type/frag.spv) ; \
+		$(GLSLC) $(GLSLC_FLAGS) $(call FIXPATH,$(SRC)/shaders/$$texture_type/shader.vert) -o $(call FIXPATH,$(SRC)/shaders/$$texture_type/vert.spv) ; \
+		$(GLSLC) $(GLSLC_FLAGS) $(call FIXPATH,$(SRC)/shaders/$$texture_type/shader.frag) -o $(call FIXPATH,$(SRC)/shaders/$$texture_type/frag.spv) ; \
 	done
 
 check:

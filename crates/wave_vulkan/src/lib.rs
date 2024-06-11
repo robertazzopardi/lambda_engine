@@ -15,7 +15,7 @@ mod utility;
 
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
 use ash::{khr::surface, vk};
-use buffer::{ModelBuffers};
+use buffer::ModelBuffers;
 use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
 use derive_more::{Deref, DerefMut};
@@ -30,8 +30,8 @@ use sync_objects::SyncObjects;
 use texture::{ImageProperties, Texture};
 use uniform_buffer::{update_uniform_buffers, UniformBufferObject};
 use utility::{EntryInstance, ImageInfo, InstanceDevices};
-use wave_space::space::{VerticesAndIndices};
-use wave_window::{window::RenderBackend};
+use wave_space::space::VerticesAndIndices;
+use wave_window::window::RenderBackend;
 use winit::window::Window;
 
 pub mod prelude {
@@ -479,9 +479,6 @@ impl VulkanObject {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct WindowSize(vk::Extent2D);
 
 #[inline]
 pub(crate) fn create_surface(entry_instance: &EntryInstance) -> surface::Instance {
