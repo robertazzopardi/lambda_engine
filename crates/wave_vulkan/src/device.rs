@@ -2,6 +2,7 @@ use crate::{
     graphics_pipeline::GraphicsPipeline, sync_objects::MAX_FRAMES_IN_FLIGHT, VulkanObject,
 };
 use ash::{khr::surface, vk, Device, Instance};
+use gpu_allocator::vulkan::Allocator;
 
 #[derive(Debug, Clone)]
 pub struct PhysicalDeviceProperties {
@@ -256,19 +257,36 @@ fn get_max_usable_sample_count(
 /// # Safety
 ///
 ///
-pub unsafe fn recreate_drop(graphics_pipeline: &GraphicsPipeline, device: &Device) {
+pub unsafe fn recreate_drop(allocator: &mut Allocator, object: VulkanObject, device: &Device) {
     for i in 0..MAX_FRAMES_IN_FLIGHT {
-        device.destroy_buffer(graphics_pipeline.uniform_buffers[i].buffer, None);
-        device.free_memory(graphics_pipeline.uniform_buffers[i].memory, None);
+        // device.destroy_buffer(graphics_pipeline.uniform_buffers[i].buffer, None);
+        // device.free_memory(graphics_pipeline.uniform_buffers[i].memory, None);
     }
 
-    device.destroy_descriptor_pool(graphics_pipeline.descriptors.pool, None);
+    for buffer in object.graphics_pipeline.uniform_buffers {
+        allocator.free(buffer.allocation).unwrap();
+        unsafe { device.destroy_buffer(buffer.buffer, None) };
+    }
+
+    device.destroy_descriptor_pool(object.graphics_pipeline.descriptors.pool, None);
 }
 
 /// # Safety
 ///
 ///
-pub(crate) unsafe fn destroy(object: &VulkanObject, device: &Device) {
+pub(crate) unsafe fn destroy(allocator: &mut Allocator, object: VulkanObject, device: &Device) {
+    for i in 0..MAX_FRAMES_IN_FLIGHT {
+        // device.destroy_buffer(graphics_pipeline.uniform_buffers[i].buffer, None);
+        // device.free_memory(graphics_pipeline.uniform_buffers[i].memory, None);
+    }
+
+    for buffer in object.graphics_pipeline.uniform_buffers {
+        allocator.free(buffer.allocation).unwrap();
+        unsafe { device.destroy_buffer(buffer.buffer, None) };
+    }
+
+    device.destroy_descriptor_pool(object.graphics_pipeline.descriptors.pool, None);
+
     if let Some(object_texture) = &object.texture {
         device.destroy_sampler(object_texture.sampler, None);
         device.destroy_image_view(object_texture.view, None);
@@ -279,9 +297,15 @@ pub(crate) unsafe fn destroy(object: &VulkanObject, device: &Device) {
 
     device.destroy_descriptor_set_layout(object.graphics_pipeline.descriptors.set_layout, None);
 
-    device.destroy_buffer(object.buffers.index.buffer, None);
-    device.free_memory(object.buffers.index.memory, None);
+    // device.destroy_buffer(object.buffers.index.buffer, None);
+    // device.free_memory(object.buffers.index.memory, None);
 
-    device.destroy_buffer(object.buffers.vertex.buffer, None);
-    device.free_memory(object.buffers.vertex.memory, None);
+    allocator.free(object.buffers.index.allocation).unwrap();
+    unsafe { device.destroy_buffer(object.buffers.index.buffer, None) };
+
+    // device.destroy_buffer(object.buffers.vertex.buffer, None);
+    // device.free_memory(object.buffers.vertex.memory, None);
+
+    allocator.free(object.buffers.vertex.allocation).unwrap();
+    unsafe { device.destroy_buffer(object.buffers.vertex.buffer, None) };
 }

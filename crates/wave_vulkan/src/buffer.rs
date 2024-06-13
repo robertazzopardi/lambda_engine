@@ -1,21 +1,23 @@
-use crate::{command_buffer, device::Devices, memory, texture, utility::InstanceDevices};
-use ash::vk;
+use crate::{command_buffer, device::Devices, memory, texture};
+use ash::{vk, Instance};
+use gpu_allocator::vulkan::{Allocation, Allocator};
 use std::mem::size_of;
 use wave_space::space::{Vertex, VerticesAndIndices};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
-    pub memory: vk::DeviceMemory,
+    // pub memory: vk::DeviceMemory,
+    pub allocation: Allocation,
 }
 
 impl Buffer {
-    pub fn new(buffer: vk::Buffer, memory: vk::DeviceMemory) -> Self {
-        Self { buffer, memory }
+    pub fn new(buffer: vk::Buffer, allocation: Allocation) -> Self {
+        Self { buffer, allocation }
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct ModelBuffers {
     pub vertex: Buffer,
     pub index: Buffer,
@@ -23,12 +25,15 @@ pub struct ModelBuffers {
 
 impl ModelBuffers {
     pub fn new(
+        allocator: &mut Allocator,
         vertices_and_indices: &VerticesAndIndices,
         command_pool: &vk::CommandPool,
         command_buffer_count: u32,
-        instance_devices: &InstanceDevices,
+        instance: &Instance,
+        devices: &Devices,
     ) -> Self {
         let vertex = create_vertex_index_buffer(
+            allocator,
             (size_of::<Vertex>() * vertices_and_indices.vertices.len())
                 .try_into()
                 .unwrap(),
@@ -36,10 +41,12 @@ impl ModelBuffers {
             vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
             command_pool,
             command_buffer_count,
-            instance_devices,
+            instance,
+            devices,
         );
 
         let index = create_vertex_index_buffer(
+            allocator,
             (size_of::<u16>() * vertices_and_indices.indices.len())
                 .try_into()
                 .unwrap(),
@@ -47,7 +54,8 @@ impl ModelBuffers {
             vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
             command_pool,
             command_buffer_count,
-            instance_devices,
+            instance,
+            devices,
         );
 
         ModelBuffers { vertex, index }
@@ -55,30 +63,46 @@ impl ModelBuffers {
 }
 
 pub(crate) fn create_vertex_index_buffer<T: Copy>(
+    allocator: &mut Allocator,
     buffer_size: vk::DeviceSize,
     data: &[T],
     usage_flags: vk::BufferUsageFlags,
     command_pool: &vk::CommandPool,
     command_buffer_count: u32,
-    instance_devices: &InstanceDevices,
+    instance: &Instance,
+    devices: &Devices,
 ) -> Buffer {
-    let InstanceDevices { devices, .. } = instance_devices;
-    let device = &instance_devices.devices.logical.device;
+    let device = &devices.logical.device;
 
     let staging = texture::create_buffer(
+        allocator,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        instance_devices,
+        instance,
+        devices,
+        "Vertex Index Staging Buffer",
     );
 
-    memory::map_memory(device, staging.memory, buffer_size, data);
+    // memory::map_memory(
+    //     device,
+    //     unsafe { staging.allocation.memory() },
+    //     buffer_size,
+    //     data,
+    // );
+    unsafe {
+        let mapped_ptr = staging.allocation.mapped_ptr().unwrap().as_ptr() as *mut f32;
+        mapped_ptr.copy_from_nonoverlapping(data.as_ptr() as *const f32, buffer_size as usize);
+    }
 
     let buffer = texture::create_buffer(
+        allocator,
         buffer_size,
         usage_flags,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        instance_devices,
+        instance,
+        devices,
+        "Vertex Index Buffer",
     );
 
     copy_buffer(
@@ -90,10 +114,12 @@ pub(crate) fn create_vertex_index_buffer<T: Copy>(
         buffer.buffer,
     );
 
-    unsafe {
-        device.destroy_buffer(staging.buffer, None);
-        device.free_memory(staging.memory, None);
-    }
+    // unsafe {
+    //     device.destroy_buffer(staging.buffer, None);
+    //     device.free_memory(staging.memory, None);
+    // }
+    allocator.free(staging.allocation).unwrap();
+    unsafe { device.destroy_buffer(staging.buffer, None) };
 
     buffer
 }

@@ -3,9 +3,13 @@ use crate::{
     command_buffer,
     device::Devices,
     memory,
-    utility::{self, Image, ImageInfo, InstanceDevices},
+    utility::{self, Image, ImageInfo},
 };
-use ash::vk;
+use ash::{vk, Device, Instance};
+use gpu_allocator::{
+    vulkan::{AllocationCreateDesc, AllocationScheme, Allocator},
+    MemoryLocation,
+};
 use nalgebra::Point2;
 use std::cmp;
 
@@ -18,16 +22,21 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(
+        allocator: &mut Allocator,
         image_properties: ImageProperties,
         command_pool: &vk::CommandPool,
-        instance_devices: &InstanceDevices,
+        instance: &Instance,
+        physical_device: &vk::PhysicalDevice,
+        devices: &Devices,
         format: vk::Format,
         image_info: ImageInfo,
     ) -> Self {
         let image = create_texture_image(
+            allocator,
             image_properties,
             command_pool,
-            instance_devices,
+            instance,
+            devices,
             format,
             image_info,
         );
@@ -35,9 +44,14 @@ impl Texture {
             &image,
             format,
             vk::ImageAspectFlags::COLOR,
-            &instance_devices.devices.logical.device,
+            &devices.logical.device,
         );
-        let sampler = create_texture_sampler(image.mip_levels, instance_devices);
+        let sampler = create_texture_sampler(
+            image.mip_levels,
+            instance,
+            &devices.logical.device,
+            physical_device,
+        );
         Self {
             image,
             view,
@@ -48,10 +62,13 @@ impl Texture {
 
 fn create_texture_sampler(
     mip_levels: u32,
-    InstanceDevices { instance, devices }: &InstanceDevices,
+    // InstanceDevices { instance, devices }: &InstanceDevices,
+    instance: &Instance,
+    device: &Device,
+    physical_device: &vk::PhysicalDevice,
 ) -> vk::Sampler {
     unsafe {
-        let properties = instance.get_physical_device_properties(devices.physical.device);
+        let properties = instance.get_physical_device_properties(*physical_device);
 
         let sampler_create_info = vk::SamplerCreateInfo::default()
             .mag_filter(vk::Filter::LINEAR)
@@ -70,18 +87,18 @@ fn create_texture_sampler(
             .max_lod(mip_levels as f32)
             .mip_lod_bias(0.);
 
-        devices
-            .logical
-            .device
+        device
             .create_sampler(&sampler_create_info, None)
             .expect("Failed to create Sampler!")
     }
 }
 
 fn create_texture_image(
+    allocator: &mut Allocator,
     image_properties: ImageProperties,
     command_pool: &vk::CommandPool,
-    instance_devices: &InstanceDevices,
+    instance: &Instance,
+    devices: &Devices,
     format: vk::Format,
     image_info: ImageInfo,
 ) -> Image {
@@ -92,20 +109,30 @@ fn create_texture_image(
         size,
     } = image_properties;
 
-    let Buffer { buffer, memory } = create_buffer(
+    let Buffer { buffer, allocation } = create_buffer(
+        allocator,
         size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        instance_devices,
+        instance,
+        &devices,
+        "Texture Image",
     );
 
-    let InstanceDevices { devices, .. } = instance_devices;
+    let device = &devices.logical.device;
 
-    let device = &instance_devices.devices.logical.device;
+    // memory::map_memory(
+    //     device,
+    //     unsafe { allocation.memory() },
+    //     size,
+    //     image_data.as_slice(),
+    // );
+    unsafe {
+        let mapped_ptr = allocation.mapped_ptr().unwrap().as_ptr() as *mut f32;
+        mapped_ptr.copy_from_nonoverlapping(image_data.as_ptr() as *const f32, size as usize);
+    }
 
-    memory::map_memory(device, memory, size, image_data.as_slice());
-
-    let image = utility::create_image(image_info, instance_devices);
+    let image = utility::create_image(image_info, instance, devices);
 
     transition_image_layout(
         device,
@@ -121,10 +148,10 @@ fn create_texture_image(
 
     copy_buffer_to_image(devices, command_pool, image_dimensions, buffer, image.image);
 
-    unsafe {
-        device.destroy_buffer(buffer, None);
-        device.free_memory(memory, None);
-    }
+    // device.destroy_buffer(buffer, None);
+    // device.free_memory(memory, None);
+    allocator.free(allocation).unwrap();
+    unsafe { device.destroy_buffer(buffer, None) };
 
     generate_mip_maps(
         format,
@@ -135,7 +162,8 @@ fn create_texture_image(
             image_dimensions.1.try_into().unwrap(),
         ),
         mip_levels,
-        instance_devices,
+        instance,
+        devices,
     );
 
     image.mip_levels(mip_levels)
@@ -181,44 +209,63 @@ impl ImageProperties {
 }
 
 pub(crate) fn create_buffer(
+    allocator: &mut Allocator,
     size: vk::DeviceSize,
     usage: vk::BufferUsageFlags,
     properties: vk::MemoryPropertyFlags,
-    instance_devices: &InstanceDevices,
+    instance: &Instance,
+    devices: &Devices,
+    name: &str,
 ) -> Buffer {
-    let device = &instance_devices.devices.logical.device;
+    let device = &devices.logical.device;
 
-    let image_buffer_info = vk::BufferCreateInfo::default()
+    let buffer_info = vk::BufferCreateInfo::default()
         .size(size)
         .usage(usage)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
     unsafe {
         let buffer = device
-            .create_buffer(&image_buffer_info, None)
+            .create_buffer(&buffer_info, None)
             .expect("Failed to create buffer");
 
-        let memory_requirements = device.get_buffer_memory_requirements(buffer);
+        let requirements = device.get_buffer_memory_requirements(buffer);
 
-        let memory_type_index = memory::find_memory_type(
-            memory_requirements.memory_type_bits,
-            properties,
-            instance_devices,
-        );
+        // let memory_type_index = memory::find_memory_type(
+        //     memory_requirements.memory_type_bits,
+        //     properties,
+        //     instance,
+        //     &devices.physical.device,
+        // );
 
-        let image_buffer_allocate_info = vk::MemoryAllocateInfo::default()
-            .allocation_size(memory_requirements.size)
-            .memory_type_index(memory_type_index);
+        // let image_buffer_allocate_info = vk::MemoryAllocateInfo::default()
+        //     .allocation_size(memory_requirements.size)
+        //     .memory_type_index(memory_type_index);
 
-        let buffer_memory = device
-            .allocate_memory(&image_buffer_allocate_info, None)
-            .expect("Failed to allocate buffer memory!");
+        // let buffer_memory = device
+        //     .allocate_memory(&image_buffer_allocate_info, None)
+        //     .expect("Failed to allocate buffer memory!");
 
+        // device
+        //     .bind_buffer_memory(buffer, buffer_memory, 0)
+        //     .expect("Could not bind command buffer memory");
+
+        let allocation = allocator
+            .allocate(&AllocationCreateDesc {
+                name,
+                requirements,
+                location: MemoryLocation::CpuToGpu,
+                linear: true, // Buffers are always linear
+                allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+            })
+            .expect("Could not bind buffer memory");
+
+        // Bind memory to the buffer
         device
-            .bind_buffer_memory(buffer, buffer_memory, 0)
-            .expect("Could not bind command buffer memory");
+            .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())
+            .expect("Could not bind buffer memory");
 
-        Buffer::new(buffer, buffer_memory)
+        Buffer::new(buffer, allocation)
     }
 }
 
@@ -342,7 +389,8 @@ fn generate_mip_maps(
     command_pool: &vk::CommandPool,
     mip_dimension: Point2<i32>,
     mip_levels: u32,
-    InstanceDevices { instance, devices }: &InstanceDevices,
+    instance: &Instance,
+    devices: &Devices,
 ) {
     let device = &devices.logical.device;
 

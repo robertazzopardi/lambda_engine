@@ -3,12 +3,12 @@ use crate::{
     device::{self, Devices},
     frame_buffer, renderer,
     resource::Resources,
-    utility::InstanceDevices,
     Vulkan,
 };
 use ash::{
     khr::{surface, swapchain},
     vk::{self, PresentModeKHR, SurfaceCapabilitiesKHR, SurfaceFormatKHR},
+    Instance,
 };
 use winit::window::Window;
 
@@ -44,7 +44,8 @@ pub struct SwapChain {
 
 impl SwapChain {
     pub fn new(
-        InstanceDevices { instance, devices }: &InstanceDevices,
+        instance: &Instance,
+        devices: &Devices,
         surface: vk::SurfaceKHR,
         surface_loader: &surface::Instance,
         window: &Window,
@@ -167,7 +168,7 @@ fn create_image_views(
 }
 
 pub fn cleanup_swap_chain(vulkan: &Vulkan) {
-    let device = &vulkan.instance_devices.devices.logical.device;
+    let device = &vulkan.devices.logical.device;
 
     unsafe {
         device.destroy_image_view(vulkan.resources.depth.view, None);
@@ -182,7 +183,7 @@ pub fn cleanup_swap_chain(vulkan: &Vulkan) {
             device.destroy_framebuffer(*frame_buffer, None);
         });
 
-        vulkan.objects.0.iter().for_each(|object| {
+        vulkan.objects.iter().for_each(|object| {
             device.destroy_pipeline(object.graphics_pipeline.features.pipeline, None);
             device.destroy_pipeline_layout(object.graphics_pipeline.features.layout, None);
         });
@@ -205,7 +206,7 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
     // let _w = size.width;
     // let _h = size.height;
 
-    let device = &vulkan.instance_devices.devices.logical.device;
+    let device = &vulkan.devices.logical.device;
 
     unsafe {
         device
@@ -216,15 +217,17 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
     cleanup_swap_chain(vulkan);
 
     vulkan.swap_chain = SwapChain::new(
-        &vulkan.instance_devices,
+        &vulkan.instance,
+        &vulkan.devices,
         vulkan.surface,
         &vulkan.surface_loader,
         window,
     );
 
-    vulkan.render_pass = renderer::create_render_pass(&vulkan.instance_devices, &vulkan.swap_chain);
+    vulkan.render_pass =
+        renderer::create_render_pass(&vulkan.devices, &vulkan.swap_chain, &vulkan.instance);
 
-    vulkan.resources = Resources::new(&vulkan.swap_chain, &vulkan.instance_devices);
+    vulkan.resources = Resources::new(&vulkan.swap_chain, &vulkan.instance, &vulkan.devices);
 
     vulkan.frame_buffers = frame_buffer::create_frame_buffers(
         &vulkan.swap_chain,
@@ -237,19 +240,21 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
 
     let models = Vec::new();
 
-    vulkan.objects.0.iter().for_each(|object| {
+    vulkan.objects.iter().for_each(|object| {
         object.graphics_pipeline.recreate(
-            &vulkan.instance_devices,
+            &mut vulkan.allocator,
             &vulkan.swap_chain,
             vulkan.render_pass.0,
             &object.texture,
+            &vulkan.instance,
+            &vulkan.devices,
         );
     });
 
     vulkan.command_buffers = command_buffer::create_command_buffers(
         &vulkan.command_pool,
         &vulkan.swap_chain,
-        &vulkan.instance_devices,
+        device,
         &vulkan.render_pass,
         &vulkan.frame_buffers,
         &models,

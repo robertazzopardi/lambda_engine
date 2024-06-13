@@ -18,3 +18,5 @@ image = "0.25.1"
 wave_camera = { path = "../wave_camera" }
 wave_space = { path = "../wave_space" }
 wave_window = { path = "../wave_window" }
+gpu-allocator = { git = "https://github.com/Traverse-Research/gpu-allocator.git", default-features = false, features = ["vulkan"] }
+# version = "0.26.0",

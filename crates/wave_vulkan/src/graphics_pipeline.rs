@@ -4,10 +4,10 @@ use crate::{
     swap_chain::SwapChain,
     texture::{self, Texture},
     uniform_buffer::UniformBufferObject,
-    utility::InstanceDevices,
     CullMode, ModelTopology, Shader,
 };
-use ash::{vk, Device};
+use ash::{vk, Device, Instance};
+use gpu_allocator::vulkan::Allocator;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
 use std::{ffi::CStr, mem};
@@ -41,7 +41,7 @@ impl GraphicsPipelineFeatures {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct GraphicsPipeline {
     pub features: GraphicsPipelineFeatures,
     pub descriptors: Descriptor,
@@ -53,16 +53,16 @@ pub struct GraphicsPipeline {
 
 impl GraphicsPipeline {
     pub fn new(
+        allocator: &mut Allocator,
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
         texture: &Option<Texture>,
         topology: ModelTopology,
         cull_mode: CullMode,
-        instance_devices: &InstanceDevices,
         shader_type: Shader,
+        instance: &Instance,
+        devices: &Devices,
     ) -> Self {
-        let InstanceDevices { devices, .. } = instance_devices;
-
         let descriptor_set_layout =
             create_descriptor_set_layout(&devices.logical.device, shader_type);
 
@@ -80,7 +80,7 @@ impl GraphicsPipeline {
             create_descriptor_pool(&devices.logical.device, swap_chain.images.len() as u32);
 
         let uniform_buffers =
-            create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
+            create_uniform_buffers(allocator, swap_chain.images.len() as u32, instance, devices);
 
         let descriptor_sets = if shader_type == Shader::PushConstant {
             create_descriptor_set(
@@ -117,13 +117,13 @@ impl GraphicsPipeline {
 
     pub fn recreate(
         &self,
-        instance_devices: &InstanceDevices,
+        allocator: &mut Allocator,
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
         texture: &Option<Texture>,
+        instance: &Instance,
+        devices: &Devices,
     ) -> Self {
-        let InstanceDevices { devices, .. } = instance_devices;
-
         let descriptor_set_layout =
             create_descriptor_set_layout(&devices.logical.device, self.shader_type);
 
@@ -141,7 +141,7 @@ impl GraphicsPipeline {
             create_descriptor_pool(&devices.logical.device, swap_chain.images.len() as u32);
 
         let uniform_buffers =
-            create_uniform_buffers(swap_chain.images.len() as u32, instance_devices);
+            create_uniform_buffers(allocator, swap_chain.images.len() as u32, instance, devices);
 
         let descriptor_sets = create_descriptor_sets(
             &devices.logical.device,
@@ -221,20 +221,24 @@ fn create_descriptor_pool(device: &Device, swap_chain_image_count: u32) -> vk::D
 }
 
 fn create_uniform_buffers(
+    allocator: &mut Allocator,
     swap_chain_image_count: u32,
-    instance_devices: &InstanceDevices,
+    instance: &Instance,
+    devices: &Devices,
 ) -> Vec<Buffer> {
     let mut buffers = Vec::new();
 
-    let buffer = texture::create_buffer(
-        mem::size_of::<UniformBufferObject>().try_into().unwrap(),
-        vk::BufferUsageFlags::UNIFORM_BUFFER,
-        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        instance_devices,
-    );
-
-    for _ in 0..swap_chain_image_count {
-        buffers.push(buffer)
+    for i in 0..swap_chain_image_count {
+        let buffer = texture::create_buffer(
+            allocator,
+            mem::size_of::<UniformBufferObject>().try_into().unwrap(),
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            instance,
+            devices,
+            &format!("Uniform Buffer {i}"),
+        );
+        buffers.push(buffer);
     }
 
     buffers

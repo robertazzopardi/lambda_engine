@@ -1,5 +1,6 @@
-use crate::{memory, VulkanObjects};
+use crate::{memory, VulkanObject};
 use ash::{vk, Device};
+use gpu_allocator::vulkan::Allocator;
 use nalgebra::{Matrix, Matrix4, Perspective3};
 
 #[derive(Debug, PartialEq, Default)]
@@ -46,8 +47,9 @@ impl UniformBufferObject {
 }
 
 pub(crate) fn update_uniform_buffers(
+    allocator: &mut Allocator,
     device: &Device,
-    objects: &mut VulkanObjects,
+    objects: &mut Vec<VulkanObject>,
     ubo: &UniformBufferObject,
     current_image: usize,
     _dt: f32,
@@ -60,15 +62,30 @@ pub(crate) fn update_uniform_buffers(
 
     let mut uniform_buffer = UniformBuffer::new(Matrix::default(), ubo.view, ubo.proj);
 
-    objects.0.iter_mut().for_each(|object| {
+    objects.iter_mut().for_each(|object| {
         uniform_buffer.model = object.model;
 
-        memory::map_memory(
-            device,
-            object.graphics_pipeline.uniform_buffers[current_image].memory,
-            buffer_size,
-            std::slice::from_ref(&uniform_buffer),
-        );
+        // memory::map_memory(
+        //     device,
+        //     unsafe {
+        //         object.graphics_pipeline.uniform_buffers[current_image]
+        //             .allocation
+        //             .memory()
+        //     },
+        //     buffer_size,
+        //     std::slice::from_ref(&uniform_buffer),
+        // );
+        unsafe {
+            let mapped_ptr = object.graphics_pipeline.uniform_buffers[current_image]
+                .allocation
+                .mapped_ptr()
+                .unwrap()
+                .as_ptr() as *mut f32;
+            mapped_ptr.copy_from_nonoverlapping(
+                std::slice::from_ref(&uniform_buffer).as_ptr() as *const f32,
+                buffer_size,
+            );
+        }
     });
 }
 

@@ -1,8 +1,12 @@
 use crate::{
-    any_as_u8_slice, device, frame_buffer::FrameBuffers, renderer::RenderPass,
-    swap_chain::SwapChain, utility::InstanceDevices, Shader, VulkanObject,
+    any_as_u8_slice,
+    device::{self, Devices},
+    frame_buffer::FrameBuffers,
+    renderer::RenderPass,
+    swap_chain::SwapChain,
+    Shader, VulkanObject,
 };
-use ash::{khr::surface, vk, Device};
+use ash::{khr::surface, vk, Device, Instance};
 use derive_more::{Deref, From};
 
 #[derive(Debug, From, Deref, Clone)]
@@ -12,12 +16,11 @@ pub struct CommandBuffers(Vec<vk::CommandBuffer>);
 pub struct CommandPool(vk::CommandPool);
 
 pub fn create_command_pool(
-    instance_devices: &InstanceDevices,
+    instance: &Instance,
+    devices: &Devices,
     surface_loader: &surface::Instance,
     surface: &vk::SurfaceKHR,
 ) -> CommandPool {
-    let InstanceDevices { devices, instance } = instance_devices;
-
     let queue_family_indices =
         device::find_queue_family(instance, devices.physical.device, surface_loader, surface);
 
@@ -37,13 +40,11 @@ pub fn create_command_pool(
 pub(crate) fn create_command_buffers(
     command_pool: &CommandPool,
     swap_chain: &SwapChain,
-    instance_devices: &InstanceDevices,
+    device: &Device,
     render_pass: &RenderPass,
     frame_buffers: &FrameBuffers,
     objects: &[VulkanObject],
 ) -> CommandBuffers {
-    let device = &instance_devices.devices.logical.device;
-
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::default()
         .command_pool(**command_pool)
         .command_buffer_count(swap_chain.images.len() as u32)

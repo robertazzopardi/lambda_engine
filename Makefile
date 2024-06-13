@@ -3,10 +3,6 @@ OS_NAME := $(shell uname -s | tr A-Z a-z)
 GLSLC=glslc
 GLSLC_FLAGS=-O -std=450 --target-env=vulkan1.3
 
-ifeq ($(UNAME_S),Darwin)
-	GLSLC=$(VULKAN_SDK)/macOS/bin/glslc
-endif
-
 SRC							:= crates/wave_internal/src
 
 ifeq ($(OS),Windows_NT)

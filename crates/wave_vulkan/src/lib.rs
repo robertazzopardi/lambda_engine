@@ -14,13 +14,14 @@ mod uniform_buffer;
 mod utility;
 
 use crate::{debug::ENABLE_VALIDATION_LAYERS, sync_objects::MAX_FRAMES_IN_FLIGHT};
-use ash::{khr::surface, vk};
+use ash::{khr::surface, vk, Instance};
 use buffer::ModelBuffers;
 use command_buffer::{CommandBuffers, CommandPool};
 use debug::{Debug, Debugger};
 use derive_more::{Deref, DerefMut};
 use device::Devices;
 use frame_buffer::FrameBuffers;
+use gpu_allocator::vulkan::*;
 use graphics_pipeline::GraphicsPipeline;
 use nalgebra::{matrix, Matrix4};
 use renderer::RenderPass;
@@ -29,7 +30,7 @@ use swap_chain::{recreate_swap_chain, SwapChain};
 use sync_objects::SyncObjects;
 use texture::{ImageProperties, Texture};
 use uniform_buffer::{update_uniform_buffers, UniformBufferObject};
-use utility::{EntryInstance, ImageInfo, InstanceDevices};
+use utility::{EntryInstance, ImageInfo};
 use wave_space::space::VerticesAndIndices;
 use wave_window::window::RenderBackend;
 use winit::window::Window;
@@ -67,9 +68,6 @@ pub(crate) unsafe fn any_as_u8_slice<T: Sized>(any: &T) -> &[u8] {
     std::slice::from_raw_parts(ptr, std::mem::size_of::<T>())
 }
 
-#[derive(Debug, Deref, DerefMut)]
-pub(crate) struct VulkanObjects(Vec<VulkanObject>);
-
 pub struct Vulkan {
     pub(crate) command_buffers: CommandBuffers,
     pub(crate) command_pool: CommandPool,
@@ -82,8 +80,10 @@ pub struct Vulkan {
     pub ubo: UniformBufferObject,
     pub(crate) debugger: Option<Debug>,
     pub(crate) frame_buffers: FrameBuffers,
-    pub instance_devices: InstanceDevices,
-    pub(crate) objects: VulkanObjects,
+    pub(crate) objects: Vec<VulkanObject>,
+    pub(crate) allocator: Allocator,
+    pub(crate) devices: Devices,
+    pub(crate) instance: Instance,
 }
 
 impl RenderBackend for Vulkan {
@@ -103,7 +103,7 @@ impl RenderBackend for Vulkan {
     }
 
     fn render(&mut self, window: &Window, current_frame: &mut usize, resized: &mut bool, dt: f32) {
-        let device = &mut self.instance_devices.devices.logical.device;
+        let device = &mut self.devices.logical.device;
 
         let image_available_semaphore =
             self.sync_objects.image_available_semaphores[*current_frame];
@@ -140,6 +140,7 @@ impl RenderBackend for Vulkan {
             };
 
             update_uniform_buffers(
+                &mut self.allocator,
                 device,
                 &mut self.objects,
                 &self.ubo,
@@ -177,7 +178,7 @@ impl RenderBackend for Vulkan {
 
             device
                 .queue_submit(
-                    self.instance_devices.devices.logical.queues.present,
+                    self.devices.logical.queues.present,
                     std::slice::from_ref(&submit_infos),
                     in_flight_fence,
                 )
@@ -188,10 +189,10 @@ impl RenderBackend for Vulkan {
                 .swapchains(std::slice::from_ref(&self.swap_chain.swap_chain_khr))
                 .image_indices(std::slice::from_ref(&image_index));
 
-            let result = self.swap_chain.swap_chain.queue_present(
-                self.instance_devices.devices.logical.queues.present,
-                &present_info,
-            );
+            let result = self
+                .swap_chain
+                .swap_chain
+                .queue_present(self.devices.logical.queues.present, &present_info);
 
             let is_resized = match result {
                 Ok(_) => *resized,
@@ -214,7 +215,7 @@ impl RenderBackend for Vulkan {
 impl Vulkan {
     #[inline]
     pub fn wait_device_idle(&self) {
-        let device = &self.instance_devices.devices.logical.device;
+        let device = &self.devices.logical.device;
         unsafe {
             device
                 .device_wait_idle()
@@ -242,57 +243,80 @@ impl Vulkan {
 
         let devices = Devices::new(&entry_instance.instance, &surface, &surface_loader);
 
-        let instance_devices = InstanceDevices {
-            instance: entry_instance.instance,
-            devices,
-        };
+        let swap_chain = SwapChain::new(
+            &entry_instance.instance,
+            &devices,
+            surface,
+            &surface_loader,
+            window,
+        );
 
-        let swap_chain = SwapChain::new(&instance_devices, surface, &surface_loader, window);
+        let render_pass =
+            renderer::create_render_pass(&devices, &swap_chain, &entry_instance.instance);
 
-        let render_pass = renderer::create_render_pass(&instance_devices, &swap_chain);
-
-        let resources = Resources::new(&swap_chain, &instance_devices);
+        let resources = Resources::new(&swap_chain, &entry_instance.instance, &devices);
 
         let frame_buffers = frame_buffer::create_frame_buffers(
             &swap_chain,
             &render_pass,
-            &instance_devices.devices.logical.device,
+            &devices.logical.device,
             &resources,
         );
 
-        let command_pool =
-            command_buffer::create_command_pool(&instance_devices, &surface_loader, &surface);
+        let command_pool = command_buffer::create_command_pool(
+            &entry_instance.instance,
+            &devices,
+            &surface_loader,
+            &surface,
+        );
 
-        let sync_objects = SyncObjects::new(&instance_devices.devices.logical.device);
+        let sync_objects = SyncObjects::new(&devices.logical.device);
 
         let swap_chain_len = swap_chain.images.len() as u32;
 
-        let objects = VulkanObjects(
-            geom_properties
-                .iter()
-                .map(|property| {
-                    VulkanObject::new(
-                        &command_pool,
-                        swap_chain_len,
-                        &swap_chain,
-                        &render_pass,
-                        &instance_devices,
-                        property,
-                        property.create_texture(&command_pool, &instance_devices),
-                    )
-                })
-                .collect(),
-        );
+        let mut allocator = Allocator::new(&AllocatorCreateDesc {
+            instance: entry_instance.instance.clone(),
+            device: devices.logical.device.clone(),
+            physical_device: devices.physical.device,
+            debug_settings: Default::default(),
+            buffer_device_address: true, // Ideally, check the BufferDeviceAddressFeatures struct.
+            allocation_sizes: Default::default(),
+        })
+        .expect("Failed to create allocator");
+
+        let objects = geom_properties
+            .iter()
+            .map(|property| {
+                let tex = property.create_texture(
+                    &mut allocator,
+                    &command_pool,
+                    &entry_instance.instance,
+                    &devices.physical.device,
+                    &devices,
+                );
+                VulkanObject::new(
+                    &mut allocator,
+                    &command_pool,
+                    swap_chain_len,
+                    &swap_chain,
+                    &render_pass,
+                    property,
+                    tex,
+                    &entry_instance.instance,
+                    &devices,
+                )
+            })
+            .collect::<Vec<VulkanObject>>();
 
         let ubo = UniformBufferObject::default();
 
         let command_buffers = command_buffer::create_command_buffers(
             &command_pool,
             &swap_chain,
-            &instance_devices,
+            &devices.logical.device,
             &render_pass,
             &frame_buffers,
-            &objects.0,
+            &objects,
         );
 
         Self {
@@ -307,15 +331,16 @@ impl Vulkan {
             ubo,
             debugger,
             frame_buffers,
-            instance_devices,
             objects,
+            allocator,
+            devices,
+            instance: entry_instance.instance,
         }
     }
 
     #[inline]
     pub fn update_objects(&mut self, properties: &[GeomProperties]) {
         self.objects
-            .0
             .iter_mut()
             .zip(properties)
             .for_each(|(object, properties)| object.model = properties.model);
@@ -326,13 +351,13 @@ impl Drop for Vulkan {
     fn drop(&mut self) {
         swap_chain::cleanup_swap_chain(self);
 
-        let device = &self.instance_devices.devices.logical.device;
+        let device = &self.devices.logical.device;
 
         unsafe {
-            self.objects.0.iter().for_each(|object| {
-                device::recreate_drop(&object.graphics_pipeline, device);
-                device::destroy(object, device);
-            });
+            // self.objects.iter().for_each(|object| {
+            //     // device::recreate_drop(&mut self.allocator, object, device);
+            //     device::destroy(&mut self.allocator, object, device);
+            // });
 
             for i in 0..MAX_FRAMES_IN_FLIGHT {
                 device.destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
@@ -358,7 +383,7 @@ impl Drop for Vulkan {
 
             self.surface_loader.destroy_surface(self.surface, None);
 
-            self.instance_devices.instance.destroy_instance(None);
+            self.instance.destroy_instance(None);
         }
     }
 }
@@ -400,8 +425,11 @@ impl GeomProperties {
 
     fn create_texture(
         &self,
+        allocator: &mut Allocator,
         command_pool: &CommandPool,
-        instance_devices: &InstanceDevices,
+        instance: &Instance,
+        physical_device: &vk::PhysicalDevice,
+        devices: &Devices,
     ) -> Option<Texture> {
         let mut texture = None;
         if !self.texture_buffer.is_empty() {
@@ -419,9 +447,12 @@ impl GeomProperties {
                 vk::MemoryPropertyFlags::DEVICE_LOCAL,
             );
             texture = Some(Texture::new(
+                allocator,
                 image_properties,
                 command_pool,
-                instance_devices,
+                instance,
+                physical_device,
+                devices,
                 vk::Format::R8G8B8A8_SRGB,
                 image_info,
             ));
@@ -443,29 +474,35 @@ pub(crate) struct VulkanObject {
 
 impl VulkanObject {
     fn new(
+        allocator: &mut Allocator,
         command_pool: &CommandPool,
         command_buffer_count: u32,
         swap_chain: &SwapChain,
         render_pass: &RenderPass,
-        instance_devices: &InstanceDevices,
         properties: &GeomProperties,
         texture: Option<Texture>,
+        instance: &Instance,
+        devices: &Devices,
     ) -> Self {
         let buffers = ModelBuffers::new(
+            allocator,
             &properties.vertices_and_indices,
             command_pool,
             command_buffer_count,
-            instance_devices,
+            instance,
+            devices,
         );
 
         let graphics_pipeline = GraphicsPipeline::new(
+            allocator,
             swap_chain,
             render_pass.0,
             &texture,
             properties.topology,
             properties.cull_mode,
-            instance_devices,
             properties.shader,
+            instance,
+            devices,
         );
 
         Self {

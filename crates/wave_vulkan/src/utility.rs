@@ -65,12 +65,6 @@ impl ImageInfo {
     }
 }
 
-#[derive(Clone)]
-pub struct InstanceDevices {
-    pub instance: Instance,
-    pub devices: Devices,
-}
-
 pub struct EntryInstance {
     pub entry: Entry,
     pub instance: Instance,
@@ -153,9 +147,7 @@ impl EntryInstance {
     }
 }
 
-pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) -> Image {
-    let device = &instance_devices.devices.logical.device;
-
+pub(crate) fn create_image(info: ImageInfo, instance: &Instance, devices: &Devices) -> Image {
     let image_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
         .extent(
@@ -174,26 +166,33 @@ pub(crate) fn create_image(info: ImageInfo, instance_devices: &InstanceDevices) 
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
     unsafe {
-        let image = device
+        let image = devices
+            .logical
+            .device
             .create_image(&image_info, None)
             .expect("Failed to create image!");
 
-        let memory_requirements = device.get_image_memory_requirements(image);
+        let memory_requirements = devices.logical.device.get_image_memory_requirements(image);
 
         let memory_type_index = memory::find_memory_type(
             memory_requirements.memory_type_bits,
             info.properties,
-            instance_devices,
+            instance,
+            &devices.physical.device,
         );
         let alloc_info = vk::MemoryAllocateInfo::default()
             .allocation_size(memory_requirements.size)
             .memory_type_index(memory_type_index);
 
-        let image_memory = device
+        let image_memory = devices
+            .logical
+            .device
             .allocate_memory(&alloc_info, None)
             .expect("Failed to allocate image memory!");
 
-        device
+        devices
+            .logical
+            .device
             .bind_image_memory(image, image_memory, 0)
             .expect("Failed to bind image memory");
 

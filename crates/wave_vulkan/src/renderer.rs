@@ -1,15 +1,14 @@
-use crate::{resource, swap_chain::SwapChain, utility::InstanceDevices};
-use ash::vk;
+use crate::{device::Devices, resource, swap_chain::SwapChain};
+use ash::{vk, Instance};
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct RenderPass(pub vk::RenderPass);
 
 pub(crate) fn create_render_pass(
-    instance_devices: &InstanceDevices,
+    devices: &Devices,
     swap_chain: &SwapChain,
+    instance: &Instance,
 ) -> RenderPass {
-    let InstanceDevices { devices, .. } = instance_devices;
-
     let render_pass_attachments = [
         vk::AttachmentDescription {
             format: swap_chain.image_format,
@@ -23,7 +22,7 @@ pub(crate) fn create_render_pass(
             ..Default::default()
         },
         vk::AttachmentDescription {
-            format: resource::find_depth_format(instance_devices),
+            format: resource::find_depth_format(instance, &devices.physical.device),
             samples: devices.physical.samples,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::DONT_CARE,
