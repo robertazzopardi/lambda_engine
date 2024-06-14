@@ -246,7 +246,6 @@ pub fn recreate_swap_chain(vulkan: &mut Vulkan, window: &Window) {
             &vulkan.swap_chain,
             vulkan.render_pass.0,
             &object.texture,
-            &vulkan.instance,
             &vulkan.devices,
         );
     });

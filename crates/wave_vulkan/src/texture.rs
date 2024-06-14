@@ -2,7 +2,6 @@ use crate::{
     buffer::Buffer,
     command_buffer,
     device::Devices,
-    memory,
     utility::{self, Image, ImageInfo},
 };
 use ash::{vk, Device, Instance};
@@ -62,7 +61,6 @@ impl Texture {
 
 fn create_texture_sampler(
     mip_levels: u32,
-    // InstanceDevices { instance, devices }: &InstanceDevices,
     instance: &Instance,
     device: &Device,
     physical_device: &vk::PhysicalDevice,
@@ -113,20 +111,12 @@ fn create_texture_image(
         allocator,
         size,
         vk::BufferUsageFlags::TRANSFER_SRC,
-        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        instance,
         &devices,
         "Texture Image",
     );
 
     let device = &devices.logical.device;
 
-    // memory::map_memory(
-    //     device,
-    //     unsafe { allocation.memory() },
-    //     size,
-    //     image_data.as_slice(),
-    // );
     unsafe {
         let mapped_ptr = allocation.mapped_ptr().unwrap().as_ptr() as *mut f32;
         mapped_ptr.copy_from_nonoverlapping(image_data.as_ptr() as *const f32, size as usize);
@@ -148,8 +138,6 @@ fn create_texture_image(
 
     copy_buffer_to_image(devices, command_pool, image_dimensions, buffer, image.image);
 
-    // device.destroy_buffer(buffer, None);
-    // device.free_memory(memory, None);
     allocator.free(allocation).unwrap();
     unsafe { device.destroy_buffer(buffer, None) };
 
@@ -212,8 +200,6 @@ pub(crate) fn create_buffer(
     allocator: &mut Allocator,
     size: vk::DeviceSize,
     usage: vk::BufferUsageFlags,
-    properties: vk::MemoryPropertyFlags,
-    instance: &Instance,
     devices: &Devices,
     name: &str,
 ) -> Buffer {
@@ -231,25 +217,6 @@ pub(crate) fn create_buffer(
 
         let requirements = device.get_buffer_memory_requirements(buffer);
 
-        // let memory_type_index = memory::find_memory_type(
-        //     memory_requirements.memory_type_bits,
-        //     properties,
-        //     instance,
-        //     &devices.physical.device,
-        // );
-
-        // let image_buffer_allocate_info = vk::MemoryAllocateInfo::default()
-        //     .allocation_size(memory_requirements.size)
-        //     .memory_type_index(memory_type_index);
-
-        // let buffer_memory = device
-        //     .allocate_memory(&image_buffer_allocate_info, None)
-        //     .expect("Failed to allocate buffer memory!");
-
-        // device
-        //     .bind_buffer_memory(buffer, buffer_memory, 0)
-        //     .expect("Could not bind command buffer memory");
-
         let allocation = allocator
             .allocate(&AllocationCreateDesc {
                 name,
@@ -260,7 +227,6 @@ pub(crate) fn create_buffer(
             })
             .expect("Could not bind buffer memory");
 
-        // Bind memory to the buffer
         device
             .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())
             .expect("Could not bind buffer memory");

@@ -1,6 +1,5 @@
-use crate::{memory, VulkanObject};
-use ash::{vk, Device};
-use gpu_allocator::vulkan::Allocator;
+use crate::VulkanObject;
+use ash::vk;
 use nalgebra::{Matrix, Matrix4, Perspective3};
 
 #[derive(Debug, PartialEq, Default)]
@@ -47,8 +46,6 @@ impl UniformBufferObject {
 }
 
 pub(crate) fn update_uniform_buffers(
-    allocator: &mut Allocator,
-    device: &Device,
     objects: &mut Vec<VulkanObject>,
     ubo: &UniformBufferObject,
     current_image: usize,
@@ -65,16 +62,6 @@ pub(crate) fn update_uniform_buffers(
     objects.iter_mut().for_each(|object| {
         uniform_buffer.model = object.model;
 
-        // memory::map_memory(
-        //     device,
-        //     unsafe {
-        //         object.graphics_pipeline.uniform_buffers[current_image]
-        //             .allocation
-        //             .memory()
-        //     },
-        //     buffer_size,
-        //     std::slice::from_ref(&uniform_buffer),
-        // );
         unsafe {
             let mapped_ptr = object.graphics_pipeline.uniform_buffers[current_image]
                 .allocation

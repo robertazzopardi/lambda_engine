@@ -128,9 +128,11 @@ impl ApplicationHandler for Display {
                 ..
             } => {
                 // Dispatch actions only on press.
-                if event.state.is_pressed() {
-                    process_keyboard(&mut self.input, &event.logical_key);
-                }
+                process_keyboard(
+                    &mut self.input,
+                    &event.logical_key,
+                    event.state.is_pressed(),
+                );
             }
             // WindowEvent::MouseInput {
             //     device_id,
@@ -155,10 +157,10 @@ impl ApplicationHandler for Display {
                 };
             }
             DeviceEvent::MouseMotion { delta } => {
-                if !self.input.first_mouse_event.0 {
-                    self.input.mouse_delta = delta;
-                }
-                self.input.first_mouse_event.0 = false;
+                // if !self.input.first_mouse_event.0 {
+                self.input.mouse_delta = delta;
+                // }
+                // self.input.first_mouse_event.0 = false;
             }
             _ => {}
         }
@@ -201,8 +203,8 @@ impl Display {
     }
 }
 
-fn process_keyboard(input: &mut Input, key: &Key) {
-    let amount = 1;
+fn process_keyboard(input: &mut Input, key: &Key, is_pressed: bool) {
+    let amount = is_pressed as i8;
     match key.as_ref() {
         Key::Character("w") | Key::Named(NamedKey::ArrowUp) => input.look.set_forward(amount),
         Key::Character("s") | Key::Named(NamedKey::ArrowDown) => {

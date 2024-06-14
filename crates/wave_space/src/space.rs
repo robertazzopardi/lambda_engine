@@ -81,22 +81,22 @@ pub struct LookDirection([i8; 6]);
 
 impl LookDirection {
     pub fn set_up(&mut self, value: i8) {
-        self[0] = value;
+        self[0] += value;
     }
     pub fn set_down(&mut self, value: i8) {
-        self[1] = value;
+        self[1] += value;
     }
     pub fn set_left(&mut self, value: i8) {
-        self[2] = value;
+        self[2] += value;
     }
     pub fn set_right(&mut self, value: i8) {
-        self[3] = value;
+        self[3] += value;
     }
     pub fn set_forward(&mut self, value: i8) {
-        self[4] = value;
+        self[4] += value;
     }
     pub fn set_back(&mut self, value: i8) {
-        self[5] = value;
+        self[5] += value;
     }
     #[must_use]
     pub fn x(&self) -> i8 {

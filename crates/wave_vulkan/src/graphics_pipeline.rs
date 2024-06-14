@@ -6,7 +6,7 @@ use crate::{
     uniform_buffer::UniformBufferObject,
     CullMode, ModelTopology, Shader,
 };
-use ash::{vk, Device, Instance};
+use ash::{vk, Device};
 use gpu_allocator::vulkan::Allocator;
 use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
@@ -60,7 +60,6 @@ impl GraphicsPipeline {
         topology: ModelTopology,
         cull_mode: CullMode,
         shader_type: Shader,
-        instance: &Instance,
         devices: &Devices,
     ) -> Self {
         let descriptor_set_layout =
@@ -80,7 +79,7 @@ impl GraphicsPipeline {
             create_descriptor_pool(&devices.logical.device, swap_chain.images.len() as u32);
 
         let uniform_buffers =
-            create_uniform_buffers(allocator, swap_chain.images.len() as u32, instance, devices);
+            create_uniform_buffers(allocator, swap_chain.images.len() as u32, devices);
 
         let descriptor_sets = if shader_type == Shader::PushConstant {
             create_descriptor_set(
@@ -121,7 +120,6 @@ impl GraphicsPipeline {
         swap_chain: &SwapChain,
         render_pass: vk::RenderPass,
         texture: &Option<Texture>,
-        instance: &Instance,
         devices: &Devices,
     ) -> Self {
         let descriptor_set_layout =
@@ -141,7 +139,7 @@ impl GraphicsPipeline {
             create_descriptor_pool(&devices.logical.device, swap_chain.images.len() as u32);
 
         let uniform_buffers =
-            create_uniform_buffers(allocator, swap_chain.images.len() as u32, instance, devices);
+            create_uniform_buffers(allocator, swap_chain.images.len() as u32, devices);
 
         let descriptor_sets = create_descriptor_sets(
             &devices.logical.device,
@@ -223,7 +221,6 @@ fn create_descriptor_pool(device: &Device, swap_chain_image_count: u32) -> vk::D
 fn create_uniform_buffers(
     allocator: &mut Allocator,
     swap_chain_image_count: u32,
-    instance: &Instance,
     devices: &Devices,
 ) -> Vec<Buffer> {
     let mut buffers = Vec::new();
@@ -233,8 +230,6 @@ fn create_uniform_buffers(
             allocator,
             mem::size_of::<UniformBufferObject>().try_into().unwrap(),
             vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            instance,
             devices,
             &format!("Uniform Buffer {i}"),
         );

@@ -140,8 +140,6 @@ impl RenderBackend for Vulkan {
             };
 
             update_uniform_buffers(
-                &mut self.allocator,
-                device,
                 &mut self.objects,
                 &self.ubo,
                 image_index.try_into().unwrap(),
@@ -302,7 +300,6 @@ impl Vulkan {
                     &render_pass,
                     property,
                     tex,
-                    &entry_instance.instance,
                     &devices,
                 )
             })
@@ -369,8 +366,6 @@ impl Drop for Vulkan {
 
             dbg!("2");
 
-            device.destroy_device(None);
-
             println!("here");
 
             if ENABLE_VALIDATION_LAYERS {
@@ -382,6 +377,8 @@ impl Drop for Vulkan {
             }
 
             self.surface_loader.destroy_surface(self.surface, None);
+
+            device.destroy_device(None);
 
             self.instance.destroy_instance(None);
         }
@@ -481,7 +478,6 @@ impl VulkanObject {
         render_pass: &RenderPass,
         properties: &GeomProperties,
         texture: Option<Texture>,
-        instance: &Instance,
         devices: &Devices,
     ) -> Self {
         let buffers = ModelBuffers::new(
@@ -489,7 +485,6 @@ impl VulkanObject {
             &properties.vertices_and_indices,
             command_pool,
             command_buffer_count,
-            instance,
             devices,
         );
 
@@ -501,7 +496,6 @@ impl VulkanObject {
             properties.topology,
             properties.cull_mode,
             properties.shader,
-            instance,
             devices,
         );
 

@@ -70,7 +70,7 @@ impl CameraInternal {
     }
 
     pub fn update(&mut self, input: &mut Input, dt: f32) {
-        let (_, _pitch, yaw) = self.rotation.euler_angles();
+        let (_, pitch, yaw) = self.rotation.euler_angles();
 
         let look = input.look;
 
@@ -89,9 +89,9 @@ impl CameraInternal {
         self.pos.0.y += look.y() as f32 * speed;
 
         // Zoom
-        // let (pitch_sin, pitch_cos) = pitch.sin_cos();
-        // let scroll_dir = vector![pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin];
-        // self.pos.0 += scroll_dir * input.mouse_scroll * self.sensitivity.0 * speed;
+        let (pitch_sin, pitch_cos) = pitch.sin_cos();
+        let scroll_dir = vector![pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin];
+        self.pos.0 += scroll_dir * input.mouse_scroll as f32 * self.sensitivity.0 * speed;
 
         // Rotation
         let rot_speed = self.sensitivity.0 * dt;
