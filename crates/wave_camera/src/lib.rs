@@ -1,5 +1,5 @@
 pub mod camera;
 
 pub mod prelude {
-    pub use crate::camera::{Camera, CameraInternal};
+    pub use crate::camera::{Camera, Projection};
 }

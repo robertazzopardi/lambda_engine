@@ -1,5 +1,5 @@
 use crate::time::Time;
-use wave_camera::prelude::{Camera, CameraInternal};
+use wave_camera::prelude::Camera;
 use wave_geometry::{Behavior, GeomBuilder};
 use wave_vulkan::{debug::Debugger, GeomProperties, Vulkan};
 use wave_window::{
@@ -14,7 +14,7 @@ pub struct Engine {
     geometries: Vec<GeomProperties>,
     time: Time,
     resolution: Resolution,
-    camera: Option<CameraInternal>,
+    camera: Option<Camera>,
     debugger: Option<Debugger>,
 }
 
@@ -26,7 +26,7 @@ impl Default for Engine {
             geometries: Vec::new(),
             time: Time::default(),
             resolution: Resolution::ResFullHD,
-            camera: Some(Camera::default().build()),
+            camera: Some(Camera::default()),
             debugger: None,
         }
     }
@@ -59,7 +59,9 @@ impl Drawable for Engine {
 
         // backend.update_objects(&self.geometries);
 
-        self.time.step(&mut self.camera.unwrap(), input, renderer);
+        if let Some(ref mut camera) = self.camera {
+            self.time.step(camera, input, renderer);
+        }
 
         renderer.render(
             window,

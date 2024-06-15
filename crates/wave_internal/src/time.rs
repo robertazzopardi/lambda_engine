@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use wave_camera::camera::CameraInternal;
+use wave_camera::camera::Camera;
 use wave_window::window::{Input, RenderBackend};
 
 pub trait Fps {
@@ -51,7 +51,7 @@ impl Time {
 
     pub fn step(
         &mut self,
-        camera: &mut CameraInternal,
+        camera: &mut Camera,
         input: &mut Input,
         renderer: &mut Box<dyn RenderBackend>,
     ) {
